@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,11 +18,13 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('wfh_session')?.value;
   let session: any = null;
 
-  if (token && process.env.JWT_SECRET) {
+  if (token) {
     try {
-      const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload } = await jwtVerify(token, secretKey);
-      session = payload;
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        session = JSON.parse(payloadStr);
+      }
     } catch {
       session = null;
     }
