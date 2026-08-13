@@ -1,5 +1,12 @@
 import { jwtVerify } from 'jose';
-import { SessionPayload } from '@/types';
+
+export interface SessionPayload {
+  employee_id: string;
+  name: string;
+  role: 'employee' | 'supervisor' | 'admin';
+  department?: string;
+  force_pin_change: boolean;
+}
 
 /**
  * Pure Edge-compatible JWT Session Token Verification (No Node.js dependencies)
