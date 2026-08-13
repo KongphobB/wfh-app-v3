@@ -2,17 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-export default async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-
-  // Direct bypass for API routes & static assets
-  if (
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname === '/favicon.ico'
-  ) {
-    return NextResponse.next();
-  }
 
   const token = request.cookies.get('wfh_session')?.value;
   let session: any = null;
@@ -70,5 +61,15 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/',
+    '/login',
+    '/dashboard/:path*',
+    '/admin/:path*',
+    '/supervisor/:path*',
+    '/checkin/:path*',
+    '/spotcheck/:path*',
+    '/tasks/:path*',
+    '/change-pin/:path*',
+  ],
 };
