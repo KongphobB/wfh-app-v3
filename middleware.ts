@@ -5,8 +5,12 @@ export function middleware(request: NextRequest) {
   try {
     const pathname = request.nextUrl.pathname;
 
-    // Direct bypass for API routes & static assets
-    if (pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname === '/favicon.ico') {
+    // Immediate bypass for all API routes & static assets
+    if (
+      pathname.startsWith('/api') ||
+      pathname.startsWith('/_next') ||
+      pathname === '/favicon.ico'
+    ) {
       return NextResponse.next();
     }
 
@@ -66,6 +70,8 @@ export function middleware(request: NextRequest) {
   }
 }
 
+export default middleware;
+
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
