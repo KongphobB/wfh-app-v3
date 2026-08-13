@@ -1,27 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-function parseJwtPayload(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-
-  // All API routes, static assets, and auth endpoints bypass middleware
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
@@ -30,52 +12,52 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  try {
-    const cookie = request.cookies.get('wfh_session');
-    const token = cookie ? cookie.value : null;
-    const session = token ? parseJwtPayload(token) : null;
+  const token = request.cookies.get('wfh_session')?.value;
+  let session: any = null;
 
-    // Unauthenticated user attempting to access protected pages
-    if (!session) {
-      if (pathname !== '/login') {
-        return NextResponse.redirect(new URL('/login', request.url));
+  if (token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        session = JSON.parse(atob(parts[1]));
       }
-      return NextResponse.next();
+    } catch {
+      session = null;
     }
+  }
 
-    // User is authenticated but on /login -> redirect to home role dashboard
-    if (pathname === '/login') {
-      const target =
-        session.force_pin_change
-          ? '/change-pin'
-          : session.role === 'admin'
-          ? '/admin'
-          : session.role === 'supervisor'
-          ? '/supervisor'
-          : '/dashboard';
-      return NextResponse.redirect(new URL(target, request.url));
+  if (!session) {
+    if (pathname !== '/login') {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
-
-    // Force PIN change check
-    if (session.force_pin_change && pathname !== '/change-pin') {
-      return NextResponse.redirect(new URL('/change-pin', request.url));
-    }
-
-    // Admin route protection
-    if (pathname.startsWith('/admin') && session.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // Supervisor route protection
-    if (pathname.startsWith('/supervisor') && session.role !== 'supervisor' && session.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error('Middleware error:', error);
     return NextResponse.next();
   }
+
+  if (pathname === '/login') {
+    const target =
+      session.force_pin_change
+        ? '/change-pin'
+        : session.role === 'admin'
+        ? '/admin'
+        : session.role === 'supervisor'
+        ? '/supervisor'
+        : '/dashboard';
+    return NextResponse.redirect(new URL(target, request.url));
+  }
+
+  if (session.force_pin_change && pathname !== '/change-pin') {
+    return NextResponse.redirect(new URL('/change-pin', request.url));
+  }
+
+  if (pathname.startsWith('/admin') && session.role !== 'admin') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  if (pathname.startsWith('/supervisor') && session.role !== 'supervisor' && session.role !== 'admin') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
