@@ -1,22 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-export default async function proxy(request: NextRequest) {
+export const runtime = 'experimental-edge';
+
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Direct bypass for API routes & static assets
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico'
+  ) {
+    return NextResponse.next();
+  }
 
   const token = request.cookies.get('wfh_session')?.value;
   let session: any = null;
 
-  if (token) {
+  if (token && process.env.JWT_SECRET) {
     try {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        while (base64.length % 4) {
-          base64 += '=';
-        }
-        session = JSON.parse(atob(base64));
-      }
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+      const { payload } = await jwtVerify(token, secret);
+      session = payload;
     } catch {
       session = null;
     }
@@ -32,14 +39,13 @@ export default async function proxy(request: NextRequest) {
 
   // User is authenticated but on /login -> redirect to home role dashboard
   if (pathname === '/login') {
-    const target =
-      session.force_pin_change
-        ? '/change-pin'
-        : session.role === 'admin'
-        ? '/admin'
-        : session.role === 'supervisor'
-        ? '/supervisor'
-        : '/dashboard';
+    const target = session.force_pin_change
+      ? '/change-pin'
+      : session.role === 'admin'
+      ? '/admin'
+      : session.role === 'supervisor'
+      ? '/supervisor'
+      : '/dashboard';
     return NextResponse.redirect(new URL(target, request.url));
   }
 
@@ -54,7 +60,11 @@ export default async function proxy(request: NextRequest) {
   }
 
   // Supervisor route protection
-  if (pathname.startsWith('/supervisor') && session.role !== 'supervisor' && session.role !== 'admin') {
+  if (
+    pathname.startsWith('/supervisor') &&
+    session.role !== 'supervisor' &&
+    session.role !== 'admin'
+  ) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
