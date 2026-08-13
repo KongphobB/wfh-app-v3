@@ -25,6 +25,11 @@ export async function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
 
+    // All API routes and static assets bypass middleware session check
+    if (pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico')) {
+      return NextResponse.next();
+    }
+
     const cookie = request.cookies.get('wfh_session');
     const token = cookie ? cookie.value : null;
     const session = token ? decodeBase64UrlPayload(token) : null;
@@ -73,15 +78,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/login',
-    '/change-pin',
-    '/dashboard',
-    '/checkin',
-    '/spotcheck',
-    '/supervisor',
-    '/admin',
-    '/tasks',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

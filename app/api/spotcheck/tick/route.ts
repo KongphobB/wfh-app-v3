@@ -7,6 +7,8 @@ import { verifyCronAuth } from '@/lib/cron';
  * Production tick endpoint to trigger scheduled spot checks and sweep expired pending spot checks (Rule 3)
  * Secured via CRON_SECRET Auth Guard (Fail-closed 500 when unconfigured, 401 when invalid)
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const auth = verifyCronAuth(request);
   if (!auth.authorized) {

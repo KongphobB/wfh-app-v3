@@ -8,6 +8,8 @@ import { verifyCronAuth } from '@/lib/cron';
  * (Default cutoff time: 09:30 or process.env.MISSING_CHECKIN_CUTOFF_TIME)
  * Secured via CRON_SECRET Auth Guard (Fail-closed 500 when unconfigured, 401 when invalid)
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const auth = verifyCronAuth(request);
   if (!auth.authorized) {
