@@ -357,6 +357,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3.5">รหัส</th>
                   <th className="px-4 py-3.5">ชื่อ-นามสกุล</th>
                   <th className="px-4 py-3.5">ตำแหน่ง / แผนก</th>
+                  <th className="px-4 py-3.5">หัวหน้างาน</th>
                   <th className="px-4 py-3.5">อีเมล</th>
                   <th className="px-4 py-3.5">บทบาท</th>
                   <th className="px-4 py-3.5 text-center">สะสม 1-ดาว</th>
@@ -370,6 +371,15 @@ export default function AdminPage() {
                     <td className="px-4 py-3.5 font-mono font-bold text-slate-900">{emp.employee_id}</td>
                     <td className="px-4 py-3.5 font-bold text-slate-900">{emp.name}</td>
                     <td className="px-4 py-3.5 text-slate-600">{emp.position || '-'} / {emp.department || '-'}</td>
+                    <td className="px-4 py-3.5 text-slate-600 font-medium">
+                      {emp.supervisor_id ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-[11px]">
+                          {supervisorsList.find((s) => s.employee_id === emp.supervisor_id)?.name || emp.supervisor_id}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-slate-500 font-mono">{emp.email || '-'}</td>
                     <td className="px-4 py-3.5">
                       <Badge variant={emp.role === 'admin' ? 'default' : emp.role === 'supervisor' ? 'warning' : 'success'}>
