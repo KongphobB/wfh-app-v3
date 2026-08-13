@@ -24,12 +24,7 @@ export default function LoginPage() {
   const [regSuccess, setRegSuccess] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
 
-  const handleQuickFill = async (empId: string) => {
-    setEmployeeId(empId);
-    setPin('1234');
-    setError('');
-    setCanUnblock(false);
-  };
+
 
   const handleLogin = async (forceUnblock = false) => {
     setError('');
@@ -244,35 +239,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Quick Demo Test Buttons */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-xs text-slate-500 text-center mb-3 font-semibold">
-              ⚡ ปุ่มลัดสำหรับทดสอบ (PIN: 1234)
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('1001')}
-                className="py-2.5 px-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-center transition-colors shadow-2xs cursor-pointer"
-              >
-                1001 (พนักงาน)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('0002')}
-                className="py-2.5 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-center transition-colors shadow-2xs cursor-pointer"
-              >
-                0002 (หัวหน้า)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('0001')}
-                className="py-2.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-center transition-colors shadow-2xs cursor-pointer"
-              >
-                0001 (แอดมิน)
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
 
