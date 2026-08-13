@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Static assets & internal cron routes bypass
@@ -68,8 +68,6 @@ export async function proxy(request: NextRequest) {
 
   return NextResponse.next();
 }
-
-export const middleware = proxy;
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
