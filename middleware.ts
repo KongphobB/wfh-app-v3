@@ -16,7 +16,7 @@ function parseJwtPayload(token: string): any {
 }
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const pathname = request.nextUrl.pathname;
 
   // Immediate bypass for all API routes & static assets
   if (
@@ -73,5 +73,5 @@ export function middleware(request: NextRequest) {
 export default middleware;
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
