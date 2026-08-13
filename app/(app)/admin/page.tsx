@@ -357,11 +357,11 @@ export default function AdminPage() {
                   <th className="px-4 py-3.5">รหัส</th>
                   <th className="px-4 py-3.5">ชื่อ-นามสกุล</th>
                   <th className="px-4 py-3.5">ตำแหน่ง / แผนก</th>
-                  <th className="px-4 py-3.5">หัวหน้างาน</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">หัวหน้างาน</th>
                   <th className="px-4 py-3.5">อีเมล</th>
                   <th className="px-4 py-3.5">บทบาท</th>
-                  <th className="px-4 py-3.5 text-center">สะสม 1-ดาว</th>
-                  <th className="px-4 py-3.5">สถานะ WFH</th>
+                  <th className="px-4 py-3.5 text-center whitespace-nowrap">สะสม 1-ดาว</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">สถานะ WFH</th>
                   <th className="px-4 py-3.5 text-right min-w-[320px]">การจัดการ</th>
                 </tr>
               </thead>
@@ -369,11 +369,11 @@ export default function AdminPage() {
                 {employees.map((emp) => (
                   <tr key={emp.employee_id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3.5 font-mono font-bold text-slate-900">{emp.employee_id}</td>
-                    <td className="px-4 py-3.5 font-bold text-slate-900">{emp.name}</td>
-                    <td className="px-4 py-3.5 text-slate-600">{emp.position || '-'} / {emp.department || '-'}</td>
-                    <td className="px-4 py-3.5 text-slate-600 font-medium">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 whitespace-nowrap">{emp.name}</td>
+                    <td className="px-4 py-3.5 text-slate-600 min-w-[180px]">{emp.position || '-'} / {emp.department || '-'}</td>
+                    <td className="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">
                       {emp.supervisor_id ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-[11px]">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] whitespace-nowrap shadow-2xs">
                           {supervisorsList.find((s) => s.employee_id === emp.supervisor_id)?.name || emp.supervisor_id}
                         </span>
                       ) : (
