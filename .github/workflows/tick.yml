@@ -1,0 +1,20 @@
+name: WFH App Cron Tick Runner
+
+# Note: GitHub Actions scheduled workflows have a variable execution delay (up to several minutes during GitHub peak loads).
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+jobs:
+  cron-tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Spot Check Tick Endpoint
+        run: |
+          curl -f -s -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ vars.PRODUCTION_URL }}/api/spotcheck/tick"
+
+      - name: Trigger Missing Check-in Tick Endpoint
+        run: |
+          curl -f -s -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ vars.PRODUCTION_URL }}/api/notifications/missing-checkin-tick"
