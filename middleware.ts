@@ -10,7 +10,17 @@ export function middleware(request: NextRequest) {
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
-        session = JSON.parse(atob(parts[1]));
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) {
+          base64 += '=';
+        }
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const jsonStr = new TextDecoder().decode(bytes);
+        session = JSON.parse(jsonStr);
       }
     } catch {
       session = null;
@@ -57,15 +67,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/login',
-    '/change-pin',
-    '/dashboard/:path*',
-    '/admin/:path*',
-    '/supervisor/:path*',
-    '/checkin/:path*',
-    '/spotcheck/:path*',
-    '/tasks/:path*',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
