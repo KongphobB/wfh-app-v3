@@ -1,8 +1,11 @@
 import bcrypt from 'bcryptjs';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import { SessionPayload } from '@/types';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/server';
+import { verifySessionToken } from '@/lib/jwt';
+
+export { verifySessionToken };
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not set');
@@ -40,18 +43,6 @@ export async function createSessionToken(payload: SessionPayload): Promise<strin
     .setIssuedAt()
     .setExpirationTime('24h')
     .sign(JWT_SECRET);
-}
-
-/**
- * Verify & Decode JWT Session Token
- */
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
-  }
 }
 
 /**
