@@ -504,7 +504,20 @@ export default function AdminPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3.5 font-mono text-slate-500 text-[11px]">
-                        {log.gps_lat && log.gps_lng ? `${log.gps_lat.toFixed(4)}, ${log.gps_lng.toFixed(4)}` : '-'}
+                        {log.gps_lat && log.gps_lng ? (
+                          <a
+                            href={`https://www.google.com/maps?q=${log.gps_lat},${log.gps_lng}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-blue-600 font-bold hover:underline bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg inline-flex items-center gap-1 transition-colors shadow-2xs"
+                            title={`ดูพิกัด GPS บน Google Maps (${log.gps_lat}, ${log.gps_lng})`}
+                          >
+                            <MapPin className="w-3 h-3 text-blue-500" />
+                            <span>{log.gps_lat.toFixed(4)}, {log.gps_lng.toFixed(4)} ↗</span>
+                          </a>
+                        ) : (
+                          '-'
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-slate-600">{log.note || '-'}</td>
                       <td className="px-4 py-3.5 text-right">
