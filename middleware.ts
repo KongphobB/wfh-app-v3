@@ -1,6 +1,26 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+function decodeBase64UrlPayload(token: string): any {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonStr = new TextDecoder().decode(bytes);
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -16,19 +36,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get('wfh_session')?.value;
-  let session: any = null;
-
-  if (token) {
-    try {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-        session = JSON.parse(payloadStr);
-      }
-    } catch {
-      session = null;
-    }
-  }
+  const session = token ? decodeBase64UrlPayload(token) : null;
 
   // Unauthenticated user attempting to access protected pages
   if (!session) {
