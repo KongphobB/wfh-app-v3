@@ -1,38 +1,39 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-function decodeBase64UrlPayload(token: string): any {
+function parseJwtPayload(token: string): any {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) {
-      base64 += '=';
-    }
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    const jsonStr = new TextDecoder().decode(bytes);
-    return JSON.parse(jsonStr);
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
   } catch {
     return null;
   }
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // All API routes, static assets, and auth endpoints bypass middleware
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico')
+  ) {
+    return NextResponse.next();
+  }
+
   try {
-    const { pathname } = request.nextUrl;
-
-    // All API routes and static assets bypass middleware session check
-    if (pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico')) {
-      return NextResponse.next();
-    }
-
     const cookie = request.cookies.get('wfh_session');
     const token = cookie ? cookie.value : null;
-    const session = token ? decodeBase64UrlPayload(token) : null;
+    const session = token ? parseJwtPayload(token) : null;
 
     // Unauthenticated user attempting to access protected pages
     if (!session) {
