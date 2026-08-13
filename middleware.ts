@@ -16,7 +16,7 @@ function parseJwtPayload(token: string): any {
 }
 
 export function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
   // Immediate bypass for all API routes & static assets
   if (
@@ -27,7 +27,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get('wfh_session')?.value;
+  const cookie = request.cookies.get('wfh_session');
+  const token = cookie ? cookie.value : null;
   const session = token ? parseJwtPayload(token) : null;
 
   // Unauthenticated user attempting to access protected pages
@@ -69,6 +70,8 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+export default middleware;
+
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
