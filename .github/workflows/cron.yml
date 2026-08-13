@@ -1,0 +1,54 @@
+name: WFH System V3 — Production Cron Jobs
+
+on:
+  # Allow manual trigger for testing before relying on schedule
+  workflow_dispatch:
+
+  # Spot Check Tick — every 5 minutes, Mon–Fri, 09:00–16:05 ICT (02:00–09:05 UTC)
+  # Needs to cover both windows: 09:00–11:00 and 14:00–16:00 ICT
+  schedule:
+    - cron: '0,5,10,15,20,25,30,35,40,45,50,55 2-9 * * 1-5'   # spotcheck/tick
+
+    # Missing Check-in Tick — once at 09:35 ICT (02:35 UTC), Mon–Fri
+    - cron: '35 2 * * 1-5'                                       # missing-checkin-tick
+
+jobs:
+  spotcheck-tick:
+    name: Spot Check Tick
+    runs-on: ubuntu-latest
+    # Only run this job on spotcheck/tick schedule or manual trigger
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.event.schedule == '0,5,10,15,20,25,30,35,40,45,50,55 2-9 * * 1-5')
+    steps:
+      - name: Ping /api/spotcheck/tick
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://wfh-system-v3.vercel.app/api/spotcheck/tick")
+          echo "HTTP Status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ spotcheck/tick returned $STATUS — expected 200"
+            exit 1
+          fi
+          echo "✅ spotcheck/tick OK"
+
+  missing-checkin-tick:
+    name: Missing Check-in Tick
+    runs-on: ubuntu-latest
+    # Only run this job on missing-checkin schedule or manual trigger
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.event.schedule == '35 2 * * 1-5')
+    steps:
+      - name: Ping /api/notifications/missing-checkin-tick
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://wfh-system-v3.vercel.app/api/notifications/missing-checkin-tick")
+          echo "HTTP Status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ missing-checkin-tick returned $STATUS — expected 200"
+            exit 1
+          fi
+          echo "✅ missing-checkin-tick OK"
