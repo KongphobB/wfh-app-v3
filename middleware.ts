@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionToken } from './lib/jwt';
+import { jwtVerify } from 'jose';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,7 +17,17 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get('wfh_session')?.value;
-  const session = token ? await verifySessionToken(token) : null;
+  let session: any = null;
+
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const secretKey = new TextEncoder().encode(process.env.JWT_SECRET);
+      const { payload } = await jwtVerify(token, secretKey);
+      session = payload;
+    } catch {
+      session = null;
+    }
+  }
 
   // Unauthenticated user attempting to access protected pages
   if (!session) {
