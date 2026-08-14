@@ -129,6 +129,23 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
     );
   };
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const setVideoRef = (node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && streamRef.current) {
+      node.srcObject = streamRef.current;
+      node.play().catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraActive]);
+
   const startCamera = async () => {
     try {
       setCameraError('');
@@ -139,10 +156,12 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
       }
       setIsCameraActive(true);
-    } catch {
-      setCameraError('ไม่สามารถเข้าถึงกล้องถ่ายภาพได้');
+    } catch (err: any) {
+      console.warn('Camera access error:', err);
+      setCameraError('ไม่สามารถเข้าถึงกล้องเว็บแคมได้ (กรุณาใช้ปุ่มอัปโหลดรูปด้านล่างแทน)');
       setIsCameraActive(false);
     }
   };
@@ -153,6 +172,19 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       streamRef.current = null;
     }
     setIsCameraActive(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        setPhotoDataUrl(dataUrl);
+        stopCamera();
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const capturePhoto = () => {
@@ -308,6 +340,16 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
             </button>
           </div>
 
+          {/* Hidden File Input Fallback */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+
           {/* Camera Viewfinder */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -318,16 +360,25 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={photoDataUrl} alt="Selfie preview" className="w-full h-full object-cover" />
               ) : isCameraActive ? (
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
+                <video ref={setVideoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
               ) : (
                 <div className="text-center p-4 text-slate-500">
                   <Camera className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                  <p className="text-xs font-bold text-slate-600">{cameraError || 'กำลังเปิดกล้อง...'}</p>
+                  <p className="text-xs font-bold text-slate-600 mb-2">{cameraError || 'กำลังเปิดกล้อง...'}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs font-bold gap-1 text-slate-700"
+                  >
+                    📁 อัปโหลดรูปถ่ายแทน
+                  </Button>
                 </div>
               )}
             </div>
 
-            <div className="mt-2.5 flex justify-center">
+            <div className="mt-2.5 flex items-center justify-center gap-2">
               {photoDataUrl ? (
                 <Button
                   type="button"
@@ -340,16 +391,26 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
                   <span>ถ่ายใหม่</span>
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  onClick={capturePhoto}
-                  disabled={!isCameraActive}
-                  variant="default"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-600/20"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>ถ่ายภาพ Selfie</span>
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={capturePhoto}
+                    disabled={!isCameraActive}
+                    variant="default"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-600/20"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>ถ่ายภาพ Selfie</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="font-bold gap-1 text-slate-700"
+                  >
+                    📁 แนบไฟล์รูป
+                  </Button>
+                </>
               )}
             </div>
           </div>
