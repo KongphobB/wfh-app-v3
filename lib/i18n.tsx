@@ -70,6 +70,32 @@ export interface Translations {
     confirmPinLabel: string;
     changePinButton: string;
     changePinSuccess: string;
+    noEmpIdYet: string;
+    registerNewEmp: string;
+    registerModalTitle: string;
+    registerModalDesc: string;
+    idGuidelineTitle: string;
+    idGuidelineRegular: string;
+    idGuidelineRegularDesc: string;
+    idGuidelineIntern: string;
+    idGuidelineInternDesc: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    positionLabel: string;
+    positionPlaceholder: string;
+    deptLabel: string;
+    deptPlaceholder: string;
+    regPinLabel: string;
+    regConfirmPinLabel: string;
+    registerAndLoginBtn: string;
+    registeringBtn: string;
+    regIdPlaceholder: string;
+    regIdLengthError: string;
+    regNameRequiredError: string;
+    regPinDigitsError: string;
+    regPinMismatchError: string;
   };
   // Dashboard
   dashboard: {
@@ -303,6 +329,32 @@ export const translations: Record<Language, Translations> = {
       confirmPinLabel: 'ยืนยัน PIN ใหม่',
       changePinButton: 'บันทึก PIN ใหม่',
       changePinSuccess: 'เปลี่ยนรหัส PIN สำเร็จ!',
+      noEmpIdYet: 'ยังไม่มีรหัสพนักงาน?',
+      registerNewEmp: 'ลงทะเบียนพนักงานใหม่',
+      registerModalTitle: 'ลงทะเบียนพนักงานใหม่',
+      registerModalDesc: 'กรอกข้อมูลเพื่อลงทะเบียนสร้างรหัสผ่านพนักงานสำหรับเข้าใช้งาน',
+      idGuidelineTitle: 'คำแนะนำการกรอกรหัสพนักงาน (ID):',
+      idGuidelineRegular: 'สำหรับพนักงานประจำ',
+      idGuidelineRegularDesc: 'ให้กรอก รหัสพนักงานของตนเอง (เช่น 1001, 1002)',
+      idGuidelineIntern: 'สำหรับนักศึกษาฝึกงาน',
+      idGuidelineInternDesc: 'ให้ใช้รหัสช่วง 9000 - 9999 (เช่น 9001, 9002)',
+      nameLabel: 'ชื่อ-นามสกุล *',
+      namePlaceholder: 'นาย สมศักดิ์ ใจดี',
+      emailLabel: 'อีเมลพนักงาน',
+      emailPlaceholder: 'somsak@company.com',
+      positionLabel: 'ตำแหน่งงาน',
+      positionPlaceholder: 'เช่น Senior Developer',
+      deptLabel: 'แผนก / ฝ่าย',
+      deptPlaceholder: 'เช่น Software Engineering',
+      regPinLabel: 'รหัส PIN (4 หลัก) *',
+      regConfirmPinLabel: 'ยืนยัน PIN (4 หลัก) *',
+      registerAndLoginBtn: 'ลงทะเบียน และ ล็อกอิน',
+      registeringBtn: 'กำลังบันทึก...',
+      regIdPlaceholder: 'เช่น 1002 หรือ 9001',
+      regIdLengthError: 'รหัสพนักงานต้องมีอย่างน้อย 4 หลัก',
+      regNameRequiredError: 'กรุณากรอกชื่อ-นามสกุล',
+      regPinDigitsError: 'รหัส PIN ต้องเป็นตัวเลข 4 หลัก',
+      regPinMismatchError: 'รหัส PIN และ ยืนยัน PIN ไม่ตรงกัน',
     },
     dashboard: {
       title: 'ภาพรวมการทำงาน WFH',
@@ -528,6 +580,32 @@ export const translations: Record<Language, Translations> = {
       confirmPinLabel: 'Confirm New PIN',
       changePinButton: 'Update PIN',
       changePinSuccess: 'PIN updated successfully!',
+      noEmpIdYet: "Don't have an Employee ID?",
+      registerNewEmp: 'Register New Employee',
+      registerModalTitle: 'New Employee Registration',
+      registerModalDesc: 'Fill in your details to create an account and security PIN',
+      idGuidelineTitle: 'Employee ID Guidelines:',
+      idGuidelineRegular: 'For Regular Employees',
+      idGuidelineRegularDesc: 'Enter your assigned Employee ID (e.g. 1001, 1002)',
+      idGuidelineIntern: 'For Intern Students',
+      idGuidelineInternDesc: 'Use an ID in the 9000 - 9999 range (e.g. 9001, 9002)',
+      nameLabel: 'Full Name *',
+      namePlaceholder: 'e.g. John Doe',
+      emailLabel: 'Employee Email',
+      emailPlaceholder: 'john.doe@company.com',
+      positionLabel: 'Job Position',
+      positionPlaceholder: 'e.g. Senior Developer',
+      deptLabel: 'Department',
+      deptPlaceholder: 'e.g. Software Engineering',
+      regPinLabel: 'Security PIN (4 Digits) *',
+      regConfirmPinLabel: 'Confirm PIN (4 Digits) *',
+      registerAndLoginBtn: 'Register & Sign In',
+      registeringBtn: 'Registering...',
+      regIdPlaceholder: 'e.g. 1002 or 9001',
+      regIdLengthError: 'Employee ID must be at least 4 characters',
+      regNameRequiredError: 'Full Name is required',
+      regPinDigitsError: 'PIN must be exactly 4 numeric digits',
+      regPinMismatchError: 'PIN and Confirm PIN do not match',
     },
     dashboard: {
       title: 'WFH Overview',

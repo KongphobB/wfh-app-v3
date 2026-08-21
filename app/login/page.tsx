@@ -77,19 +77,19 @@ export default function LoginPage() {
     setRegSuccess('');
 
     if (!regEmpId || regEmpId.length < 4) {
-      setRegError('รหัสพนักงานต้องมีอย่างน้อย 4 หลัก');
+      setRegError(t.auth.regIdLengthError);
       return;
     }
     if (!regName.trim()) {
-      setRegError('กรุณากรอกชื่อ-นามสกุล');
+      setRegError(t.auth.regNameRequiredError);
       return;
     }
     if (regPin.length !== 4) {
-      setRegError('รหัส PIN ต้องเป็นตัวเลข 4 หลัก');
+      setRegError(t.auth.regPinDigitsError);
       return;
     }
     if (regPin !== regConfirmPin) {
-      setRegError('รหัส PIN และ ยืนยัน PIN ไม่ตรงกัน');
+      setRegError(t.auth.regPinMismatchError);
       return;
     }
 
@@ -237,14 +237,14 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-medium">ยังไม่มีรหัสพนักงาน?</span>
+            <span className="text-xs text-slate-500 font-medium">{t.auth.noEmpIdYet}</span>
             <button
               type="button"
               onClick={() => setIsRegisterOpen(true)}
               className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1.5 cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              <span>ลงทะเบียนพนักงานใหม่</span>
+              <span>{t.auth.registerNewEmp}</span>
             </button>
           </div>
         </div>
@@ -267,8 +267,8 @@ export default function LoginPage() {
                 <UserPlus className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">ลงทะเบียนพนักงานใหม่</h2>
-                <p className="text-xs text-slate-500">กรอกข้อมูลเพื่อลงทะเบียนสร้างรหัสผ่านพนักงานสำหรับเข้าใช้งาน</p>
+                <h2 className="text-xl font-bold text-slate-900">{t.auth.registerModalTitle}</h2>
+                <p className="text-xs text-slate-500">{t.auth.registerModalDesc}</p>
               </div>
             </div>
 
@@ -276,23 +276,23 @@ export default function LoginPage() {
             <div className="mb-4 p-3.5 rounded-2xl bg-orange-50/90 border border-orange-200/90 dark:bg-orange-950/30 dark:border-orange-800/40 space-y-2 text-xs">
               <div className="flex items-center gap-1.5 font-bold text-orange-950 dark:text-orange-200">
                 <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                <span>คำแนะนำการกรอกรหัสพนักงาน (ID):</span>
+                <span>{t.auth.idGuidelineTitle}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-700 dark:text-slate-300">
                 <div className="p-2.5 rounded-xl bg-white dark:bg-[#1a1e28] border border-orange-100/80 dark:border-[#262c3a] shadow-2xs">
                   <p className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <User className="w-3.5 h-3.5" /> สำหรับพนักงานประจำ
+                    <User className="w-3.5 h-3.5" /> {t.auth.idGuidelineRegular}
                   </p>
                   <p className="text-slate-600 dark:text-slate-400 mt-0.5">
-                    ให้กรอก <strong>รหัสพนักงานของตนเอง</strong> (เช่น 1001, 1002)
+                    {t.auth.idGuidelineRegularDesc}
                   </p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-white dark:bg-[#1a1e28] border border-orange-100/80 dark:border-[#262c3a] shadow-2xs">
                   <p className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                    <GraduationCap className="w-3.5 h-3.5" /> สำหรับนักศึกษาฝึกงาน
+                    <GraduationCap className="w-3.5 h-3.5" /> {t.auth.idGuidelineIntern}
                   </p>
                   <p className="text-slate-600 dark:text-slate-400 mt-0.5">
-                    ให้ใช้รหัสช่วง <strong>9000 - 9999</strong> (เช่น 9001, 9002)
+                    {t.auth.idGuidelineInternDesc}
                   </p>
                 </div>
               </div>
@@ -315,61 +315,61 @@ export default function LoginPage() {
             <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">รหัสพนักงาน (4-6 หลัก) *</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.empIdLabel} *</label>
                   <input
                     type="text"
                     required
                     maxLength={6}
                     value={regEmpId}
                     onChange={(e) => setRegEmpId(e.target.value)}
-                    placeholder="เช่น 1002 หรือ 9001"
+                    placeholder={t.auth.regIdPlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">ชื่อ-นามสกุล *</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.nameLabel}</label>
                   <input
                     type="text"
                     required
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    placeholder="นาย สมศักดิ์ ใจดี"
+                    placeholder={t.auth.namePlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">อีเมลพนักงาน</label>
+                <label className="block font-bold text-slate-700 mb-1.5">{t.auth.emailLabel}</label>
                 <input
                   type="email"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="somsak@company.com"
+                  placeholder={t.auth.emailPlaceholder}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">ตำแหน่งงาน</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.positionLabel}</label>
                   <input
                     type="text"
                     value={regPosition}
                     onChange={(e) => setRegPosition(e.target.value)}
-                    placeholder="เช่น Senior Developer"
+                    placeholder={t.auth.positionPlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">แผนก / ฝ่าย</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.deptLabel}</label>
                   <input
                     type="text"
                     value={regDepartment}
                     onChange={(e) => setRegDepartment(e.target.value)}
-                    placeholder="เช่น Software Engineering"
+                    placeholder={t.auth.deptPlaceholder}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
                   />
                 </div>
@@ -377,7 +377,7 @@ export default function LoginPage() {
 
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">รหัส PIN (4 หลัก) *</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.regPinLabel}</label>
                   <input
                     type="password"
                     inputMode="numeric"
@@ -391,7 +391,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">ยืนยัน PIN (4 หลัก) *</label>
+                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.regConfirmPinLabel}</label>
                   <input
                     type="password"
                     inputMode="numeric"
@@ -407,10 +407,10 @@ export default function LoginPage() {
 
               <div className="flex items-center gap-3 pt-3">
                 <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)} className="w-1/2">
-                  ยกเลิก
+                  {t.common.cancel}
                 </Button>
                 <Button type="submit" disabled={regSubmitting} className="w-1/2 bg-orange-500 hover:bg-orange-600 text-white font-bold">
-                  {regSubmitting ? 'กำลังบันทึก...' : 'ลงทะเบียน และ ล็อกอิน'}
+                  {regSubmitting ? t.auth.registeringBtn : t.auth.registerAndLoginBtn}
                 </Button>
               </div>
             </form>
