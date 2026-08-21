@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Lock, AlertCircle, ArrowRight, Unlock, UserPlus, X, CheckCircle2 } from 'lucide-react';
+import { User, Lock, AlertCircle, ArrowRight, Unlock, UserPlus, X, CheckCircle2, Info, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import LanguageToggle from '@/components/LanguageToggle';
@@ -272,6 +272,32 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* ID Guidelines Banner */}
+            <div className="mb-4 p-3.5 rounded-2xl bg-orange-50/90 border border-orange-200/90 dark:bg-orange-950/30 dark:border-orange-800/40 space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-orange-950 dark:text-orange-200">
+                <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                <span>คำแนะนำการกรอกรหัสพนักงาน (ID):</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-700 dark:text-slate-300">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-[#1a1e28] border border-orange-100/80 dark:border-[#262c3a] shadow-2xs">
+                  <p className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <User className="w-3.5 h-3.5" /> สำหรับพนักงานประจำ
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                    ให้กรอก <strong>รหัสพนักงานของตนเอง</strong> (เช่น 1001, 1304)
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-[#1a1e28] border border-orange-100/80 dark:border-[#262c3a] shadow-2xs">
+                  <p className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                    <GraduationCap className="w-3.5 h-3.5" /> สำหรับนักศึกษาฝึกงาน
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                    ให้ใช้รหัสช่วง <strong>9000 - 9999</strong> (เช่น 9001, 9002)
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {regError && (
               <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
@@ -296,7 +322,7 @@ export default function LoginPage() {
                     maxLength={6}
                     value={regEmpId}
                     onChange={(e) => setRegEmpId(e.target.value)}
-                    placeholder="เช่น 1003"
+                    placeholder="เช่น 1304 หรือ 9001"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-500"
                   />
                 </div>
