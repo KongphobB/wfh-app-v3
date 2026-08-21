@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSession, hashPin } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { getSession, determineRole, formatPositionForRole } from '@/lib/auth';
+import { callGAS } from '@/lib/gas';
+import { Employee, WfhStatus } from '@/types';
+import { getExemptConfig } from '@/lib/photoExempt';
 
 const createEmployeeSchema = z.object({
   employee_id: z.string().min(1, 'กรุณาระบุรหัสพนักงาน 4 หลัก'),
@@ -20,16 +22,85 @@ export async function GET() {
       return NextResponse.json({ error: 'เฉพาะแอดมินเท่านั้น' }, { status: 403 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .order('employee_id', { ascending: true });
+    const { exemptKeywords, exemptEmployeeIds, autoExemptSupervisors } = await getExemptConfig();
 
-    if (error) console.error('Fetch employees error:', error);
-    return NextResponse.json({ employees: data || [] });
-  } catch (error) {
+    const checkExempt = (empId: string, pos?: string | null, role?: string) => {
+      if (empId && exemptEmployeeIds.has(empId)) return true;
+      if (autoExemptSupervisors && (role === 'admin' || role === 'supervisor')) return true;
+      const lowerPos = String(pos || '').toLowerCase();
+      if (lowerPos && exemptKeywords.some((keyword: string) => lowerPos.includes(keyword))) return true;
+      return false;
+    };
+
+    // 1. Fetch live Google Sheet rows directly from 'ข้อมูลพนักงาน'
+    const inspectRes = await callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' });
+    const targetRows = inspectRes?.targetRows || [];
+
+    if (Array.isArray(targetRows) && targetRows.length > 1) {
+      const dataRows = targetRows.slice(1);
+
+      const employeesList: Employee[] = dataRows
+        .filter((r) => r && r[0] != null && String(r[0]).trim() !== '')
+        .map((r) => {
+          const empId = String(r[0]).trim();
+          const name = r[1] ? String(r[1]).trim() : empId;
+          const email = r[2] ? String(r[2]).trim() : null;
+          const dept = r[3] ? String(r[3]).trim() : null;
+          const position = r[4] ? String(r[4]).trim() : null;
+          const supervisorId = r[5] && String(r[5]).trim() !== '' ? String(r[5]).trim() : null;
+          const oneStarCount = parseInt(r[7] || 0, 10);
+          const wfhStatus: WfhStatus = r[8] === 'ระงับสิทธิ์' ? 'ระงับสิทธิ์' : 'เปิดสิทธิ์';
+          const role = determineRole(position || undefined, dept || undefined, empId);
+
+          return {
+            employee_id: empId,
+            name: name,
+            email: email,
+            department: dept,
+            position: position,
+            supervisor_id: supervisorId,
+            role: role,
+            wfh_status: wfhStatus,
+            one_star_count: isNaN(oneStarCount) ? 0 : oneStarCount,
+            is_photo_exempt: checkExempt(empId, position, role),
+            force_pin_change: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        });
+
+      return NextResponse.json({ employees: employeesList });
+    }
+
+    // 2. Fallback to getSystemConfig
+    const configRes = await callGAS('getSystemConfig');
+    const employeesMap = configRes?.config?.employeesMap || {};
+
+    const employeesList: Employee[] = Object.keys(employeesMap).map((empId) => {
+      const e = employeesMap[empId];
+      const role = determineRole(e.position, e.dept, empId);
+
+      return {
+        employee_id: String(empId),
+        name: e.name || empId,
+        email: e.email || null,
+        department: e.dept || null,
+        position: e.position || null,
+        supervisor_id: e.supervisorId ? String(e.supervisorId) : null,
+        role: role,
+        wfh_status: e.wfhStatus || 'เปิดสิทธิ์',
+        one_star_count: e.oneStarCount || 0,
+        is_photo_exempt: checkExempt(String(empId), e.position, role),
+        force_pin_change: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    return NextResponse.json({ employees: employeesList });
+  } catch (error: any) {
     console.error('GET admin employees error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลพนักงาน' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลพนักงานจาก Google Sheet' }, { status: 500 });
   }
 }
 
@@ -50,34 +121,30 @@ export async function POST(request: Request) {
     }
 
     const newEmpData = validation.data;
-    const defaultPinHash = await hashPin('1234'); // Default PIN 1234
+    const finalPosition = formatPositionForRole(newEmpData.position || 'พนักงาน', newEmpData.role);
 
-    const { error: insertError } = await supabaseAdmin.from('employees').insert({
-      employee_id: newEmpData.employee_id,
+    const gasResult = await callGAS('adminAddNewEmployee', {
+      employeeId: newEmpData.employee_id,
       name: newEmpData.name,
-      email: newEmpData.email || null,
-      department: newEmpData.department || null,
-      position: newEmpData.position || null,
-      supervisor_id: newEmpData.supervisor_id || null,
-      pin_hash: defaultPinHash,
-      force_pin_change: true, // Requires employee to set new PIN on first login
-      role: newEmpData.role,
-      wfh_status: 'เปิดสิทธิ์',
-      one_star_count: 0,
+      email: newEmpData.email || '',
+      dept: newEmpData.department || 'ทั่วไป',
+      position: finalPosition,
+      supervisorId: newEmpData.supervisor_id || '9999',
+      pin: '1234',
+      adminPin: '9999',
     });
 
-    if (insertError) {
-      console.error('Insert employee error:', insertError);
-      return NextResponse.json({ error: 'สร้างข้อมูลพนักงานไม่สำเร็จ (รหัสพนักงานซ้ำซ้อน)' }, { status: 400 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json({ error: gasResult.message || 'บันทึกข้อมูลพนักงานลง Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      message: `สร้างพนักงาน ${newEmpData.name} สำเร็จ (PIN เริ่มต้น: 1234)`,
+      message: `สร้างพนักงาน ${newEmpData.name} สำเร็จใน Google Sheet (PIN เริ่มต้น: 1234)`,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST employee error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้างพนักงาน' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการสร้างพนักงาน' }, { status: 500 });
   }
 }
 
@@ -89,51 +156,77 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { employee_id, action, name, email, wfh_status, reset_pin, role, supervisor_id, department, position } = body;
+    const { employee_id, action, name, email, wfh_status, reset_pin, supervisor_id, department, position, role } = body;
 
     if (!employee_id) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสพนักงาน' }, { status: 400 });
     }
 
-    const updatePayload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
+    const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');
 
-    if (name) updatePayload.name = name;
-    if (email !== undefined) updatePayload.email = email || null;
-    if (wfh_status) updatePayload.wfh_status = wfh_status;
-    if (role) updatePayload.role = role;
-    if (department !== undefined) updatePayload.department = department || null;
-    if (position !== undefined) updatePayload.position = position || null;
-    if (supervisor_id !== undefined) updatePayload.supervisor_id = supervisor_id || null;
+    // 1. If action is updating WFH status specifically
+    if (action === 'update_wfh' || (wfh_status && !name && !department && !position)) {
+      const gasResult = await callGAS('adminBulkUpdateWfhStatus', {
+        targetEmployeeIds: [employee_id],
+        employeeId: employee_id,
+        wfhStatus: wfh_status,
+        status: wfh_status,
+        adminPin: '9999',
+      });
 
-    if (reset_pin) {
-      updatePayload.pin_hash = await hashPin('1234');
-      updatePayload.force_pin_change = true;
+      invalidateGasCache();
+
+      if (gasResult && !gasResult.success) {
+        return NextResponse.json({ error: gasResult.message || 'ปรับสิทธิ์ WFH ไม่สำเร็จ' }, { status: 400 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: gasResult?.message || `ปรับสิทธิ์ WFH ของพนักงาน ${employee_id} เป็น ${wfh_status} สำเร็จ`,
+      });
     }
 
-    if (action === 'clear_stars') {
-      updatePayload.one_star_count = 0;
-      updatePayload.wfh_status = 'เปิดสิทธิ์';
+    // 2. Full employee info update or reset pin
+    const empsMap = await getLiveEmployeesMap();
+    const currentEmp = empsMap[employee_id] || { name: employee_id, email: '', dept: '', position: '', supervisorId: '' };
+
+    const finalName = name || currentEmp.name || employee_id;
+    const finalEmail = email !== undefined ? email : (currentEmp.email || '');
+    const finalDept = department !== undefined ? department : (currentEmp.dept || '');
+    let finalPosition = position !== undefined ? position : (currentEmp.position || '');
+    if (role) {
+      finalPosition = formatPositionForRole(finalPosition || 'พนักงาน', role);
     }
+    const finalSupervisorId = supervisor_id !== undefined ? supervisor_id : (currentEmp.supervisorId || '');
 
-    const { error: updateError } = await supabaseAdmin
-      .from('employees')
-      .update(updatePayload)
-      .eq('employee_id', employee_id);
+    const gasResult = await callGAS('adminUpdateEmployeeInfo', {
+      targetEmployeeId: employee_id,
+      employeeId: employee_id,
+      name: finalName,
+      email: finalEmail,
+      dept: finalDept,
+      position: finalPosition,
+      supervisorId: finalSupervisorId,
+      wfhStatus: wfh_status || undefined,
+      resetPin: reset_pin === true,
+      oneStarCount: action === 'clear_stars' ? 0 : undefined,
+      clearStars: action === 'clear_stars',
+      adminPin: '9999',
+    });
 
-    if (updateError) {
-      console.error('Update employee error:', updateError);
-      return NextResponse.json({ error: 'แก้ไขข้อมูลไม่สำเร็จ' }, { status: 500 });
+    invalidateGasCache();
+
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json({ error: gasResult.message || 'แก้ไขข้อมูลใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'อัปเดตข้อมูลพนักงานเรียบร้อยแล้ว',
+      message: 'อัปเดตข้อมูลพนักงานเรียบร้อยแล้วใน Google Sheet',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('PATCH employee error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการอัปเดตพนักงาน' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการอัปเดตพนักงาน' }, { status: 500 });
   }
 }
 
@@ -151,26 +244,25 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสพนักงาน' }, { status: 400 });
     }
 
-    if (employee_id === session.employee_id) {
-      return NextResponse.json({ error: 'ไม่สามารถลบบัญชีแอดมินของตนเองได้' }, { status: 400 });
+    if (employee_id === '9999') {
+      return NextResponse.json({ error: 'ไม่สามารถลบผู้ดูแลระบบหลักได้' }, { status: 400 });
     }
 
-    const { error: deleteError } = await supabaseAdmin
-      .from('employees')
-      .delete()
-      .eq('employee_id', employee_id);
+    const gasResult = await callGAS('adminDeleteEmployee', {
+      targetEmployeeId: employee_id,
+      adminPin: '9999',
+    });
 
-    if (deleteError) {
-      console.error('Delete employee error:', deleteError);
-      return NextResponse.json({ error: 'ลบข้อมูลพนักงานไม่สำเร็จ (ข้อมูลอาจมีการเชื่อมโยงอยู่)' }, { status: 500 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json({ error: gasResult.message || 'ลบข้อมูลพนักงานใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      message: `ลบพนักงานรหัส ${employee_id} เรียบร้อยแล้ว`,
+      message: gasResult?.message || `ลบพนักงาน ${employee_id} สำเร็จใน Google Sheet`,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE employee error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบพนักงาน' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการลบพนักงาน' }, { status: 500 });
   }
 }

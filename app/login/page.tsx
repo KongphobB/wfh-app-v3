@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Lock, AlertCircle, ShieldCheck, ArrowRight, Unlock, UserPlus, X, CheckCircle2 } from 'lucide-react';
+import { User, Lock, AlertCircle, ArrowRight, Unlock, UserPlus, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/lib/i18n';
+import LanguageToggle from '@/components/LanguageToggle';
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [employeeId, setEmployeeId] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -24,17 +27,16 @@ export default function LoginPage() {
   const [regSuccess, setRegSuccess] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
 
-
-
   const handleLogin = async (forceUnblock = false) => {
+    if (loading) return;
     setError('');
 
     if (!employeeId) {
-      setError('กรุณากรอกรหัสพนักงาน');
+      setError(t.auth.empIdLabel);
       return;
     }
     if (pin.length !== 4) {
-      setError('กรุณากรอกรหัส PIN ให้ครบ 4 หลัก');
+      setError(t.auth.pinPlaceholder);
       return;
     }
 
@@ -70,6 +72,7 @@ export default function LoginPage() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (regSubmitting) return;
     setRegError('');
     setRegSuccess('');
 
@@ -133,13 +136,19 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-md">
+        {/* Language Switcher Bar at Top */}
+        <div className="flex justify-end mb-3">
+          <LanguageToggle />
+        </div>
+
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-orange-100 border border-orange-200 text-orange-600 mb-4 shadow-xs">
-            <ShieldCheck className="w-9 h-9" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white border border-slate-200 p-2.5 mb-4 shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/snu-logo.png" alt="SNU Supply & Service" className="w-full h-full object-contain rounded-2xl" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">WFH App v3</h1>
-          <p className="text-slate-500 text-sm mt-1">ระบบบันทึกเวลาและติดตามผลการทำงานนอกสถานที่</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">SNU WFH</h1>
+          <p className="text-slate-500 text-sm mt-1 font-medium">{t.auth.loginSubtitle}</p>
         </div>
 
         {/* Login Card */}
@@ -168,7 +177,7 @@ export default function LoginPage() {
             {/* Employee ID Input */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                รหัสพนักงาน (4 หลัก)
+                {t.auth.empIdLabel}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -179,7 +188,7 @@ export default function LoginPage() {
                   maxLength={6}
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="เช่น 1001"
+                  placeholder={t.auth.empIdPlaceholder}
                   className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-base font-semibold transition-colors"
                 />
               </div>
@@ -188,7 +197,7 @@ export default function LoginPage() {
             {/* PIN Password Input */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                รหัส PIN (4 หลัก)
+                {t.auth.pinLabel}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -219,7 +228,7 @@ export default function LoginPage() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>เข้าสู่ระบบ</span>
+                  <span>{t.auth.loginButton}</span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -238,8 +247,6 @@ export default function LoginPage() {
               <span>ลงทะเบียนพนักงานใหม่</span>
             </button>
           </div>
-
-
         </div>
       </div>
 

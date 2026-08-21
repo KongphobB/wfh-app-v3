@@ -1,4 +1,5 @@
 export type Role = 'employee' | 'supervisor' | 'admin';
+export type UserRole = Role;
 export type WfhStatus = 'เปิดสิทธิ์' | 'ระงับสิทธิ์';
 export type CheckinType = 'เข้างาน' | 'ออกงาน' | 'ยืนยันตัวตน';
 export type VerificationStatus =
@@ -18,16 +19,19 @@ export type SpotCheckStatus =
   | 'Fail'
   | 'Expired'
   | 'ไม่ผ่านการสุ่มตรวจ (เลยเวลา)'
-  | 'ไม่ผ่านการสุ่มตรวจ (ขาดการติดต่อ)';
+  | 'ไม่ผ่านการสุ่มตรวจ (ขาดการติดต่อ)'
+  | (string & {});
 
 export type TicketStatus = 'Pending' | 'Resolved';
 export type NotificationType =
   | 'spotcheck'
   | 'task_rated'
+  | 'ticket'
   | 'ticket_created'
   | 'ticket_updated'
   | 'suspension'
-  | 'missing_checkin';
+  | 'missing_checkin'
+  | (string & {});
 
 export interface Employee {
   employee_id: string;
@@ -41,6 +45,7 @@ export interface Employee {
   wfh_status: WfhStatus;
   force_pin_change: boolean;
   role: Role;
+  is_photo_exempt?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -48,17 +53,22 @@ export interface Employee {
 export interface CheckinLog {
   id: string;
   employee_id: string;
+  employee_name?: string | null;
+  department?: string | null;
+  position?: string | null;
   log_type: CheckinType;
   log_date: string;
   log_time: string;
   gps_lat?: number | null;
   gps_lng?: number | null;
   photo_url?: string | null;
+  has_photo?: boolean;
   note?: string | null;
   out_of_bounds_reason?: string | null;
   is_early_leave?: boolean;
-  verification_status: VerificationStatus;
+  verification_status: VerificationStatus | (string & {});
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface TaskItem {
@@ -80,7 +90,7 @@ export interface TaskItem {
 export interface SpotCheck {
   id: string;
   check_date: string;
-  round: 'เช้า' | 'บ่าย';
+  round: 'เช้า' | 'บ่าย' | string;
   scheduled_time: string;
   employee_id: string;
   employee_name?: string;
@@ -120,6 +130,7 @@ export interface AppNotification {
   is_read: boolean;
   created_at: string;
 }
+export type NotificationItem = AppNotification;
 
 export interface SessionPayload {
   employee_id: string;

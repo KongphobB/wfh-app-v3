@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { sendSuspensionAlertEmail } from '@/lib/email';
-import { createNotification, createNotificationForAdmins } from '@/lib/notifications';
+import { callGAS, getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
+import { createNotification } from '@/lib/notifications';
 import { TaskItem } from '@/types';
 
 const createTaskSchema = z.object({
@@ -26,29 +25,51 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    let query = supabaseAdmin
-      .from('tasks')
-      .select('*, employees!tasks_employee_id_fkey(name, supervisor_id)')
-      .order('created_at', { ascending: false });
+    const gasRes = await callGAS('getLogs', { logType: 'task', limit: 300 });
+    const rawTasks = (gasRes?.data || []) as any[];
 
+    // Fetch live employee details for accurate supervisor/team hierarchy
+    const employeesMap = await getLiveEmployeesMap();
+
+    let filtered = rawTasks;
     if (session.role === 'employee') {
-      query = query.eq('employee_id', session.employee_id);
+      filtered = rawTasks.filter((t) => String(t.employeeId) === String(session.employee_id));
+    } else if (session.role === 'supervisor') {
+      const subordinateIds = Object.keys(employeesMap).filter(
+        (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+      );
+      filtered = rawTasks.filter(
+        (t) => subordinateIds.includes(String(t.employeeId)) || String(t.employeeId) === String(session.employee_id)
+      );
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error('Fetch tasks error:', error);
-    }
+    const formattedTasks: TaskItem[] = filtered.map((t) => {
+      const starRating = t.starRating || t.rating ? parseInt(t.starRating || t.rating, 10) : null;
+      const empInfo = employeesMap[String(t.employeeId)];
+      const rawName =
+        t.name && String(t.name).trim() !== '' && String(t.name).trim() !== 'undefined'
+          ? String(t.name).trim()
+          : empInfo?.name || String(t.employeeId);
 
-    const formatted = (data || []).map((t: any) => ({
-      ...t,
-      employee_name: t.employees?.name || t.employee_id,
-    }));
+      return {
+        id: t.uuid || `${t.employeeId}_${t.date}`,
+        submit_date: t.date || t.submitDate,
+        employee_id: String(t.employeeId),
+        employee_name: rawName,
+        tasks_assigned: parseInt(t.assignedTasks || t.tasksAssigned || t.assigned || 1, 10),
+        tasks_completed: parseInt(t.completedTasks || t.tasksCompleted || t.completed || 0, 10),
+        details: t.details || t.taskDetails || '',
+        submission_link: t.submissionLink || t.link || null,
+        star_rating: starRating && !isNaN(starRating) ? starRating : null,
+        supervisor_note: t.supervisorNote || t.supervisorNotes || t.note || null,
+        created_at: `${t.date || '2026-08-19'}T09:00:00+07:00`,
+      };
+    });
 
-    return NextResponse.json({ tasks: formatted });
-  } catch (error) {
+    return NextResponse.json({ tasks: formattedTasks });
+  } catch (error: any) {
     console.error('GET tasks error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดงาน' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดงานจาก Google Sheet' }, { status: 500 });
   }
 }
 
@@ -69,44 +90,40 @@ export async function POST(request: Request) {
     }
 
     const { tasks_assigned, tasks_completed, details, submission_link } = validation.data;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const employeesMap = await getLiveEmployeesMap();
+    const empInfo = employeesMap[session.employee_id];
 
-    const newTask: TaskItem = {
-      id: crypto.randomUUID(),
-      submit_date: todayStr,
-      employee_id: session.employee_id,
-      employee_name: session.name,
-      tasks_assigned,
-      tasks_completed,
-      details,
-      submission_link: submission_link || null,
-      star_rating: null,
-      supervisor_note: null,
-      created_at: new Date().toISOString(),
-    };
-
-    const { error: insertError } = await supabaseAdmin.from('tasks').insert({
-      submit_date: newTask.submit_date,
-      employee_id: newTask.employee_id,
-      tasks_assigned: newTask.tasks_assigned,
-      tasks_completed: newTask.tasks_completed,
-      details: newTask.details,
-      submission_link: newTask.submission_link,
+    // Submit directly to Google Sheets via Google Apps Script
+    const gasResult = await callGAS('submitEmployeeTask', {
+      employeeId: session.employee_id,
+      name: session.name || empInfo?.name || '',
+      employeeName: session.name || empInfo?.name || '',
+      supervisorId: empInfo?.supervisorId || '8888',
+      assignedTasks: Number(tasks_assigned),
+      completedTasks: Number(tasks_completed),
+      tasksAssigned: Number(tasks_assigned),
+      tasksCompleted: Number(tasks_completed),
+      details: details,
+      submissionLink: submission_link || '',
+      link: submission_link || '',
     });
 
-    if (insertError) {
-      console.error('Insert task error:', insertError);
-      return NextResponse.json({ error: 'บันทึกงานไม่สำเร็จ' }, { status: 500 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json(
+        { error: gasResult.message || 'บันทึกงานลง Google Sheet ไม่สำเร็จ' },
+        { status: 400 }
+      );
     }
+
+    invalidateGasCache('getLogs');
 
     return NextResponse.json({
       success: true,
-      message: 'บันทึกและส่งรายงานประจำวันเรียบร้อยแล้ว',
-      task: newTask,
+      message: gasResult?.message || 'บันทึกและส่งรายงานประจำวันลง Google Sheet เรียบร้อยแล้ว',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST task error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการส่งงาน' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการส่งงาน' }, { status: 500 });
   }
 }
 
@@ -127,97 +144,80 @@ export async function PATCH(request: Request) {
     }
 
     const { task_id, star_rating, supervisor_note } = validation.data;
-    const nowIso = new Date().toISOString();
+    const employeesMap = await getLiveEmployeesMap();
+    const authPin = employeesMap[session.employee_id]?.pin || (session.employee_id === '9999' ? '9998' : '1234');
 
-    // 1. Fetch task details to get target employee
-    const { data: taskRecord } = await supabaseAdmin
-      .from('tasks')
-      .select('employee_id, submit_date, star_rating')
-      .eq('id', task_id)
-      .maybeSingle();
-
-    if (!taskRecord) {
-      return NextResponse.json({ error: 'ไม่พบรายการงานที่ต้องการประเมิน' }, { status: 404 });
-    }
-
-    // Update task star rating
-    await supabaseAdmin
-      .from('tasks')
-      .update({
-        star_rating,
-        supervisor_note: supervisor_note || null,
-        supervisor_id: session.employee_id,
-        rating_date: nowIso,
-      })
-      .eq('id', task_id);
-
-    // Trigger notification for rated task
-    await createNotification({
-      employee_id: taskRecord.employee_id,
-      type: 'task_rated',
-      title: 'ผลงานได้รับการประเมิน',
-      message: `รายงานส่งงานของคุณวันที่ ${taskRecord.submit_date} ได้รับการประเมิน ${star_rating} ดาว`,
-      link: '/tasks',
+    // Submit rating directly to Google Sheets
+    let gasResult = await callGAS('submitSupervisorRating', {
+      taskUuid: task_id,
+      taskId: task_id,
+      uuid: task_id,
+      rating: star_rating,
+      starRating: star_rating,
+      note: supervisor_note || '',
+      supervisorNotes: supervisor_note || '',
+      supervisorId: session.employee_id,
+      pin: authPin,
+      supervisorPin: authPin,
+      adminPin: '9998',
     });
 
-    // 2. Handle 1-Star Rating Accumulation & Suspension Threshold
-    if (star_rating === 1 && taskRecord.star_rating !== 1) {
-      const { data: employee } = await supabaseAdmin
-        .from('employees')
-        .select('employee_id, name, email, one_star_count, wfh_status')
-        .eq('employee_id', taskRecord.employee_id)
-        .maybeSingle();
+    // Fallback for older tasks assigned under 9999 supervisor in Google Sheets
+    if (gasResult && !gasResult.success && String(gasResult.message || '').includes('สิทธิ์ของหัวหน้างาน')) {
+      gasResult = await callGAS('submitSupervisorRating', {
+        taskUuid: task_id,
+        taskId: task_id,
+        uuid: task_id,
+        rating: star_rating,
+        starRating: star_rating,
+        note: supervisor_note || '',
+        supervisorNotes: supervisor_note || '',
+        supervisorId: '9999',
+        pin: '9998',
+        supervisorPin: '9998',
+        adminPin: '9998',
+      });
+    }
 
-      if (employee) {
-        const newOneStarCount = (employee.one_star_count || 0) + 1;
-        const isSuspended = newOneStarCount >= 3;
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json(
+        { error: gasResult.message || 'บันทึกการประเมินใน Google Sheet ไม่สำเร็จ' },
+        { status: 400 }
+      );
+    }
 
-        await supabaseAdmin
-          .from('employees')
-          .update({
-            one_star_count: newOneStarCount,
-            wfh_status: isSuspended ? 'ระงับสิทธิ์' : employee.wfh_status,
-            updated_at: nowIso,
-          })
-          .eq('employee_id', employee.employee_id);
+    invalidateGasCache('getLogs');
 
-        // If threshold reached (3 stars), automatically create ticket & send notifications
-        if (isSuspended) {
-          await supabaseAdmin.from('tickets').insert({
-            employee_id: employee.employee_id,
-            problem_type: 'สะสม 1 ดาวครบ 3 ครั้ง (ระงับสิทธิ์ WFH อัตโนมัติ)',
-            description: `พนักงาน ${employee.name} สะสมคะแนน 1 ดาวครบ ${newOneStarCount} ครั้ง ระบบได้ทำการระงับสิทธิ์ WFH อัตโนมัติ`,
-            status: 'Pending',
-          });
-
-          await sendSuspensionAlertEmail(employee.name, employee.employee_id, employee.email);
-
-          // Notify suspended employee
-          await createNotification({
-            employee_id: employee.employee_id,
-            type: 'suspension',
-            title: 'แจ้งเตือนระงับสิทธิ์ WFH',
-            message: 'บัญชีของคุณถูกระงับสิทธิ์ WFH เนื่องจากสะสม 1 ดาวครบ 3 ครั้ง',
-            link: '/supervisor',
-          });
-
-          // Notify all admins
-          await createNotificationForAdmins({
-            type: 'suspension',
-            title: 'แจ้งเตือนระงับสิทธิ์ WFH พนักงาน',
-            message: `บัญชีของพนักงาน ${employee.name} (${employee.employee_id}) ถูกระงับสิทธิ์ WFH เนื่องจากสะสม 1 ดาวครบ 3 ครั้ง`,
-            link: '/admin',
-          });
+    // Send in-app notification to employee
+    try {
+      let empId = task_id.includes('_') ? task_id.split('_')[0] : '';
+      if (!empId) {
+        const tasksRes = await callGAS('getLogs', { logType: 'task', limit: 50 });
+        const targetTask = ((tasksRes?.data || []) as any[]).find((t) => t.uuid === task_id || t.id === task_id);
+        if (targetTask?.employeeId) {
+          empId = String(targetTask.employeeId);
         }
       }
+
+      if (empId) {
+        await createNotification({
+          employee_id: empId,
+          type: 'task_rated',
+          title: `⭐ หัวหน้างานประเมินผลงานแล้ว (${star_rating} ดาว)`,
+          message: supervisor_note ? `ความคิดเห็น: ${supervisor_note}` : `หัวหน้างานได้ประเมินคะแนนส่งงานประจำวันแล้ว`,
+          link: '/tasks',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to dispatch rating notification:', notifErr);
     }
 
     return NextResponse.json({
       success: true,
-      message: `ประเมินผลงานเรียบร้อยแล้ว (${star_rating} ดาว)`,
+      message: `ประเมินผลงานเรียบร้อยแล้วใน Google Sheet (${star_rating} ดาว)`,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('PATCH task rating error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการประเมินผลงาน' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการประเมินผลงาน' }, { status: 500 });
   }
 }

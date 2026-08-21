@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @layer utilities {
   .glass-card {
     background: rgba(255, 255, 255, 0.95);
@@ -34,4 +43,293 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* ==========================================================================
+   🎨 WARM MIDNIGHT DARK THEME (นุ่มนวล สบายตา โทนสีอบอุ่น ระดับพรีเมียม)
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* 1. Base Canvas — Warm Midnight Charcoal Background */
+html.dark body,
+html.dark .min-h-screen.bg-slate-50,
+html.dark .bg-slate-50 {
+  background-color: #12151c !important; /* Soft Matte Warm Midnight Base */
+  color: #e2e8f0 !important;
+}
+
+/* 2. Surfaces & Elevated Card Containers */
+html.dark .bg-white {
+  background-color: #1a1e28 !important; /* Elevated Warm Charcoal Card */
+  color: #f1f5f9 !important;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/50,
+html.dark .bg-slate-100\/70,
+html.dark .bg-slate-200,
+html.dark .bg-slate-200\/80,
+html.dark .bg-slate-200\/60,
+html.dark .bg-slate-200\/50 {
+  background-color: #151821 !important; /* Sub-surface Container */
+  color: #cbd5e1 !important;
+}
+
+/* 3. Subtle Warm Borders & Dividers */
+html.dark .border-slate-200,
+html.dark .border-slate-100,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-300,
+html.dark .border-slate-200\/70 {
+  border-color: #262c3a !important; /* Delicate Slate-Warm Border */
+}
+
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #262c3a !important;
+}
+
+/* 4. Warm Typography Hierarchy (Off-White & Warm Grays) */
+html.dark .text-slate-900 {
+  color: #f8fafc !important; /* Warm Off-White (No eye glare) */
+}
+
+html.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-700 {
+  color: #cbd5e1 !important; /* Soft Ivory/Slate */
+}
+
+html.dark .text-slate-600 {
+  color: #94a3b8 !important; /* Warm Readable Gray */
+}
+
+html.dark .text-slate-500 {
+  color: #64748b !important; /* Muted Charcoal */
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* 5. Sidebar & Header Harmony */
+html.dark aside,
+html.dark header {
+  background-color: #151821 !important;
+  border-color: #222734 !important;
+}
+
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-white\/50:hover {
+  background-color: #202533 !important;
+  color: #ffffff !important;
+}
+
+/* 6. Overview KPI Cards (Warm Floating Cards with Subtle Depth) */
+html.dark .from-white.to-emerald-50\/30,
+html.dark .from-white.to-rose-50\/30,
+html.dark .from-white.to-orange-50\/30,
+html.dark .from-white.to-amber-50\/30 {
+  background-color: #1a1e28 !important;
+  border-color: #262c3a !important;
+  box-shadow: 0 4px 18px -3px rgba(0, 0, 0, 0.4) !important;
+  transition: all 0.2s ease;
+}
+
+html.dark .from-white.to-emerald-50\/30:hover,
+html.dark .from-white.to-rose-50\/30:hover,
+html.dark .from-white.to-orange-50\/30:hover,
+html.dark .from-white.to-amber-50\/30:hover {
+  background-color: #1e2330 !important;
+  border-color: #363e52 !important;
+  transform: translateY(-1px);
+}
+
+/* Harmonized Warm Status Pills */
+html.dark .bg-emerald-100\/70,
+html.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+
+html.dark .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+  color: #fb7185 !important;
+  border: 1px solid rgba(244, 63, 94, 0.25) !important;
+}
+
+html.dark .bg-orange-100\/80,
+html.dark .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.12) !important;
+  color: #fb923c !important;
+  border: 1px solid rgba(249, 115, 22, 0.25) !important;
+}
+
+html.dark .bg-amber-100\/80,
+html.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+html.dark .bg-indigo-100 {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  color: #a5b4fc !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+}
+
+html.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+}
+
+/* 7. Form Controls, Inputs & Filters */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #141720 !important;
+  border-color: #262c3a !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #f97316 !important;
+  background-color: #181c26 !important;
+  box-shadow: 0 0 0 1px #f97316 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #4b5568 !important;
+}
+
+html.dark select option {
+  background-color: #1a1e28 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Active Toggle Buttons & Pills */
+html.dark .bg-white.text-orange-600,
+html.dark .bg-white.text-emerald-700,
+html.dark .bg-white.text-orange-700,
+html.dark .bg-white.text-slate-900 {
+  background-color: #242a38 !important;
+  color: #fb923c !important;
+  border-color: #3b445a !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 8. Tables & Lists */
+html.dark thead.bg-slate-100,
+html.dark thead {
+  background-color: #141720 !important;
+  color: #94a3b8 !important;
+  border-color: #262c3a !important;
+}
+
+html.dark tbody tr {
+  border-color: #1e2330 !important;
+}
+
+html.dark tbody tr:hover {
+  background-color: #1f2431 !important;
+}
+
+/* 9. Header Action Buttons & Badges */
+html.dark .bg-slate-50\/80 {
+  background-color: #1a1e28 !important;
+}
+
+html.dark .bg-slate-200\/80 {
+  background-color: #242a38 !important;
+  color: #cbd5e1 !important;
+}
+
+/* 10. Glass Card & Modals */
+html.dark .glass-card {
+  background: rgba(26, 30, 40, 0.97) !important;
+  border-color: #2a3142 !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65) !important;
+}
+
+/* 11. User Manual (/manual) Callout Banners */
+html.dark .from-orange-50\/50.to-white,
+html.dark .from-amber-50\/50.to-white,
+html.dark .from-blue-50\/50.to-white {
+  background-color: #1a1e28 !important;
+  border-color: #262c3a !important;
+}
+
+html.dark .bg-rose-50\/50,
+html.dark .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.08) !important;
+  border-color: rgba(244, 63, 94, 0.22) !important;
+}
+
+html.dark .text-rose-950,
+html.dark .text-rose-900,
+html.dark .text-rose-800 {
+  color: #fca5a5 !important;
+}
+
+html.dark .bg-rose-100\/70 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+
+html.dark .bg-amber-50\/60,
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.22) !important;
+}
+
+html.dark .text-amber-950,
+html.dark .text-amber-900,
+html.dark .text-amber-800 {
+  color: #fde047 !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.22) !important;
+}
+
+html.dark .text-emerald-800,
+html.dark .text-emerald-900 {
+  color: #86efac !important;
+}
+
+html.dark .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.08) !important;
+  border-color: rgba(249, 115, 22, 0.22) !important;
+}
+
+html.dark .text-orange-800,
+html.dark .text-orange-900 {
+  color: #fdba74 !important;
+}
+
+/* Custom scrollbar for dark theme */
+html.dark ::-webkit-scrollbar-track {
+  background: #12151c;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #262c3a;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3b445a;
 }

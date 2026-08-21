@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { createNotification, createNotificationForAdmins } from '@/lib/notifications';
+import { callGAS } from '@/lib/gas';
 import { Ticket } from '@/types';
 
 export async function GET() {
@@ -11,30 +10,29 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    let query = supabaseAdmin
-      .from('tickets')
-      .select(`
-        *,
-        employees:employee_id ( name, department )
-      `)
-      .order('created_at', { ascending: false });
+    const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 300 });
+    const rawTickets = (gasRes?.data || []) as any[];
 
+    let filtered = rawTickets;
     if (session.role === 'employee') {
-      query = query.eq('employee_id', session.employee_id);
+      filtered = rawTickets.filter((t) => String(t.employeeId) === String(session.employee_id));
     }
 
-    const { data, error } = await query;
-    if (error) console.error('Fetch tickets error:', error);
-
-    const formatted = (data || []).map((t: any) => ({
-      ...t,
-      employee_name: t.employees?.name || t.employee_id,
+    const formatted: Ticket[] = filtered.map((t) => ({
+      id: t.uuid || t.ticketId || `${t.employeeId}_${t.date}`,
+      employee_id: String(t.employeeId),
+      employee_name: t.name || t.employeeName || t.employeeId,
+      problem_type: t.issueType || t.type || t.problemType || 'ปัญหาทั่วไป',
+      description: t.details || t.description || null,
+      status: t.status || 'Pending',
+      admin_notes: t.adminNotes || t.notes || null,
+      created_at: t.dateTime ? `${t.dateTime.replace(' ', 'T')}+07:00` : `${t.date || '2026-08-19'}T09:00:00Z`,
     }));
 
     return NextResponse.json({ tickets: formatted });
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET tickets error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงรายการ Ticket' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงรายการ Ticket จาก Google Sheet' }, { status: 500 });
   }
 }
 
@@ -52,44 +50,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'กรุณาระบุหมวดหมู่ปัญหา' }, { status: 400 });
     }
 
-    const newTicket: Ticket = {
-      id: crypto.randomUUID(),
-      employee_id: session.employee_id,
-      employee_name: session.name,
-      problem_type,
-      description: description || null,
-      status: 'Pending',
-      created_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabaseAdmin.from('tickets').insert({
-      employee_id: newTicket.employee_id,
-      problem_type: newTicket.problem_type,
-      description: newTicket.description,
-      status: 'Pending',
+    const gasResult = await callGAS('submitTicket', {
+      employeeId: session.employee_id,
+      problemType: problem_type,
+      details: description || '',
     });
 
-    if (error) {
-      console.error('Create ticket error:', error);
-      return NextResponse.json({ error: 'ส่ง Ticket แจ้งปัญหาไม่สำเร็จ' }, { status: 500 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json({ error: gasResult.message || 'ส่ง Ticket ลง Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
-    // Trigger notification to all admins
-    await createNotificationForAdmins({
-      type: 'ticket_created',
-      title: 'มี Ticket แจ้งปัญหาใหม่',
-      message: `มี Ticket ใหม่จาก ${session.name}: ${problem_type}`,
-      link: '/admin',
-    });
+    // In-app notification to Admin
+    try {
+      const { invalidateGasCache } = await import('@/lib/gas');
+      const { createNotificationForAdmins } = await import('@/lib/notifications');
+      invalidateGasCache();
+      await createNotificationForAdmins({
+        type: 'ticket',
+        title: `🎫 มีการแจ้งปัญหาใหม่: ${problem_type}`,
+        message: `คุณ ${session.name || session.employee_id} (${session.employee_id}) แจ้ง: "${description || problem_type}"`,
+        link: '/admin',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to create ticket notification:', notifErr);
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'ส่ง Ticket แจ้งปัญหาให้แอดมินเรียบร้อยแล้ว',
-      ticket: newTicket,
+      message: 'ส่ง Ticket แจ้งปัญหาลง Google Sheet เรียบร้อยแล้ว',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST ticket error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้าง Ticket' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการสร้าง Ticket' }, { status: 500 });
   }
 }
 
@@ -107,45 +99,47 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }
 
-    const { data: ticketRecord } = await supabaseAdmin
-      .from('tickets')
-      .select('employee_id')
-      .eq('id', ticket_id)
-      .maybeSingle();
+    const { invalidateGasCache } = await import('@/lib/gas');
 
-    const targetEmployeeId = ticketRecord?.employee_id || '';
+    const gasResult = await callGAS('resolveTicket', {
+      ticketId: ticket_id,
+      status: status,
+      adminNotes: admin_notes || 'แก้ไขเรียบร้อย',
+      adminPin: '9998',
+      pin: '9998',
+    });
 
-    const { error } = await supabaseAdmin
-      .from('tickets')
-      .update({
-        status,
-        admin_notes: admin_notes || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', ticket_id);
+    invalidateGasCache();
 
-    if (error) {
-      console.error('Update ticket error:', error);
-      return NextResponse.json({ error: 'อัปเดต Ticket ไม่สำเร็จ' }, { status: 500 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json({ error: gasResult.message || 'อัปเดต Ticket ใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
-    // Trigger notification for employee ticket owner
-    if (targetEmployeeId) {
-      await createNotification({
-        employee_id: targetEmployeeId,
-        type: 'ticket_updated',
-        title: 'อัปเดตสถานะ Ticket แจ้งปัญหา',
-        message: `Ticket ของคุณถูกอัปเดตเป็นสถานะ ${status}`,
-        link: '/dashboard',
-      });
+    // Notify employee that their ticket has been resolved
+    try {
+      const { createNotification } = await import('@/lib/notifications');
+      const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 200 });
+      const rawTickets = (gasRes?.data || []) as any[];
+      const target = rawTickets.find((t) => t.uuid === ticket_id || t.ticketId === ticket_id || t.id === ticket_id);
+      if (target?.employeeId) {
+        await createNotification({
+          employee_id: String(target.employeeId),
+          type: 'ticket',
+          title: '✅ ตั๋วแจ้งปัญหาของคุณได้รับการแก้ไขแล้ว',
+          message: admin_notes ? `แอดมินตอบกลับ: "${admin_notes}"` : 'แอดมินได้ตรวจสอบและแก้ไขปัญหาให้เรียบร้อยแล้ว',
+          link: '/dashboard',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to notify employee on ticket resolution:', notifErr);
     }
 
     return NextResponse.json({
       success: true,
-      message: 'อัปเดตสถานะ Ticket เรียบร้อยแล้ว',
+      message: 'อัปเดตสถานะ Ticket ใน Google Sheet เรียบร้อยแล้ว',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('PATCH ticket error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการอัปเดต Ticket' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการอัปเดต Ticket' }, { status: 500 });
   }
 }

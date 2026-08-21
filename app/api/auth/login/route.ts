@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { verifyPin, setSessionCookie, checkRateLimit, recordFailedAttempt, resetFailedAttempt } from '@/lib/auth';
-import { Employee } from '@/types';
+import { callGAS } from '@/lib/gas';
+import { setSessionCookie, checkRateLimit, recordFailedAttempt, resetFailedAttempt, determineRole } from '@/lib/auth';
 
 const loginSchema = z.object({
   employee_id: z.string().min(1, 'กรุณากรอกรหัสพนักงาน'),
@@ -23,14 +22,14 @@ export async function POST(request: Request) {
     }
 
     const { employee_id, pin, unblock } = validation.data;
+    const cleanEmpId = employee_id.trim();
 
-    // If explicit unblock requested, reset rate limit first
+    // 1. Rate Limiting Check
     if (unblock) {
-      await resetFailedAttempt(employee_id);
+      await resetFailedAttempt(cleanEmpId);
     }
 
-    // 1. Check Rate Limiting
-    const rateCheck = await checkRateLimit(employee_id);
+    const rateCheck = await checkRateLimit(cleanEmpId);
     if (rateCheck.isLimited && !unblock) {
       return NextResponse.json(
         {
@@ -41,59 +40,63 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Fetch Employee Record from Supabase
-    const { data, error } = await supabaseAdmin
-      .from('employees')
-      .select('*')
-      .eq('employee_id', employee_id)
-      .maybeSingle();
+    // 2. Authenticate directly with Google Apps Script (Google Sheets)
+    let gasResult = await callGAS('employeeLogin', {
+      employeeId: cleanEmpId,
+      pin,
+    });
 
-    if (error || !data) {
-      await recordFailedAttempt(employee_id);
+    if (!gasResult || !gasResult.success) {
+      // Check admin login fallback if employee login failed
+      if (cleanEmpId === '9999' || pin === '9999') {
+        gasResult = await callGAS('adminLogin', {
+          employeeId: cleanEmpId,
+          pin,
+        });
+      }
+    }
+
+    if (!gasResult || !gasResult.success) {
+      await recordFailedAttempt(cleanEmpId);
       return NextResponse.json(
-        { error: 'ไม่พบรหัสพนักงาน หรือ รหัส PIN ไม่ถูกต้อง' },
+        { error: gasResult?.message || 'รหัสพนักงานหรือรหัส PIN ไม่ถูกต้อง' },
         { status: 401 }
       );
     }
-    const employee = data as Employee;
 
-    // 3. Verify PIN strictly against stored bcrypt pin_hash
-    const isValidPin = await verifyPin(pin, employee.pin_hash || '');
+    const profile = gasResult.profile;
+    const role = determineRole(profile.position, profile.dept, profile.employeeId);
+    const forcePinChange = profile.forcePinChange === true;
 
-    if (!isValidPin) {
-      await recordFailedAttempt(employee_id);
-      return NextResponse.json(
-        { error: 'รหัส PIN ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' },
-        { status: 401 }
-      );
-    }
+    // Reset rate limit on successful login
+    await resetFailedAttempt(cleanEmpId);
 
-    // Reset rate limit counter on success
-    await resetFailedAttempt(employee_id);
-
-    // 4. Create Session & Set Cookie
+    // 3. Create Session & Set Cookie
     await setSessionCookie({
-      employee_id: employee.employee_id,
-      name: employee.name,
-      role: employee.role,
-      department: employee.department || undefined,
-      force_pin_change: employee.force_pin_change,
+      employee_id: profile.employeeId,
+      name: profile.name,
+      role: role,
+      department: profile.dept || undefined,
+      force_pin_change: forcePinChange,
     });
 
     return NextResponse.json({
       success: true,
-      role: employee.role,
-      force_pin_change: employee.force_pin_change,
-      redirect: employee.force_pin_change
+      role: role,
+      force_pin_change: forcePinChange,
+      redirect: forcePinChange
         ? '/change-pin'
-        : employee.role === 'admin'
+        : role === 'admin'
         ? '/admin'
-        : employee.role === 'supervisor'
+        : role === 'supervisor'
         ? '/supervisor'
         : '/dashboard',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดภายในระบบ' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' },
+      { status: 500 }
+    );
   }
 }

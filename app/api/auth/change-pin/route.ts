@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSession, hashPin, verifyPin, setSessionCookie } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { getSession, setSessionCookie } from '@/lib/auth';
+import { callGAS } from '@/lib/gas';
 
 const changePinSchema = z
   .object({
@@ -32,35 +32,21 @@ export async function POST(request: Request) {
 
     const { oldPin, newPin } = validation.data;
 
-    // Fetch employee record from database
-    const { data: employee } = await supabaseAdmin
-      .from('employees')
-      .select('pin_hash')
-      .eq('employee_id', session.employee_id)
-      .maybeSingle();
+    // 1. Overwrite PIN directly in Google Sheet 'ข้อมูลพนักงาน' (Column G)
+    const gasResult = await callGAS('changeEmployeePin', {
+      employeeId: session.employee_id,
+      oldPin,
+      newPin,
+    });
 
-    if (!employee) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูลพนักงาน' }, { status: 404 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json(
+        { error: gasResult.message || 'เปลี่ยนรหัส PIN ใน Google Sheet ไม่สำเร็จ' },
+        { status: 400 }
+      );
     }
 
-    // Strictly verify old PIN against stored bcrypt pin_hash
-    const isOldPinValid = await verifyPin(oldPin, employee.pin_hash);
-    if (!isOldPinValid) {
-      return NextResponse.json({ error: 'PIN เดิมไม่ถูกต้อง' }, { status: 400 });
-    }
-
-    // Hash new PIN and update employee record
-    const newPinHash = await hashPin(newPin);
-    await supabaseAdmin
-      .from('employees')
-      .update({
-        pin_hash: newPinHash,
-        force_pin_change: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('employee_id', session.employee_id);
-
-    // Refresh session cookie with force_pin_change = false
+    // 2. Refresh session cookie with force_pin_change = false
     await setSessionCookie({
       ...session,
       force_pin_change: false,
@@ -75,11 +61,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'เปลี่ยนรหัส PIN สำเร็จ',
+      message: 'เปลี่ยนรหัส PIN สำเร็จเรียบร้อยแล้วใน Google Sheet',
       redirect: redirectPath,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Change PIN error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการเปลี่ยน PIN' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'เกิดข้อผิดพลาดในการเปลี่ยน PIN' },
+      { status: 500 }
+    );
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { getNotificationsForUser } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,25 +17,11 @@ export async function GET() {
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Function to check DB & push notification update
-      const checkAndPush = async () => {
+      const checkAndPush = () => {
         try {
-          const { data: unreadData } = await supabaseAdmin
-            .from('notifications')
-            .select('id')
-            .eq('employee_id', employeeId)
-            .eq('is_read', false);
-
-          const unreadCount = unreadData?.length || 0;
-
-          const { data: latestData } = await supabaseAdmin
-            .from('notifications')
-            .select('*')
-            .eq('employee_id', employeeId)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          const latestNotification = latestData && latestData.length > 0 ? latestData[0] : null;
+          const notifs = getNotificationsForUser(employeeId);
+          const unreadCount = notifs.filter((n: any) => !n.is_read).length;
+          const latestNotification = notifs.length > 0 ? notifs[0] : null;
 
           const payload = JSON.stringify({
             unreadCount,
@@ -49,12 +35,10 @@ export async function GET() {
         }
       };
 
-      // Push initial state immediately
-      await checkAndPush();
+      checkAndPush();
 
-      // Poll DB every 4 seconds (server-side only)
-      intervalId = setInterval(async () => {
-        await checkAndPush();
+      intervalId = setInterval(() => {
+        checkAndPush();
       }, 4000);
     },
     cancel() {

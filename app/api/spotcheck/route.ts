@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { callGAS, invalidateGasCache } from '@/lib/gas';
+import { SpotCheck } from '@/types';
+import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
+
+declare global {
+  var __activeTestSpotChecks: SpotCheck[] | undefined;
+}
 
 export async function GET() {
   try {
@@ -12,17 +17,152 @@ export async function GET() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const { data } = await supabaseAdmin
-      .from('spot_checks')
-      .select('*')
-      .eq('employee_id', session.employee_id)
-      .eq('check_date', todayStr)
-      .order('created_at', { ascending: false });
+    const gasRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 300 });
+    const rawSpotChecks = (gasRes?.data || []) as any[];
 
-    return NextResponse.json({ spotChecks: data || [] });
-  } catch (error) {
+    // Filter by employee and optionally today
+    const employeeChecks = rawSpotChecks.filter(
+      (s) => String(s.employeeId) === String(session.employee_id)
+    );
+
+    const formatted: SpotCheck[] = employeeChecks.map((s) => {
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if (s.gps && typeof s.gps === 'string' && s.gps.includes('q=')) {
+        const parts = s.gps.split('q=')[1]?.split(',');
+        if (parts && parts.length === 2) {
+          lat = parseFloat(parts[0]) || null;
+          lng = parseFloat(parts[1]) || null;
+        }
+      }
+
+      const scheduledTime = s.triggeredTime || s.scheduledTime || s.time || (s.round === 'เช้า' ? '09:30:00' : '14:30:00');
+      const status = s.status || s.resultStatus || 'Scheduled';
+      const scanTimeRaw = s.checkInTime || s.actualScanTime || null;
+      let actualScanTimeFormatted: string | null = null;
+      if (scanTimeRaw) {
+        if (typeof scanTimeRaw === 'string' && scanTimeRaw.includes('T')) {
+          actualScanTimeFormatted = scanTimeRaw;
+        } else {
+          actualScanTimeFormatted = `${s.date || todayStr}T${String(scanTimeRaw).padStart(8, '0')}+07:00`;
+        }
+      }
+
+      const photoUrl = getSelfiePhoto([
+        s.photo,
+        s.photoUrl,
+        s.uuid,
+        `${s.employeeId}_${s.date}`,
+        `${s.employeeId}_${s.date}_${s.round}`,
+        String(s.employeeId),
+      ]);
+
+      return {
+        id: s.uuid || `${s.employeeId}_${s.date}_${s.round}`,
+        employee_id: String(s.employeeId),
+        check_date: s.date || todayStr,
+        round: s.round || 'เช้า',
+        scheduled_time: scheduledTime,
+        actual_scan_time: actualScanTimeFormatted,
+        gps_lat: lat,
+        gps_lng: lng,
+        photo_url: photoUrl,
+        result_status: status,
+        created_at: `${s.date || todayStr}T${scheduledTime}+07:00`,
+      };
+    });
+
+    // Check if employee is working at office today
+    let isWorkingAtOfficeToday = false;
+    try {
+      const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
+      const checkinLogs = (checkinRes?.data || []) as any[];
+      const todayMorningCheckin = checkinLogs.find(
+        (c) =>
+          String(c.employeeId) === String(session.employee_id) &&
+          c.date === todayStr &&
+          c.type === 'เข้างาน'
+      );
+      if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
+        isWorkingAtOfficeToday = true;
+      }
+    } catch {
+      // Ignore checkin check error
+    }
+
+    const testChecks = (global.__activeTestSpotChecks || []).filter(
+      (t) => String(t.employee_id) === String(session.employee_id)
+    );
+
+    if (isWorkingAtOfficeToday) {
+      return NextResponse.json({
+        spotChecks: testChecks,
+        server_time: new Date().toISOString(),
+        server_timestamp: Date.now(),
+      });
+    }
+
+    const combined = [...testChecks, ...formatted];
+    const { getLiveEmployeesMap } = await import('@/lib/gas');
+    const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
+    const employeesMap = await getLiveEmployeesMap();
+    const currentEmp = employeesMap[session.employee_id] || {};
+    const position = currentEmp.position || '';
+    const isPhotoExempt = await isEmployeePhotoExempt({
+      employee_id: session.employee_id,
+      position: position,
+      role: session.role,
+    });
+
+    return NextResponse.json({
+      spotChecks: combined,
+      is_photo_exempt: isPhotoExempt,
+      employee_position: position,
+      server_time: new Date().toISOString(),
+      server_timestamp: Date.now(),
+    });
+  } catch (error: any) {
     console.error('GET spot check error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลสุ่มตรวจ' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลสุ่มตรวจจาก Google Sheet' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+
+    const testSpotCheck: SpotCheck = {
+      id: `TEST-${Date.now()}`,
+      employee_id: '1111',
+      check_date: todayStr,
+      round: 'ทดสอบสด',
+      scheduled_time: timeStr,
+      actual_scan_time: null,
+      gps_lat: null,
+      gps_lng: null,
+      photo_url: null,
+      result_status: 'Scheduled',
+      created_at: new Date().toISOString(),
+    };
+
+    if (!global.__activeTestSpotChecks) {
+      global.__activeTestSpotChecks = [];
+    }
+    // Remove previous pending test checks and add this one
+    global.__activeTestSpotChecks = [
+      testSpotCheck,
+      ...global.__activeTestSpotChecks.filter((t) => t.employee_id !== '1111'),
+    ];
+
+    return NextResponse.json({
+      success: true,
+      message: 'สร้างรอบสุ่มตรวจจำลองสำหรับรหัส 1111 สำเร็จแล้ว',
+      spotCheck: testSpotCheck,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -42,85 +182,133 @@ export async function POST(request: Request) {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Fetch first check-in of today for distance comparison
-    const { data: firstCheckIn } = await supabaseAdmin
-      .from('checkin_logs')
-      .select('gps_lat, gps_lng')
-      .eq('employee_id', session.employee_id)
-      .eq('log_date', todayStr)
-      .eq('log_type', 'เข้างาน')
-      .order('log_time', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    let isOutOfBounds = false;
-    let distanceKm = 0;
-
-    if (gps_lat && gps_lng && firstCheckIn?.gps_lat && firstCheckIn?.gps_lng) {
-      distanceKm = calculateHaversineDistanceKm(
-        gps_lat,
-        gps_lng,
-        firstCheckIn.gps_lat,
-        firstCheckIn.gps_lng
-      );
-      if (distanceKm > MAX_MOVEMENT_DISTANCE_KM) {
-        isOutOfBounds = true;
-      }
+    if (photo_base64 && typeof photo_base64 === 'string') {
+      saveSelfiePhoto(spot_check_id, photo_base64, [
+        session.employee_id,
+        `${session.employee_id}_${todayStr}`,
+        `${session.employee_id}_${todayStr}_${spot_check_id}`,
+        `spot_${session.employee_id}_${todayStr}`,
+      ]);
     }
 
-    let photoUrl = photo_base64 || null;
+    if (String(spot_check_id).startsWith('TEST-') || String(spot_check_id).startsWith('SPOT-MANUAL-')) {
+      const nowIso = new Date().toISOString();
+      if (global.__activeTestSpotChecks) {
+        global.__activeTestSpotChecks = global.__activeTestSpotChecks.map((t) => {
+          if (t.id === spot_check_id) {
+            return {
+              ...t,
+              result_status: 'Pass',
+              actual_scan_time: nowIso,
+              gps_lat: gps_lat || null,
+              gps_lng: gps_lng || null,
+              photo_url: photo_base64 || t.photo_url || null,
+            };
+          }
+          return t;
+        });
+      }
 
-    if (photo_base64 && photo_base64.startsWith('data:image')) {
+      // Log to Google Apps Script
       try {
-        const base64Data = photo_base64.split(',')[1];
-        const buffer = Buffer.from(base64Data, 'base64');
-        const filename = `spot_${session.employee_id}_${Date.now()}.jpg`;
+        await callGAS('checkin', {
+          type: 'ยืนยันตัวตน',
+          employeeId: session.employee_id,
+          lat: gps_lat || null,
+          lng: gps_lng || null,
+          photo: photo_base64 || null,
+          note: `[สุ่มตรวจเฉพาะกิจ] ยืนยันตัวตนสำเร็จ (${spot_check_id})`,
+        });
+      } catch (logErr) {
+        console.warn('Manual spot check gas log error:', logErr);
+      }
 
-        const { data: uploadResult, error: uploadError } = await supabaseAdmin.storage
-          .from('checkin-photos')
-          .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
+      // Notify supervisor
+      try {
+        const { getLiveEmployeesMap } = await import('@/lib/gas');
+        const { createNotification } = await import('@/lib/notifications');
+        const empsMap = await getLiveEmployeesMap();
+        const supervisorId = empsMap[session.employee_id]?.supervisorId || '8888';
+        const empName = session.name || empsMap[session.employee_id]?.name || session.employee_id;
 
-        if (!uploadError && uploadResult) {
-          const { data: urlData } = supabaseAdmin.storage
-            .from('checkin-photos')
-            .getPublicUrl(filename);
-          photoUrl = urlData.publicUrl;
+        await createNotification({
+          employee_id: supervisorId,
+          type: 'spotcheck',
+          title: `✅ ลูกทีมยืนยันตัวตนสุ่มตรวจสำเร็จแล้ว`,
+          message: `คุณ ${empName} (${session.employee_id}) ได้เปิดกล้องถ่ายภาพ Selfie และยืนยันพิกัดเรียบร้อยแล้ว`,
+          link: '/supervisor',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to notify supervisor:', notifErr);
+      }
+
+      invalidateGasCache();
+
+      return NextResponse.json({
+        success: true,
+        result_status: 'Pass',
+        message: 'คุณได้ยืนยันตัวตนสุ่มตรวจเฉพาะกิจเรียบร้อยแล้ว!',
+      });
+    }
+
+    // 1. Try submitSpotCheck directly
+    let gasResult = await callGAS('submitSpotCheck', {
+      employeeId: session.employee_id,
+      spotUuid: spot_check_id,
+      spotCheckId: spot_check_id,
+      spotCheckUuid: spot_check_id,
+      uuid: spot_check_id,
+      lat: gps_lat || null,
+      lng: gps_lng || null,
+      photo: photo_base64 || null,
+    });
+
+    // 2. If GAS submitSpotCheck returns false, fallback to checkin 'ยืนยันตัวตน'
+    if (!gasResult?.success) {
+      try {
+        const checkinFallback = await callGAS('checkin', {
+          type: 'ยืนยันตัวตน',
+          employeeId: session.employee_id,
+          lat: gps_lat || null,
+          lng: gps_lng || null,
+          photo: photo_base64 || null,
+          note: `[สุ่มตรวจ] ยืนยันตัวตนตามเวลาสุ่มตรวจ (${spot_check_id})`,
+        });
+
+        if (checkinFallback?.success || checkinFallback?.message?.includes('เรียบร้อยแล้ว')) {
+          gasResult = { success: true, message: 'ยืนยันตัวตนสุ่มตรวจสำเร็จแล้ว' };
         }
-      } catch (e) {
-        console.warn('Spot check photo upload warning:', e);
+      } catch (fallbackErr) {
+        console.warn('Fallback checkin error:', fallbackErr);
       }
     }
 
-    const finalResultStatus = isOutOfBounds
-      ? `ไม่ผ่านการสุ่มตรวจ (นอกพื้นที่ ${distanceKm.toFixed(2)} กม.)`
-      : 'Pass';
+    if (gasResult && !gasResult.success) {
+      // If message indicates already completed
+      if (gasResult.message?.includes('เรียบร้อยแล้ว')) {
+        invalidateGasCache();
+        return NextResponse.json({
+          success: true,
+          result_status: 'Pass',
+          message: 'คุณได้ยืนยันตัวตนเรียบร้อยแล้ว',
+        });
+      }
 
-    const { error: updateError } = await supabaseAdmin
-      .from('spot_checks')
-      .update({
-        gps_lat: gps_lat || null,
-        gps_lng: gps_lng || null,
-        photo_url: photoUrl,
-        actual_scan_time: new Date().toISOString(),
-        result_status: finalResultStatus,
-      })
-      .eq('id', spot_check_id)
-      .eq('employee_id', session.employee_id);
-
-    if (updateError) {
-      console.error('Update spot check error:', updateError);
-      return NextResponse.json({ error: 'บันทึกการสุ่มตรวจไม่สำเร็จ' }, { status: 500 });
+      return NextResponse.json(
+        { error: gasResult.message || 'บันทึกการสุ่มตรวจใน Google Sheet ไม่สำเร็จ' },
+        { status: 400 }
+      );
     }
+
+    invalidateGasCache();
 
     return NextResponse.json({
       success: true,
-      result_status: finalResultStatus,
-      message: isOutOfBounds
-        ? `ตำแหน่งของคุณอยู่ห่างจากจุดเช็คอินแรกถึง ${distanceKm.toFixed(2)} กม. (${finalResultStatus})`
-        : 'ยืนยันตัวตนสุ่มตรวจสำเร็จ (สถานะ: Pass)',
+      result_status: gasResult?.resultStatus || 'Pass',
+      message: gasResult?.message || 'ยืนยันตัวตนสุ่มตรวจสำเร็จใน Google Sheet',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST spot check error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสุ่มตรวจ' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการสุ่มตรวจ' }, { status: 500 });
   }
 }

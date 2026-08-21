@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import { SessionPayload } from '@/types';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/server';
 import { verifySessionToken } from '@/lib/jwt';
 
 export { verifySessionToken };
@@ -15,7 +14,7 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const COOKIE_NAME = 'wfh_session';
 
-// In-memory fallback for rate limiting if Supabase DB is not connected yet
+// In-memory rate limiting
 const memoryRateLimits = new Map<string, { attempts: number; lockedUntil: number | null }>();
 
 /**
@@ -27,11 +26,15 @@ export async function hashPin(pin: string): Promise<string> {
 }
 
 /**
- * Verify PIN against bcrypt hash strictly. Legacy plain-text fallback has been removed.
+ * Verify PIN against bcrypt hash or plain text
  */
 export async function verifyPin(pin: string, hash: string): Promise<boolean> {
   if (!hash) return false;
-  return bcrypt.compare(pin, hash);
+  if (hash === pin) return true;
+  if (hash.startsWith('$2a$') || hash.startsWith('$2b$')) {
+    return bcrypt.compare(pin, hash);
+  }
+  return hash === pin;
 }
 
 /**
@@ -86,25 +89,6 @@ export async function checkRateLimit(employeeId: string): Promise<{ isLimited: b
     return { isLimited: false };
   }
 
-  if (isSupabaseConfigured()) {
-    const { data } = await supabaseAdmin
-      .from('login_attempts')
-      .select('*')
-      .eq('key', employeeId)
-      .single();
-
-    if (data && data.locked_until) {
-      const lockedUntil = new Date(data.locked_until).getTime();
-      const now = Date.now();
-      if (now < lockedUntil) {
-        const remainingMinutes = Math.ceil((lockedUntil - now) / (60 * 1000));
-        return { isLimited: true, lockMinutesRemaining: remainingMinutes };
-      }
-    }
-    return { isLimited: false };
-  }
-
-  // Memory fallback
   const record = memoryRateLimits.get(employeeId);
   if (record && record.lockedUntil && Date.now() < record.lockedUntil) {
     const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / (60 * 1000));
@@ -120,26 +104,6 @@ export async function recordFailedAttempt(employeeId: string) {
   const maxAttempts = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
   const lockoutMs = Number(process.env.LOCKOUT_MINUTES || 15) * 60 * 1000;
 
-  if (isSupabaseConfigured()) {
-    const { data } = await supabaseAdmin
-      .from('login_attempts')
-      .select('*')
-      .eq('key', employeeId)
-      .single();
-
-    const currentAttempts = (data?.attempts || 0) + 1;
-    const shouldLock = currentAttempts >= maxAttempts;
-    const lockedUntil = shouldLock ? new Date(Date.now() + lockoutMs).toISOString() : null;
-
-    await supabaseAdmin.from('login_attempts').upsert({
-      key: employeeId,
-      attempts: currentAttempts,
-      locked_until: lockedUntil,
-    });
-    return;
-  }
-
-  // Memory fallback
   const record = memoryRateLimits.get(employeeId) || { attempts: 0, lockedUntil: null };
   const currentAttempts = record.attempts + 1;
   const lockedUntil = currentAttempts >= maxAttempts ? Date.now() + lockoutMs : null;
@@ -151,9 +115,6 @@ export async function recordFailedAttempt(employeeId: string) {
  */
 export async function resetFailedAttempt(employeeId: string) {
   memoryRateLimits.delete(employeeId);
-  if (isSupabaseConfigured()) {
-    await supabaseAdmin.from('login_attempts').delete().eq('key', employeeId);
-  }
 }
 
 /**
@@ -162,3 +123,47 @@ export async function resetFailedAttempt(employeeId: string) {
 export function clearAllMemoryRateLimits() {
   memoryRateLimits.clear();
 }
+
+/**
+ * Single source of truth for Role determination:
+ * 1. Admin: employeeId '9999', or dept 'ผู้ดูแลระบบ', or position contains '[Admin]' / '(Admin)'
+ * 2. Supervisor: position contains '[Supervisor]' or '(หัวหน้างาน)' or '[หัวหน้างาน]'
+ * 3. Employee: Default for everyone else (including newly registered members)
+ */
+export function determineRole(position?: string, dept?: string, employeeId?: string): SessionPayload['role'] {
+  if (employeeId === '9999' || dept?.includes('ผู้ดูแลระบบ') || position?.includes('[Admin]') || position?.toLowerCase().includes('(admin)')) {
+    return 'admin';
+  }
+  if (
+    position?.includes('[Supervisor]') ||
+    position?.includes('(หัวหน้างาน)') ||
+    position?.includes('[หัวหน้างาน]') ||
+    position?.toLowerCase().includes('(supervisor)')
+  ) {
+    return 'supervisor';
+  }
+  return 'employee';
+}
+
+/**
+ * Format position text with explicit role tag when Admin updates role
+ */
+export function formatPositionForRole(rawPosition: string = '', role: SessionPayload['role']): string {
+  let clean = rawPosition
+    .replace(/\s*\[Supervisor\]/gi, '')
+    .replace(/\s*\(หัวหน้างาน\)/g, '')
+    .replace(/\s*\[หัวหน้างาน\]/g, '')
+    .replace(/\s*\(supervisor\)/gi, '')
+    .replace(/\s*\[Admin\]/gi, '')
+    .replace(/\s*\(Admin\)/gi, '')
+    .trim();
+
+  if (role === 'supervisor') {
+    return clean ? `${clean} [Supervisor]` : 'หัวหน้างาน [Supervisor]';
+  }
+  if (role === 'admin') {
+    return clean ? `${clean} [Admin]` : 'ผู้ดูแลระบบ [Admin]';
+  }
+  return clean || 'พนักงาน';
+}
+

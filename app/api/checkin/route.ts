@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import {
-  determineVerificationStatus,
-  isPhotoOptionalForPosition,
-  calculateHaversineDistanceKm,
-  MAX_MOVEMENT_DISTANCE_KM,
-} from '@/lib/geo';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { createNotification } from '@/lib/notifications';
-import { CheckinLog, VerificationStatus } from '@/types';
+import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
+import { CheckinLog } from '@/types';
+import { isEmployeePhotoExempt } from '@/lib/photoExempt';
+import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
 
 export async function GET(request: Request) {
   try {
@@ -21,68 +16,130 @@ export async function GET(request: Request) {
     const scope = searchParams.get('scope'); // 'all' | 'team' | 'self'
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Determine query scope
-    const isOwner = !scope || scope === 'self';
-    const isAdminView = session.role === 'admin' && scope === 'all';
-    const isSupervisorView = (session.role === 'supervisor' || session.role === 'admin') && scope === 'team';
+    const [gasRes, gasSpotRes] = await Promise.all([
+      callGAS('getLogs', { logType: 'checkin', limit: 300 }),
+      callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
+    ]);
 
-    if (isSupervisorView) {
-      // Fetch only subordinates of this supervisor
-      const { data: subEmps } = await supabaseAdmin
-        .from('employees')
-        .select('employee_id')
-        .eq('supervisor_id', session.employee_id);
-
-      const subIds = (subEmps || []).map((e) => e.employee_id);
-
-      if (subIds.length === 0) {
-        return NextResponse.json({ logs: [] });
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('checkin_logs')
-        .select('*, employees(name, department, position, supervisor_id)')
-        .in('employee_id', subIds)
-        .order('log_time', { ascending: false });
-
-      if (error) console.error('Error fetching team checkin logs:', error);
-
-      const formattedLogs = (data || []).map((l: any) => ({
-        ...l,
-        employee_name: l.employees?.name || l.employee_id,
-        department: l.employees?.department,
-        position: l.employees?.position,
-      }));
-
-      return NextResponse.json({ logs: formattedLogs });
-    }
-
-    let query = supabaseAdmin
-      .from('checkin_logs')
-      .select('*, employees(name, department, position, supervisor_id, role)')
-      .order('log_time', { ascending: false });
-
-    if (isOwner) {
-      query = query.eq('employee_id', session.employee_id).eq('log_date', todayStr);
-    } else if (isAdminView) {
-      query = query.limit(200);
-    }
-
-    const { data, error } = await query;
-
-    if (error) console.error('Error fetching checkin logs:', error);
-
-    const formattedLogs = (data || []).map((l: any) => ({
-      ...l,
-      employee_name: l.employees?.name || l.employee_id,
-      department: l.employees?.department,
-      position: l.employees?.position,
+    const rawCheckinLogs = (gasRes?.data || []) as any[];
+    const rawSpotLogs = ((gasSpotRes?.data || []) as any[]).map((s: any) => ({
+      ...s,
+      uuid: s.uuid || `spot_${s.employeeId}_${s.date}_${s.time || s.scheduledTime}`,
+      type: s.type || 'สุ่มตรวจ',
+      time: s.time || s.checkInTime || s.actualScanTime || s.scheduledTime || s.triggeredTime || '10:00:00',
+      verificationStatus: s.status || s.resultStatus || 'ยืนยันสำเร็จ',
+      note: s.note || (s.round ? `[สุ่มตรวจรอบ ${s.round}]` : '[สุ่มตรวจ]'),
     }));
 
-    return NextResponse.json({ logs: formattedLogs });
-  } catch (error) {
+    const testSpotLogs = (((global as any).__activeTestSpotChecks || []) as any[]).map((s: any) => ({
+      uuid: s.id,
+      employeeId: s.employee_id,
+      type: 'สุ่มตรวจเฉพาะกิจ',
+      date: s.check_date,
+      time: s.actual_scan_time ? s.actual_scan_time.split('T')[1]?.split('+')[0] : s.scheduled_time,
+      gps: s.gps_lat && s.gps_lng ? `q=${s.gps_lat},${s.gps_lng}` : null,
+      photo: s.photo_url || null,
+      verificationStatus: s.result_status === 'Pass' ? 'ยืนยันสำเร็จ' : s.result_status || 'รอสุ่มตรวจ',
+      note: '[สุ่มตรวจเฉพาะกิจ]',
+    }));
+
+    const rawLogs = [...rawCheckinLogs, ...rawSpotLogs, ...testSpotLogs];
+
+    // Fetch employee map for supervisor/team hierarchy
+    const employeesMap = await getLiveEmployeesMap();
+
+    // Filter to strictly attendance & verification logs (เข้างาน, ออกงาน, สุ่มตรวจ, ยืนยันตัวตน)
+    const isAttendanceLog = (type?: string) => {
+      if (!type) return false;
+      const invalidKeywords = ['แก้ไขประวัติ', 'เปลี่ยน PIN', 'สมัครสมาชิก', 'รีเซ็ต PIN', 'แก้ไขข้อมูล'];
+      if (invalidKeywords.some((k) => type.includes(k))) return false;
+      const validTypes = ['เข้างาน', 'ออกงาน', 'สุ่มตรวจ', 'ยืนยันตัวตน'];
+      return validTypes.some((t) => type.includes(t));
+    };
+
+    let filtered = rawLogs.filter((l) => isAttendanceLog(l.type));
+
+    if (scope === 'all' && session.role === 'admin') {
+      // Admin global logs (all attendance records)
+    } else if (scope === 'team' && (session.role === 'supervisor' || session.role === 'admin')) {
+      const subordinateIds = Object.keys(employeesMap).filter(
+        (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+      );
+      filtered = filtered.filter((l) => subordinateIds.includes(String(l.employeeId)));
+    } else if (scope === 'self') {
+      filtered = filtered.filter((l) => String(l.employeeId) === String(session.employee_id));
+    } else {
+      // Default: Personal attendance logs for today
+      filtered = filtered.filter(
+        (l) => String(l.employeeId) === String(session.employee_id) && l.date === todayStr
+      );
+    }
+
+    const formattedLogs: CheckinLog[] = filtered.map((l) => {
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if (l.gps && typeof l.gps === 'string' && l.gps.includes('q=')) {
+        const parts = l.gps.split('q=')[1]?.split(',');
+        if (parts && parts.length === 2) {
+          lat = parseFloat(parts[0]) || null;
+          lng = parseFloat(parts[1]) || null;
+        }
+      }
+
+      const timeFormatted = l.time ? (l.time.length === 5 ? `${l.time}:00` : l.time) : '08:00:00';
+      const isoTimeStr = `${l.date}T${timeFormatted}+07:00`;
+
+      // Check memory or disk for photo
+      const photoUrl = getSelfiePhoto([
+        l.photo,
+        l.photoUrl,
+        l.uuid,
+        `${l.employeeId}_${l.date}`,
+        `${l.employeeId}_${l.date}_${l.time}`,
+        `spot_${l.employeeId}_${l.date}`,
+        (l.date === todayStr ? String(l.employeeId) : null),
+      ]);
+
+      const hasPhoto = l.hasPhoto === true || Boolean(photoUrl);
+
+      return {
+        id: l.uuid || `${l.employeeId}_${l.date}_${l.time}`,
+        employee_id: String(l.employeeId),
+        employee_name: l.name || employeesMap[l.employeeId]?.name || l.employeeId,
+        log_type: l.type || 'เข้างาน',
+        log_date: l.date,
+        log_time: isoTimeStr,
+        gps_lat: lat,
+        gps_lng: lng,
+        photo_url: photoUrl,
+        has_photo: hasPhoto,
+        note: l.note || null,
+        out_of_bounds_reason: null,
+        is_early_leave: false,
+        verification_status: l.verificationStatus || 'ปกติ',
+        created_at: isoTimeStr,
+        updated_at: isoTimeStr,
+        department: l.dept || employeesMap[l.employeeId]?.dept,
+        position: l.position || employeesMap[l.employeeId]?.position,
+      };
+    });
+
+    const currentEmp = employeesMap[session.employee_id] || {};
+    const position = currentEmp.position || '';
+    const isPhotoExempt = await isEmployeePhotoExempt({
+      employee_id: session.employee_id,
+      position: position,
+      role: session.role,
+    });
+
+    return NextResponse.json({
+      logs: formattedLogs,
+      is_photo_exempt: isPhotoExempt,
+      employee_position: position,
+    });
+  } catch (error: any) {
     console.error('GET checkin error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลเช็คอิน' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลเช็คอินจาก Google Sheet' }, { status: 500 });
   }
 }
 
@@ -100,324 +157,95 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ประเภทการลงเวลาไม่ถูกต้อง' }, { status: 400 });
     }
 
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentSecond = now.getSeconds();
-    const todayStr = now.toISOString().split('T')[0];
+    // Check photo exemption for current employee
+    const employeesMap = await getLiveEmployeesMap();
+    const currentEmp = employeesMap[session.employee_id] || {};
+    const position = currentEmp.position || '';
+    const isPhotoExempt = await isEmployeePhotoExempt({
+      employee_id: session.employee_id,
+      position: position,
+      role: session.role,
+    });
 
-    // Fetch employee details
-    const { data: employeeRecord } = await supabaseAdmin
-      .from('employees')
-      .select('position, supervisor_id, name')
-      .eq('employee_id', session.employee_id)
-      .maybeSingle();
-
-    const employeePosition = employeeRecord?.position || null;
-
-    // Fetch office GPS config
-    let officeLat = 13.7563;
-    let officeLng = 100.5018;
-    let maxRadiusMeters = 500;
-
-    const { data: configs } = await supabaseAdmin
-      .from('app_config')
-      .select('key, value');
-
-    if (configs) {
-      configs.forEach((c) => {
-        if (c.key === 'office_lat') officeLat = parseFloat(c.value) || 13.7563;
-        if (c.key === 'office_lng') officeLng = parseFloat(c.value) || 100.5018;
-        if (c.key === 'max_allowed_radius_meters') maxRadiusMeters = parseFloat(c.value) || 500;
-      });
-    }
-
-    // Determine basic location status
-    const basicLocationStatus = determineVerificationStatus(
-      gps_lat,
-      gps_lng,
-      officeLat,
-      officeLng,
-      maxRadiusMeters
-    );
-
-    let finalVerificationStatus: VerificationStatus = basicLocationStatus;
-    let isEarlyLeave = false;
-
-    // =========================================================================
-    // RULE 1: เข้างานสาย (Cutoff 08:00:00 AM)
-    // =========================================================================
-    if (log_type === 'เข้างาน') {
-      const isMorningLate = currentHour > 8 || (currentHour === 8 && (currentMinute > 0 || currentSecond > 0));
-
-      if (isMorningLate && !note?.trim()) {
-        return NextResponse.json(
-          { error: 'เนื่องจากคุณเข้างานหลังเวลา 08:00 น. กรุณากรอกเหตุผลกรณีเข้าสายด้วยครับ' },
-          { status: 400 }
-        );
-      }
-
-      if (basicLocationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
-        finalVerificationStatus = 'ปฏิบัติงานที่ออฟฟิศ';
-      } else if (isMorningLate) {
-        finalVerificationStatus = 'เข้างานสาย';
-      } else {
-        finalVerificationStatus = 'นอกพื้นที่ (WFH)';
-      }
-    }
-
-    // =========================================================================
-    // RULE 2: ยืนยันตัวตนรอบ 2 (บังคับ 13:00-13:20, เทียบ GPS กับจุดเช็คอินแรก <= 20 กม.)
-    // =========================================================================
-    if (log_type === 'ยืนยันตัวตน') {
-      // 1. Fetch first check-in of today
-      const { data: firstCheckIn } = await supabaseAdmin
-        .from('checkin_logs')
-        .select('*')
-        .eq('employee_id', session.employee_id)
-        .eq('log_date', todayStr)
-        .eq('log_type', 'เข้างาน')
-        .order('log_time', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!firstCheckIn) {
-        return NextResponse.json(
-          { error: 'ยังไม่มีการบันทึกเวลาเข้างานของวันนี้' },
-          { status: 400 }
-        );
-      }
-
-      // 2. Exemption check: If first check-in was at office -> Exempted
-      if (firstCheckIn.verification_status === 'ปฏิบัติงานที่ออฟฟิศ') {
-        return NextResponse.json(
-          { error: 'ได้รับการยกเว้นไม่ต้องยืนยันตัวตนรอบ 2' },
-          { status: 400 }
-        );
-      }
-
-      // 3. Duplicate check for today
-      const { data: existingVerify } = await supabaseAdmin
-        .from('checkin_logs')
-        .select('id')
-        .eq('employee_id', session.employee_id)
-        .eq('log_date', todayStr)
-        .eq('log_type', 'ยืนยันตัวตน')
-        .maybeSingle();
-
-      if (existingVerify) {
-        return NextResponse.json(
-          { error: 'คุณได้รับการยืนยันตัวตนรอบ 2 ของวันนี้เรียบร้อยแล้ว' },
-          { status: 400 }
-        );
-      }
-
-      // 4. Time Check (13:00 - 13:20)
-      if (currentHour < 13) {
-        return NextResponse.json(
-          { error: 'การยืนยันตัวตนรอบที่ 2 จะต้องทำตั้งแต่เวลา 13:00 น. เป็นต้นไป' },
-          { status: 400 }
-        );
-      }
-
-      const isLateVerify = currentHour > 13 || (currentHour === 13 && currentMinute > 20);
-      if (isLateVerify && !note?.trim()) {
-        return NextResponse.json(
-          { error: 'เนื่องจากคุณยืนยันตัวตนหลังเวลา 13:20 น. กรุณากรอกเหตุผลกรณีล่าช้าด้วยครับ' },
-          { status: 400 }
-        );
-      }
-
-      // 5. GPS Movement Distance Check vs First Check-in GPS
-      let distanceToFirstCheck = 0;
-      let isOutOfBounds = false;
-
-      if (gps_lat && gps_lng && firstCheckIn.gps_lat && firstCheckIn.gps_lng) {
-        distanceToFirstCheck = calculateHaversineDistanceKm(
-          gps_lat,
-          gps_lng,
-          firstCheckIn.gps_lat,
-          firstCheckIn.gps_lng
-        );
-
-        if (distanceToFirstCheck > MAX_MOVEMENT_DISTANCE_KM) {
-          isOutOfBounds = true;
-          if (!out_of_bounds_reason?.trim()) {
-            return NextResponse.json(
-              {
-                error: `ตำแหน่งพิกัดของคุณอยู่ห่างจากจุดเช็คอินแรกถึง ${distanceToFirstCheck.toFixed(
-                  2
-                )} กม. (เกิน 20 กม.) กรุณาระบุเหตุผลการเคลื่อนย้ายสถานที่ด้วยครับ`,
-              },
-              { status: 400 }
-            );
-          }
-        }
-      }
-
-      // 6. Set Result Verification Status
-      if (isLateVerify) {
-        finalVerificationStatus = 'ยืนยันตัวตนสาย (ถือเป็นขาดงาน)';
-      } else if (isOutOfBounds) {
-        finalVerificationStatus = 'นอกรัศมี 20 กม. (ถือเป็นขาดงาน)';
-      } else {
-        finalVerificationStatus = 'ยืนยันตัวตนรอบ 2 สำเร็จ';
-      }
-
-      // Notify supervisor on late or out-of-bounds failure
-      if ((isLateVerify || isOutOfBounds) && employeeRecord?.supervisor_id) {
-        await createNotification({
-          employee_id: employeeRecord.supervisor_id,
-          type: 'missing_checkin',
-          title: 'แจ้งเตือนยืนยันตัวตนรอบ 2 ไม่ผ่านเงื่อนไข',
-          message: `พนักงาน ${session.name} (${session.employee_id}) ยืนยันตัวตนรอบ 2: ${finalVerificationStatus}`,
-          link: '/supervisor',
-        });
-      }
-    }
-
-    // =========================================================================
-    // RULE 4: ออกงานก่อน 17:00 (Early Leave)
-    // =========================================================================
-    if (log_type === 'ออกงาน') {
-      isEarlyLeave = currentHour < 17;
-      if (isEarlyLeave && !note?.trim()) {
-        return NextResponse.json(
-          { error: 'เนื่องจากคุณออกงานก่อนเวลา 17:00 น. กรุณากรอกเหตุผลกรณีออกก่อนเวลาด้วยครับ' },
-          { status: 400 }
-        );
-      }
-
-      finalVerificationStatus = isEarlyLeave ? 'ออกงานก่อนเวลา' : basicLocationStatus;
-    }
-
-    // Photo check for position requirement
-    const isExempt = isPhotoOptionalForPosition(employeePosition);
-    if (!isExempt && !photo_base64) {
+    if (!photo_base64 && !isPhotoExempt) {
       return NextResponse.json(
-        { error: 'ตำแหน่งงานของคุณต้องใช้รูปถ่ายยืนยันตัวตน กรุณาเปิดกล้องถ่ายภาพ' },
+        { error: 'จำเป็นต้องถ่ายภาพ Selfie สดเพื่อยืนยันตัวตน' },
         { status: 400 }
       );
     }
 
-    let photoUrl = photo_base64 || null;
+    const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
+    const [thHourStr, thMinStr] = thaiTimeStr.split(':');
+    const currentHour = parseInt(thHourStr, 10);
+    const currentMinute = parseInt(thMinStr, 10);
 
-    // Upload photo to Supabase Storage if payload is base64
-    if (photo_base64 && photo_base64.startsWith('data:image')) {
-      try {
-        const base64Data = photo_base64.split(',')[1];
-        const buffer = Buffer.from(base64Data, 'base64');
-        const filename = `${session.employee_id}_${Date.now()}.jpg`;
-
-        const { data: uploadResult, error: uploadError } = await supabaseAdmin.storage
-          .from('checkin-photos')
-          .upload(filename, buffer, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
-
-        if (!uploadError && uploadResult) {
-          const { data: urlData } = supabaseAdmin.storage
-            .from('checkin-photos')
-            .getPublicUrl(filename);
-          photoUrl = urlData.publicUrl;
-        }
-      } catch (err) {
-        console.warn('Storage upload warning, using base64 fallback:', err);
-      }
+    if (log_type === 'เข้างาน' && (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณลงเวลาเข้างานหลังเวลา 08:00 น. (สาย) กรุณาระบุเหตุผลความจำเป็นในช่องหมายเหตุ' },
+        { status: 400 }
+      );
     }
 
-    const newLog: CheckinLog & { employee_name?: string } = {
-      id: crypto.randomUUID(),
-      employee_id: session.employee_id,
-      employee_name: session.name,
-      log_type,
-      log_date: todayStr,
-      log_time: now.toISOString(),
-      gps_lat: gps_lat || null,
-      gps_lng: gps_lng || null,
-      photo_url: photoUrl,
-      note: note || null,
-      out_of_bounds_reason: out_of_bounds_reason || null,
-      is_early_leave: isEarlyLeave,
-      verification_status: finalVerificationStatus,
-    };
+    if (log_type === 'ยืนยันตัวตน' && currentHour < 13) {
+      return NextResponse.json(
+        { error: 'ยังไม่ถึงเวลายืนยันตัวตน (รอบยืนยันตัวตนช่วงบ่ายเปิดเวลา 13:00 - 13:20 น.)' },
+        { status: 400 }
+      );
+    }
 
-    const { error: insertError } = await supabaseAdmin.from('checkin_logs').insert({
-      employee_id: newLog.employee_id,
-      log_type: newLog.log_type,
-      log_date: newLog.log_date,
-      log_time: newLog.log_time,
-      gps_lat: newLog.gps_lat,
-      gps_lng: newLog.gps_lng,
-      photo_url: newLog.photo_url,
-      note: newLog.note,
-      out_of_bounds_reason: newLog.out_of_bounds_reason,
-      is_early_leave: newLog.is_early_leave,
-      verification_status: newLog.verification_status,
+    if (log_type === 'ออกงาน' && currentHour < 17 && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณลงเวลาออกงานก่อนเวลา 17:00 น. กรุณาระบุเหตุผลการออกก่อนเวลาในช่องหมายเหตุ' },
+        { status: 400 }
+      );
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Store in memory cache & disk for persistent preview
+    if (photo_base64 && typeof photo_base64 === 'string') {
+      saveSelfiePhoto(`${session.employee_id}_${todayStr}`, photo_base64, [
+        String(session.employee_id),
+      ]);
+    }
+
+    const effectiveReason = out_of_bounds_reason || note || body.reason || '';
+    const effectiveNote = note || out_of_bounds_reason || '';
+
+    // Call Google Apps Script backend directly
+    const gasResult = await callGAS('checkin', {
+      type: log_type,
+      employeeId: session.employee_id,
+      lat: gps_lat || null,
+      lng: gps_lng || null,
+      photo: photo_base64 || null,
+      note: effectiveNote,
+      reason: effectiveReason,
+      outOfBoundsReason: effectiveReason,
+      locationReason: effectiveReason,
+      movementReason: effectiveReason,
     });
 
-    if (insertError) {
-      console.error('Insert checkin error:', insertError);
-      return NextResponse.json({ error: 'บันทึกข้อมูลไม่สำเร็จ' }, { status: 500 });
+    if (gasResult && !gasResult.success) {
+      return NextResponse.json(
+        { error: gasResult.message || 'บันทึกข้อมูลใน Google Sheet ไม่สำเร็จ' },
+        { status: 400 }
+      );
     }
 
-    // =========================================================================
-    // RULE 3: Random Spot Check Initialization upon WFH Morning Check-in
-    // =========================================================================
-    if (log_type === 'เข้างาน' && finalVerificationStatus !== 'ปฏิบัติงานที่ออฟฟิศ') {
-      const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 5 = Fri, 6 = Sat
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const { data: existingSpotChecks } = await supabaseAdmin
-          .from('spot_checks')
-          .select('id')
-          .eq('employee_id', session.employee_id)
-          .eq('check_date', todayStr);
-
-        if (!existingSpotChecks || existingSpotChecks.length === 0) {
-          // Uniform random time for Morning round between 09:00:00 and 11:00:00 (7200 sec range)
-          const morningOffsetSec = Math.floor(Math.random() * 7200);
-          const morningTotalSec = 9 * 3600 + morningOffsetSec;
-          const morningH = String(Math.floor(morningTotalSec / 3600)).padStart(2, '0');
-          const morningM = String(Math.floor((morningTotalSec % 3600) / 60)).padStart(2, '0');
-          const morningS = String(morningTotalSec % 60).padStart(2, '0');
-          const morningTimeStr = `${morningH}:${morningM}:${morningS}`;
-
-          // Uniform random time for Afternoon round between 14:00:00 and 16:00:00 (7200 sec range)
-          const afternoonOffsetSec = Math.floor(Math.random() * 7200);
-          const afternoonTotalSec = 14 * 3600 + afternoonOffsetSec;
-          const afternoonH = String(Math.floor(afternoonTotalSec / 3600)).padStart(2, '0');
-          const afternoonM = String(Math.floor((afternoonTotalSec % 3600) / 60)).padStart(2, '0');
-          const afternoonS = String(afternoonTotalSec % 60).padStart(2, '0');
-          const afternoonTimeStr = `${afternoonH}:${afternoonM}:${afternoonS}`;
-
-          await supabaseAdmin.from('spot_checks').insert([
-            {
-              check_date: todayStr,
-              round: 'เช้า',
-              scheduled_time: morningTimeStr,
-              employee_id: session.employee_id,
-              result_status: 'Scheduled',
-            },
-            {
-              check_date: todayStr,
-              round: 'บ่าย',
-              scheduled_time: afternoonTimeStr,
-              employee_id: session.employee_id,
-              result_status: 'Scheduled',
-            },
-          ]);
-        }
-      }
+    if (gasResult?.data?.uuid && photo_base64) {
+      saveSelfiePhoto(gasResult.data.uuid, photo_base64, [
+        `${session.employee_id}_${todayStr}`,
+        String(session.employee_id),
+      ]);
     }
 
     return NextResponse.json({
       success: true,
-      message: `ลงเวลา ${log_type} สำเร็จ (${finalVerificationStatus})`,
-      log: newLog,
+      message: gasResult?.message || `ลงเวลา ${log_type} สำเร็จใน Google Sheet`,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST checkin error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลงเวลา' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'เกิดข้อผิดพลาดในการลงเวลา' }, { status: 500 });
   }
 }

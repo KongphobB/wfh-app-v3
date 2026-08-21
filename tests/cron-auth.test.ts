@@ -1,39 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // 1. Mock Server Modules
-vi.mock('@/lib/supabase/server', () => ({
-  supabaseAdmin: {
-    from: vi.fn(),
-  },
+vi.mock('@/lib/gas', () => ({
+  callGAS: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock('@/lib/notifications', () => ({
   createNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { callGAS } from '@/lib/gas';
 import { GET as spotcheckTickGET } from '@/app/api/spotcheck/tick/route';
 import { GET as missingCheckinTickGET } from '@/app/api/notifications/missing-checkin-tick/route';
-
-function createChainableMock(resolvedData: any = null) {
-  const chain: any = {
-    select: () => chain,
-    insert: () => Promise.resolve({ error: null, data: resolvedData }),
-    update: () => chain,
-    delete: () => chain,
-    eq: () => chain,
-    in: () => chain,
-    lt: () => chain,
-    lte: () => chain,
-    gt: () => chain,
-    gte: () => chain,
-    order: () => chain,
-    limit: () => chain,
-    maybeSingle: () => Promise.resolve({ data: resolvedData }),
-    then: (resolve: any) => resolve({ data: resolvedData, error: null }),
-  };
-  return chain;
-}
 
 describe('Cron Auth Guard Test Suite', () => {
   const TEST_CRON_SECRET = '9a14146f08f8d44d333bcad0a816ab732ab708ffeadf9b535f57efa174aaf613';
@@ -41,8 +19,6 @@ describe('Cron Auth Guard Test Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = TEST_CRON_SECRET;
-
-    (supabaseAdmin.from as any).mockImplementation(() => createChainableMock([]));
   });
 
   afterEach(() => {
