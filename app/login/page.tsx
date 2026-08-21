@@ -284,7 +284,7 @@ export default function LoginPage() {
                     <User className="w-3.5 h-3.5" /> สำหรับพนักงานประจำ
                   </p>
                   <p className="text-slate-600 dark:text-slate-400 mt-0.5">
-                    ให้กรอก <strong>รหัสพนักงานของตนเอง</strong> (เช่น 1001, 1304)
+                    ให้กรอก <strong>รหัสพนักงานของตนเอง</strong> (เช่น 1001, 1002)
                   </p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-white dark:bg-[#1a1e28] border border-orange-100/80 dark:border-[#262c3a] shadow-2xs">
@@ -322,7 +322,7 @@ export default function LoginPage() {
                     maxLength={6}
                     value={regEmpId}
                     onChange={(e) => setRegEmpId(e.target.value)}
-                    placeholder="เช่น 1304 หรือ 9001"
+                    placeholder="เช่น 1002 หรือ 9001"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-500"
                   />
                 </div>
