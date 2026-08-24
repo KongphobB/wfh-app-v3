@@ -66,8 +66,8 @@ export default function DashboardPage() {
     )
   );
 
-  // Check afternoon verification windows
-  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow } = (() => {
+  // Check verification and check-in windows
+  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin } = (() => {
     try {
       const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
       const [thHourStr, thMinStr] = thaiTimeStr.split(':');
@@ -76,9 +76,10 @@ export default function DashboardPage() {
       return {
         isAfternoonVerifyWindow: thHour === 13 && thMin >= 0 && thMin <= 20,
         isLateAfternoonVerifyWindow: (thHour === 13 && thMin > 20) || (thHour >= 14 && thHour < 18),
+        isMorningMissingCheckin: (thHour > 8 || (thHour === 8 && thMin > 0)) && thHour < 18,
       };
     } catch {
-      return { isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false };
+      return { isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false };
     }
   })();
 
@@ -112,6 +113,38 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Morning Missing Check-in Alert Banner (After 08:00 AM) */}
+      {!todayCheckin && isMorningMissingCheckin && (
+        <Card className="border-rose-300 bg-rose-50/90 shadow-sm animate-fade-in">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold animate-pulse">
+                <Clock className="w-6 h-6 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-rose-950 text-sm flex items-center gap-2">
+                  <span>{lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างานช่วงเช้า'}</span>
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
+                    {lang === 'en' ? 'Overdue > 08:00 AM' : 'เกินเวลา 08:00 น.'}
+                  </Badge>
+                </h3>
+                <p className="text-xs text-rose-800 font-medium mt-0.5">
+                  {lang === 'en'
+                    ? 'You have not checked in this morning. Please submit your attendance with late reason.'
+                    : 'ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาเข้างาน กรุณาลงเวลาและระบุเหตุผลความจำเป็นในช่องหมายเหตุ'}
+                </p>
+              </div>
+            </div>
+            <Link href="/checkin">
+              <Button variant="destructive" className="bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm">
+                <span>{lang === 'en' ? 'Check-in Now' : 'ลงเวลาเข้างานทันที'}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       )}
