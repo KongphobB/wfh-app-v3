@@ -3,6 +3,7 @@ import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
 import { createNotification } from '@/lib/notifications';
 import { sendEmailAlert } from '@/lib/email';
+import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
     const notifiedEmployees: { id: string; name: string; email?: string }[] = [];
 
     for (const [empId, emp] of Object.entries(employeesMap)) {
-      if (!checkedInEmpIds.has(empId) && empId !== '9999') {
+      // Exclude admin, employees already checked in, and employees on approved leave today
+      if (!checkedInEmpIds.has(empId) && empId !== '9999' && !isEmployeeOnApprovedLeave(empId, todayStr)) {
         notifiedEmployees.push({
           id: empId,
           name: emp.name || empId,

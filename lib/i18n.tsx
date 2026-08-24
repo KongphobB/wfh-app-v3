@@ -13,6 +13,8 @@ export interface Translations {
     tasks: string;
     supervisor: string;
     admin: string;
+    leave: string;
+    analytics: string;
     manual: string;
     changePin: string;
     logout: string;
@@ -260,6 +262,58 @@ export interface Translations {
     wfhStatusToggle: string;
     resetPinBtn: string;
   };
+  // Leave
+  leave: {
+    title: string;
+    subtitle: string;
+    requestBtn: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    leaveTypeLabel: string;
+    startDateLabel: string;
+    endDateLabel: string;
+    reasonLabel: string;
+    reasonPlaceholder: string;
+    sickLeave: string;
+    personalLeave: string;
+    vacationLeave: string;
+    onsiteLeave: string;
+    pending: string;
+    approved: string;
+    rejected: string;
+    historyTitle: string;
+    historySubtitle: string;
+    supervisorTitle: string;
+    supervisorSubtitle: string;
+    approveBtn: string;
+    rejectBtn: string;
+    noRequests: string;
+    leaveDays: string;
+    autoExemptNote: string;
+  };
+  // Analytics
+  analytics: {
+    title: string;
+    subtitle: string;
+    onTimeRate: string;
+    onTimeDesc: string;
+    avgRating: string;
+    avgRatingDesc: string;
+    taskCompletion: string;
+    taskCompletionDesc: string;
+    spotCheckRate: string;
+    spotCheckDesc: string;
+    starDistribution: string;
+    weeklyTrend: string;
+    attendanceSummary: string;
+    workdays: string;
+    leaveDays: string;
+    lateDays: string;
+    onTimeDays: string;
+    excellentScore: string;
+    goodScore: string;
+    improveScore: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -271,6 +325,8 @@ export const translations: Record<Language, Translations> = {
       tasks: 'ส่งงานประจำวัน',
       supervisor: 'แผงหัวหน้างาน',
       admin: 'ผู้ดูแลระบบ (Admin)',
+      leave: 'ขอลาหยุด / สลับวัน',
+      analytics: 'สถิติการทำงาน',
       manual: 'คู่มือการใช้งาน',
       changePin: 'เปลี่ยนรหัส PIN',
       logout: 'ออกจากระบบ',
@@ -513,6 +569,56 @@ export const translations: Record<Language, Translations> = {
       wfhStatusToggle: 'เปลี่ยนสถานะสิทธิ์ WFH',
       resetPinBtn: 'รีเซ็ตรหัส PIN',
     },
+    leave: {
+      title: 'ระบบแจ้งขอลาหยุด & สลับวัน',
+      subtitle: 'ยื่นคำขอลาป่วย ลากิจ ลาพักร้อน หรือขอสลับเข้าออฟฟิศ เพื่อยกเว้นการแจ้งเตือนขาดงานอัตโนมัติ',
+      requestBtn: 'ยื่นคำขอลา / สลับวัน',
+      modalTitle: 'แบบฟอร์มขอลาหยุด / สลับวันเข้าออฟฟิศ',
+      modalSubtitle: 'กรอกข้อมูลการลา ระบบจะบันทึกสถานะและยกเว้นการแจ้งเตือนขาดงานให้อัตโนมัติ',
+      leaveTypeLabel: 'ประเภทการลา *',
+      startDateLabel: 'ตั้งแต่วันที่ *',
+      endDateLabel: 'ถึงวันที่ *',
+      reasonLabel: 'เหตุผลความจำเป็น *',
+      reasonPlaceholder: 'ระบุรายละเอียด เช่น มีอาการไข้หวัด, ติดต่อราชการ, หรือมีนัดประชุมออฟฟิศ...',
+      sickLeave: 'ลาป่วย (Sick Leave)',
+      personalLeave: 'ลากิจ (Personal Leave)',
+      vacationLeave: 'ลาพักร้อน (Annual Leave)',
+      onsiteLeave: 'ปฏิบัติงานที่ออฟฟิศ (Work Onsite)',
+      pending: 'รอพิจารณา',
+      approved: 'อนุมัติแล้ว',
+      rejected: 'ไม่อนุมัติ',
+      historyTitle: 'ประวัติการขอลาหยุดของฉัน',
+      historySubtitle: 'รายการคำขอลาหยุดและการอนุมัติทั้งหมด',
+      supervisorTitle: 'รายการคำขอลาของทีมที่ต้องพิจารณา',
+      supervisorSubtitle: 'ตรวจสอบและกดอนุมัติคำขอลาของสมาชิกในทีม',
+      approveBtn: 'อนุมัติคำขอ',
+      rejectBtn: 'ปฏิเสธคำขอ',
+      noRequests: 'ยังไม่มีประวัติการขอลาในระบบ',
+      leaveDays: 'วัน',
+      autoExemptNote: '✨ ในวันที่ได้รับอนุมัติ ระบบจะยกเว้นการส่งอีเมลแจ้งเตือนขาดงานให้อัตโนมัติ',
+    },
+    analytics: {
+      title: 'สถิติและประสิทธิภาพการทำงาน (Personal Analytics)',
+      subtitle: 'ภาพรวมแนวโน้มการเข้างานตรงเวลา คะแนนประเมินดาวสะสม และผลการส่งมอบงาน',
+      onTimeRate: 'อัตราเข้างานตรงเวลา',
+      onTimeDesc: 'สัดส่วนการลงเวลาก่อน 08:00 น.',
+      avgRating: 'คะแนนดาวเฉลี่ย',
+      avgRatingDesc: 'คะแนนประเมินคุณภาพงานจากหัวหน้า',
+      taskCompletion: 'อัตราส่งมอบงาน',
+      taskCompletionDesc: 'งานที่ทำเสร็จเทียบกับที่ได้รับมอบหมาย',
+      spotCheckRate: 'อัตราผ่านการสุ่มตรวจ',
+      spotCheckDesc: 'ความสม่ำเสมอในการยืนยันตัวตน 10 นาที',
+      starDistribution: 'การกระจายคะแนนดาว (Star Rating Distribution)',
+      weeklyTrend: 'แนวโน้มการเข้างานและผลงานรอบ 7 วันล่าสุด',
+      attendanceSummary: 'สรุปสถานะการปฏิบัติงานในรอบเดือน',
+      workdays: 'วันทำงานทั้งหมด',
+      leaveDays: 'วันลาที่อนุมัติ',
+      lateDays: 'เข้างานสาย',
+      onTimeDays: 'เข้างานตรงเวลา',
+      excellentScore: 'ยอดเยี่ยม (5 ดาว)',
+      goodScore: 'ดีมาก (3-4 ดาว)',
+      improveScore: 'ต้องปรับปรุง (1-2 ดาว)',
+    },
   },
   en: {
     nav: {
@@ -522,6 +628,8 @@ export const translations: Record<Language, Translations> = {
       tasks: 'Daily Tasks',
       supervisor: 'Supervisor Panel',
       admin: 'Admin Desk',
+      leave: 'Leave & Schedule',
+      analytics: 'Analytics',
       manual: 'User Manual',
       changePin: 'Change PIN',
       logout: 'Log Out',
@@ -763,6 +871,56 @@ export const translations: Record<Language, Translations> = {
       saveConfigBtn: 'Save Settings',
       wfhStatusToggle: 'Toggle WFH Privilege',
       resetPinBtn: 'Reset PIN',
+    },
+    leave: {
+      title: 'Leave & Schedule Exemption Portal',
+      subtitle: 'Submit sick, personal, vacation leave or request onsite office days to automatically suppress missing attendance alerts',
+      requestBtn: 'Submit Leave Request',
+      modalTitle: 'Leave & Schedule Exemption Form',
+      modalSubtitle: 'Submit your leave request. Missing check-in alerts will be automatically suppressed for approved days',
+      leaveTypeLabel: 'Leave Type *',
+      startDateLabel: 'Start Date *',
+      endDateLabel: 'End Date *',
+      reasonLabel: 'Reason & Justification *',
+      reasonPlaceholder: 'Describe details e.g. sick leave with flu, government appointment, or scheduled onsite meeting...',
+      sickLeave: 'Sick Leave',
+      personalLeave: 'Personal Leave',
+      vacationLeave: 'Annual Vacation Leave',
+      onsiteLeave: 'Work Onsite (Office Exemption)',
+      pending: 'Pending Review',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      historyTitle: 'My Leave History',
+      historySubtitle: 'All past leave and schedule exemption requests',
+      supervisorTitle: 'Team Leave Requests for Approval',
+      supervisorSubtitle: 'Review and approve leave submissions from team members',
+      approveBtn: 'Approve Request',
+      rejectBtn: 'Reject Request',
+      noRequests: 'No leave requests recorded in the system',
+      leaveDays: 'days',
+      autoExemptNote: '✨ Approved days will automatically suppress morning missing check-in email alerts',
+    },
+    analytics: {
+      title: 'Personal Performance & Analytics',
+      subtitle: 'Comprehensive breakdown of on-time attendance, star rating distribution, and task completion metrics',
+      onTimeRate: 'On-time Rate',
+      onTimeDesc: 'Percentage of check-ins before 08:00 AM',
+      avgRating: 'Average Star Rating',
+      avgRatingDesc: 'Quality rating evaluated by supervisors',
+      taskCompletion: 'Task Completion Rate',
+      taskCompletionDesc: 'Tasks delivered vs assigned workload',
+      spotCheckRate: 'Spot Check Compliance',
+      spotCheckDesc: '10-minute spot check verification consistency',
+      starDistribution: 'Star Rating Distribution',
+      weeklyTrend: 'Recent 7-Day Performance & Attendance Trend',
+      attendanceSummary: 'Monthly Attendance Status Breakdown',
+      workdays: 'Total Workdays',
+      leaveDays: 'Approved Leave',
+      lateDays: 'Late Check-ins',
+      onTimeDays: 'On-time Check-ins',
+      excellentScore: 'Excellent (5 Stars)',
+      goodScore: 'Good (3-4 Stars)',
+      improveScore: 'Needs Improvement (1-2 Stars)',
     },
   },
 };

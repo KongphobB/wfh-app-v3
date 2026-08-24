@@ -6,7 +6,7 @@ import {
   BookOpen, User, UserCheck, ShieldCheck, Search, CheckCircle2, 
   AlertTriangle, Clock, MapPin, Camera, BellRing, FileText, 
   Ticket, KeyRound, ArrowRight, ShieldAlert, Sparkles, ChevronRight, Info,
-  Volume2, Moon, Globe, SlidersHorizontal, HelpCircle, Check, ExternalLink
+  Volume2, Moon, Globe, SlidersHorizontal, HelpCircle, Check, ExternalLink, Calendar, TrendingUp
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -315,6 +315,70 @@ export default function ManualPage() {
                     </p>
                     <p className="text-[11px] text-slate-500 mt-1">คลิกเมนู <strong>"🔑 เปลี่ยนรหัส PIN"</strong> ที่แถบเมนูด้านซ้ายล่างเพื่อตั้งรหัสใหม่ 4 หลัก</p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 6: Leave & Schedule Exemption */}
+          {matchesSearch('ลา ขอลา ลาป่วย ลากิจ พักร้อน ออฟฟิศ onsite leave ยกเว้น แจ้งเตือน') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      6. การขอลาหยุดและการสลับเข้าออฟฟิศ (Leave & Schedule Exemption)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ยื่นคำขอลาป่วย ลากิจ ลาพักร้อน หรือสลับเข้าออฟฟิศเพื่อยกเว้นการแจ้งเตือนขาดงานอัตโนมัติ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-blue-50/50 border border-blue-200/80 space-y-2">
+                  <p className="font-bold text-blue-950">ขั้นตอนการยื่นคำขอลา:</p>
+                  <ol className="list-decimal list-inside space-y-1.5 pl-1 text-blue-950">
+                    <li>ไปที่เมนู <strong>"📅 ขอลาหยุด / สลับวัน"</strong> และกดปุ่ม <strong>"+ ยื่นคำขอลา / สลับวัน"</strong></li>
+                    <li>เลือกประเภทการลา (ลาป่วย, ลากิจ, ลาพักร้อน, หรือ ปฏิบัติงานที่ออฟฟิศ Onsite)</li>
+                    <li>เลือกช่วงวันที่เริ่มต้น - วันที่สิ้นสุด พร้อมระบุเหตุผลความจำเป็น</li>
+                    <li>เมื่อหัวหน้างานกดอนุมัติ (Approved) ระบบจะ <strong>ยกเว้นการส่งอีเมลและแจ้งเตือนขาดลงเวลาเข้างาน</strong> ในวันดังกล่าวให้อัตโนมัติ</li>
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 7: Personal Analytics */}
+          {matchesSearch('สถิติ ประสิทธิภาพ analytics กราฟ ดาว คะแนน ตรงเวลา on-time rate') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold shrink-0">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      7. การดูสถิติและประสิทธิภาพการทำงาน (Personal Analytics)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ตรวจสอบอัตราการเข้างานตรงเวลา คะแนนดาวสะสม และสถิติการส่งมอบงาน
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-200/80 space-y-2">
+                  <p className="font-bold text-purple-950">ตัวชี้วัดสำคัญบนหน้าสถิติ:</p>
+                  <ul className="list-disc list-inside space-y-1.5 pl-1 text-purple-950">
+                    <li><strong>อัตราเข้างานตรงเวลา (On-time Rate):</strong> สัดส่วนการกดลงเวลาก่อน 08:00 น. ในรอบเดือน</li>
+                    <li><strong>คะแนนดาวเฉลี่ย (Average Star Rating):</strong> คุณภาพงานเฉลี่ย 1.0 - 5.0 ดาว ที่ได้รับการประเมินจากหัวหน้า</li>
+                    <li><strong>อัตราส่งมอบงาน (Task Completion):</strong> สัดส่วนจำนวนงานที่ทำเสร็จเทียบกับงานที่ได้รับมอบหมาย</li>
+                    <li><strong>แนวโน้มรอบ 7 วัน (Weekly Trend):</strong> กราฟไทม์ไลน์แสดงสถานะการเข้างานและผลงานรายวัน</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>

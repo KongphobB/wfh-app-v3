@@ -139,3 +139,48 @@ export interface SessionPayload {
   department?: string;
   force_pin_change: boolean;
 }
+
+export type LeaveType = 'ลาป่วย' | 'ลากิจ' | 'ลาพักร้อน' | 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  department?: string | null;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: LeaveStatus;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string | null;
+  created_at: string;
+}
+
+export interface AnalyticsSummary {
+  period: string;
+  totalWorkdays: number;
+  onTimeCheckinCount: number;
+  lateCheckinCount: number;
+  onTimeRate: number;
+  avgStarRating: number;
+  totalRatingsCount: number;
+  totalTasksAssigned: number;
+  totalTasksCompleted: number;
+  taskCompletionRate: number;
+  spotCheckPassCount: number;
+  spotCheckTotalCount: number;
+  spotCheckComplianceRate: number;
+  leaveDaysCount: number;
+  starDistribution: { [star: number]: number };
+  dailyTrends: {
+    date: string;
+    dayLabel: string;
+    checkinStatus: 'on-time' | 'late' | 'leave' | 'missing' | 'none';
+    checkinTime?: string | null;
+    starRating?: number | null;
+    tasksCount?: number;
+  }[];
+}
