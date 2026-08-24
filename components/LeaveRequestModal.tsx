@@ -134,14 +134,21 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
                   key={item.type}
                   type="button"
                   onClick={() => setLeaveType(item.type)}
-                  className={`p-3 rounded-2xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                  className={`p-3 rounded-2xl border text-left flex flex-col justify-between gap-1.5 transition-all cursor-pointer ${
                     leaveType === item.type
                       ? 'border-orange-500 bg-orange-50/80 dark:bg-orange-950/40 text-orange-950 font-bold shadow-2xs'
                       : 'border-slate-200 hover:border-slate-300 text-slate-700'
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <span className="text-[11px] leading-tight">{item.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{item.icon}</span>
+                    <span className="text-[11px] leading-tight">{item.label}</span>
+                  </div>
+                  {item.type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)' && (
+                    <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md self-start">
+                      ⚡ อนุมัติทันที ไม่ต้องรอหัวหน้า
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

@@ -62,17 +62,25 @@ export async function POST(request: Request) {
       reason: parsed.data.reason,
     });
 
+    const isOnsite = newRequest.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
+
     // Notify admins / supervisor
     await createNotificationForAdmins({
       type: 'ticket',
-      title: `📅 คำขอลาใหม่: ${session.name} (${parsed.data.leave_type})`,
-      message: `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`,
+      title: isOnsite
+        ? `🏢 แจ้งเข้าออฟฟิศ: ${session.name} (อนุมัติอัตโนมัติ)`
+        : `📅 คำขอลาใหม่: ${session.name} (${parsed.data.leave_type})`,
+      message: isOnsite
+        ? `พนักงาน ${session.name} แจ้งเข้าปฏิบัติงานที่ออฟฟิศ วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} (ระบบยกเว้นการแจ้งเตือนขาดงานให้อัตโนมัติ)`
+        : `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`,
       link: '/leave',
     });
 
     return NextResponse.json({
       success: true,
-      message: 'ยื่นคำขอลาเรียบร้อยแล้ว ระบบจะยกเว้นการแจ้งเตือนขาดงานเมื่อได้รับการอนุมัติ',
+      message: isOnsite
+        ? 'บันทึกการเข้าปฏิบัติงานที่ออฟฟิศสำเร็จ (อนุมัติอัตโนมัติ) ระบบจะยกเว้นการแจ้งเตือนขาดงานให้ทันที'
+        : 'ยื่นคำขอลาเรียบร้อยแล้ว ระบบจะยกเว้นการแจ้งเตือนขาดงานเมื่อได้รับการอนุมัติ',
       data: newRequest,
     });
   } catch (error: any) {

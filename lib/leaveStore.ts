@@ -55,6 +55,8 @@ export function createLeaveRequest(params: {
   end_date: string;
   reason: string;
 }): LeaveRequest {
+  const isOnsite = params.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
+
   const newRequest: LeaveRequest = {
     id: `leave_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     employee_id: params.employee_id,
@@ -64,7 +66,10 @@ export function createLeaveRequest(params: {
     start_date: params.start_date,
     end_date: params.end_date,
     reason: params.reason,
-    status: 'Pending',
+    status: isOnsite ? 'Approved' : 'Pending',
+    reviewed_by: isOnsite ? 'ระบบอัตโนมัติ (Auto-approved)' : null,
+    reviewed_at: isOnsite ? new Date().toISOString() : null,
+    review_note: isOnsite ? 'อนุมัติเข้าปฏิบัติงานที่ออฟฟิศอัตโนมัติ' : null,
     created_at: new Date().toISOString(),
   };
 
