@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageSquarePlus, X, Shield, ShieldCheck, AlertCircle, CheckCircle2, Send, Lock } from 'lucide-react';
+import { MessageSquarePlus, X, Shield, ShieldCheck, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { SuggestionCategory } from '@/types';

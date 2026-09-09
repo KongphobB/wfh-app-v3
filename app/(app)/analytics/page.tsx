@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, Clock, Star, CheckCircle2, ShieldCheck, 
-  TrendingUp, Calendar, RefreshCw, Award, AlertCircle, FileText, CheckCheck
+  BarChart3, Clock, Star, ShieldCheck, 
+  TrendingUp, Calendar, RefreshCw, Award, CheckCheck
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AnalyticsSummary } from '@/types';

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS, invalidateGasCache } from '@/lib/gas';
-import { getLocalExemptIds, saveLocalExemptIds, getExemptConfig } from '@/lib/photoExempt';
+import { getLocalExemptIds, saveLocalExemptIds } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 
 export async function POST(request: Request) {

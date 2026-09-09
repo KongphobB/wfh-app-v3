@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  BookOpen, User, UserCheck, ShieldCheck, Search, CheckCircle2, 
-  AlertTriangle, Clock, MapPin, Camera, BellRing, FileText, 
-  Ticket, KeyRound, ArrowRight, ShieldAlert, Sparkles, ChevronRight, Info,
-  Volume2, Moon, Globe, SlidersHorizontal, HelpCircle, Check, ExternalLink, Calendar, TrendingUp, MessageSquare, MessageSquarePlus,
-  Palmtree, History, Paperclip
+  BookOpen, User, UserCheck, ShieldCheck, Search,
+  Clock, MapPin, Camera, BellRing, FileText, 
+  Ticket, KeyRound,
+  Volume2, Moon, Globe, SlidersHorizontal, Check, Calendar, TrendingUp, MessageSquare, MessageSquarePlus,
+  Palmtree, History
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 
 export default function ManualPage() {

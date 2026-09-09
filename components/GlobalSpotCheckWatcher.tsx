@@ -5,7 +5,7 @@ import SpotCheckModal from '@/components/SpotCheckModal';
 import { SpotCheck } from '@/types';
 import { playSpotCheckAlert } from '@/lib/sound';
 import { syncServerTime, getSyncedNow } from '@/lib/timeSync';
-import { BellRing, Clock, Camera, X, ExternalLink } from 'lucide-react';
+import { BellRing, Clock, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 

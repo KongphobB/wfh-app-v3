@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { isSoundEnabled, setSoundEnabled, playSuccessChime } from '@/lib/sound';
+import { isSoundEnabled, setSoundEnabled } from '@/lib/sound';
 import { useLanguage } from '@/lib/i18n';
 
 export default function SoundToggle() {

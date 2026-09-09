@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, MapPin, BellRing, FileText, UserCheck, 
-  ShieldCheck, KeyRound, LogOut, User, Menu, X, ChevronRight, Sparkles, BookOpen, CalendarDays, BarChart3
+  ShieldCheck, KeyRound, LogOut, User, Menu, X, ChevronRight, BookOpen, CalendarDays, BarChart3
 } from 'lucide-react';
 import { SessionPayload } from '@/types';
 import { cn } from '@/lib/utils';

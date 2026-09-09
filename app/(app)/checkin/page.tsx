@@ -6,7 +6,7 @@ import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLight
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, AlertCircle } from 'lucide-react';
 import { CheckinLog, CheckinType } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 

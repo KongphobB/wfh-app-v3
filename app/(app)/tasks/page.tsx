@@ -5,7 +5,7 @@ import DailyTaskModal from '@/components/DailyTaskModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Plus, Star, RefreshCw, Edit3 } from 'lucide-react';
+import { FileText, Plus, Star, Edit3 } from 'lucide-react';
 import { TaskItem } from '@/types';
 
 import { useLanguage } from '@/lib/i18n';

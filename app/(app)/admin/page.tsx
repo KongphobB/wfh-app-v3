@@ -8,7 +8,7 @@ import {
   ShieldCheck, Users, Ticket as TicketIcon, Settings, Plus, 
   CheckCircle2, RefreshCw, X, Save, Edit3, Trash2, KeyRound, Sparkles, MapPin, Clock,
   Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Camera, MessageSquarePlus, Shield,
-  Calendar, Palmtree, FileText, Upload, Download, Eye, ExternalLink, History, ScrollText, Activity, ShieldAlert
+  Palmtree, FileText, Upload, Eye, History, ScrollText
 } from 'lucide-react';
 import { Employee, Ticket, AppConfig, CheckinLog, SuggestionItem, SuggestionStatus, CompanyHoliday, HolidayPolicyDoc, AuditLogItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';

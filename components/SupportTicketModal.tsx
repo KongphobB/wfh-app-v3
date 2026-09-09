@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   Ticket as TicketIcon, X, PlusCircle, CheckCircle2, 
-  Clock, AlertCircle, RefreshCw, Send, HelpCircle, MessageSquare
+  Clock, AlertCircle, RefreshCw, Send, MessageSquare
 } from 'lucide-react';
 import { Ticket } from '@/types';
 import { useLanguage } from '@/lib/i18n';

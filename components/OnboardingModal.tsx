@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
-  Sparkles, MapPin, BellRing, FileText, CalendarDays, 
-  ChevronRight, ChevronLeft, CheckCircle2, ArrowRight, X, BookOpen, ShieldCheck, Clock, Star
+  Sparkles, BellRing, FileText, CalendarDays, 
+  ChevronRight, ChevronLeft, CheckCircle2, X, BookOpen, ShieldCheck, Clock, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';

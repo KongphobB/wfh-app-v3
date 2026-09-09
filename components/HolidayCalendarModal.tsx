@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, X, ChevronLeft, ChevronRight, FileText, 
-  Download, ExternalLink, Sparkles, CheckCircle2, Clock, MapPin, Eye, Building2, Palmtree
+  Download, Clock, Eye, Palmtree
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

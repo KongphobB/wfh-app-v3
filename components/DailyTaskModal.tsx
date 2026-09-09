@@ -6,7 +6,6 @@ import { FileText, Link as LinkIcon, X, AlertCircle, Send, Edit3, Info } from 'l
 import { Button } from '@/components/ui/button';
 import { TaskItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';
-import { playSuccessChime } from '@/lib/sound';
 
 interface DailyTaskModalProps {
   isOpen: boolean;

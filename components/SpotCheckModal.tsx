@@ -6,7 +6,7 @@ import { SpotCheck } from '@/types';
 import { Button } from '@/components/ui/button';
 import { getSyncedNow } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
-import { playSpotCheckChime, playSuccessChime } from '@/lib/sound';
+import { playSpotCheckChime } from '@/lib/sound';
 
 interface SpotCheckModalProps {
   spotCheck: SpotCheck | null;

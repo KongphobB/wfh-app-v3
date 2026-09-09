@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ExternalLink, MapPin, Calendar, Clock, User, ShieldCheck } from 'lucide-react';
+import { X, ExternalLink, MapPin, Clock, User, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/lib/i18n';
 

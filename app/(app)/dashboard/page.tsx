@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  CheckCircle2, Clock, MapPin, AlertTriangle, FileText, 
-  HelpCircle, Star, RefreshCw, ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar
+  Clock, MapPin, AlertTriangle, FileText, 
+  ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

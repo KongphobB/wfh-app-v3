@@ -6,7 +6,6 @@ import { CheckinType, CheckinLog } from '@/types';
 import { Button } from '@/components/ui/button';
 import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 import { useLanguage } from '@/lib/i18n';
-import { playSuccessChime } from '@/lib/sound';
 
 interface CheckinModalProps {
   isOpen: boolean;

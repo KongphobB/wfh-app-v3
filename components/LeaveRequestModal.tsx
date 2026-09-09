@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CalendarDays, X, AlertCircle, CheckCircle2, ShieldCheck, Clock, Paperclip, Upload, FileText, Camera, Trash2 } from 'lucide-react';
+import { CalendarDays, X, AlertCircle, CheckCircle2, ShieldCheck, Paperclip, Upload, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/lib/i18n';
 import { LeaveType } from '@/types';
 
