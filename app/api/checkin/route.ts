@@ -22,26 +22,44 @@ export async function GET(request: Request) {
     ]);
 
     const rawCheckinLogs = (gasRes?.data || []) as any[];
-    const rawSpotLogs = ((gasSpotRes?.data || []) as any[]).map((s: any) => ({
-      ...s,
-      uuid: s.uuid || `spot_${s.employeeId}_${s.date}_${s.time || s.scheduledTime}`,
-      type: s.type || 'สุ่มตรวจ',
-      time: s.time || s.checkInTime || s.actualScanTime || s.scheduledTime || s.triggeredTime || '10:00:00',
-      verificationStatus: s.status || s.resultStatus || 'ยืนยันสำเร็จ',
-      note: s.note || (s.round ? `[สุ่มตรวจรอบ ${s.round}]` : '[สุ่มตรวจ]'),
-    }));
 
-    const testSpotLogs = (((global as any).__activeTestSpotChecks || []) as any[]).map((s: any) => ({
-      uuid: s.id,
-      employeeId: s.employee_id,
-      type: 'สุ่มตรวจเฉพาะกิจ',
-      date: s.check_date,
-      time: s.actual_scan_time ? s.actual_scan_time.split('T')[1]?.split('+')[0] : s.scheduled_time,
-      gps: s.gps_lat && s.gps_lng ? `q=${s.gps_lat},${s.gps_lng}` : null,
-      photo: s.photo_url || null,
-      verificationStatus: s.result_status === 'Pass' ? 'ยืนยันสำเร็จ' : s.result_status || 'รอสุ่มตรวจ',
-      note: '[สุ่มตรวจเฉพาะกิจ]',
-    }));
+    // Only include COMPLETED spot checks in attendance history (never leak scheduled future checks)
+    const rawSpotLogs = ((gasSpotRes?.data || []) as any[])
+      .filter((s: any) => {
+        const status = s.status || s.resultStatus || s.verificationStatus || '';
+        const isPending = status === 'Scheduled' || status === 'Pending' || status === 'รอการยืนยัน' || status === 'รอสุ่มตรวจ';
+        const hasScanned = Boolean(s.actualScanTime) || Boolean(s.checkInTime) || status === 'Pass' || status === 'Fail' || status === 'ผ่าน' || status === 'ไม่ผ่าน' || status === 'ผ่านการสุ่มตรวจ' || status === 'ไม่ผ่าน (ขาดการติดต่อ)';
+        return !isPending && hasScanned;
+      })
+      .map((s: any) => {
+        const actualTime = s.actualScanTime || s.checkInTime || s.time || (s.date ? '09:00:00' : '09:00:00');
+        const cleanTime = typeof actualTime === 'string' && actualTime.includes('T')
+          ? actualTime.split('T')[1]?.split('+')[0]?.substring(0, 8)
+          : actualTime;
+
+        return {
+          ...s,
+          uuid: s.uuid || `spot_${s.employeeId}_${s.date}_${s.round || cleanTime}`,
+          type: 'สุ่มตรวจ',
+          time: cleanTime,
+          verificationStatus: s.status === 'Pass' || s.resultStatus === 'Pass' ? 'ยืนยันสำเร็จ' : (s.status || s.resultStatus || 'ยืนยันสำเร็จ'),
+          note: s.note || (s.round ? `[สุ่มตรวจรอบ ${s.round}]` : '[สุ่มตรวจ]'),
+        };
+      });
+
+    const testSpotLogs = (((global as any).__activeTestSpotChecks || []) as any[])
+      .filter((s: any) => s.result_status === 'Pass' && s.actual_scan_time)
+      .map((s: any) => ({
+        uuid: s.id,
+        employeeId: s.employee_id,
+        type: 'สุ่มตรวจเฉพาะกิจ',
+        date: s.check_date,
+        time: s.actual_scan_time ? s.actual_scan_time.split('T')[1]?.split('+')[0]?.substring(0, 8) : '09:00:00',
+        gps: s.gps_lat && s.gps_lng ? `q=${s.gps_lat},${s.gps_lng}` : null,
+        photo: s.photo_url || null,
+        verificationStatus: 'ยืนยันสำเร็จ',
+        note: '[สุ่มตรวจเฉพาะกิจ]',
+      }));
 
     const rawLogs = [...rawCheckinLogs, ...rawSpotLogs, ...testSpotLogs];
 
@@ -90,15 +108,21 @@ export async function GET(request: Request) {
       const isoTimeStr = `${l.date}T${timeFormatted}+07:00`;
 
       // Check memory or disk for photo
-      const photoUrl = getSelfiePhoto([
+      let photoUrl = getSelfiePhoto([
         l.photo,
         l.photoUrl,
         l.uuid,
         `${l.employeeId}_${l.date}`,
         `${l.employeeId}_${l.date}_${l.time}`,
         `spot_${l.employeeId}_${l.date}`,
-        (l.date === todayStr ? String(l.employeeId) : null),
+        String(l.employeeId),
       ]);
+
+      // If photo was saved in Google Drive (hasPhoto is true or photo exists)
+      if (!photoUrl && (l.hasPhoto === true || Boolean(l.photo))) {
+        const gasType = l.type?.includes('สุ่มตรวจ') ? 'spotcheck' : 'checkin';
+        photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(l.uuid)}&type=${gasType}`;
+      }
 
       const hasPhoto = l.hasPhoto === true || Boolean(photoUrl);
 
@@ -123,6 +147,8 @@ export async function GET(request: Request) {
         position: l.position || employeesMap[l.employeeId]?.position,
       };
     });
+
+    formattedLogs.sort((a, b) => new Date(b.log_time).getTime() - new Date(a.log_time).getTime());
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const position = currentEmp.position || '';

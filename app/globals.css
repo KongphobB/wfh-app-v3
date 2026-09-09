@@ -46,26 +46,26 @@ html, body {
 }
 
 /* ==========================================================================
-   🎨 WARM MIDNIGHT DARK THEME (นุ่มนวล สบายตา โทนสีอบอุ่น ระดับพรีเมียม)
+   🎨 HARMONIOUS ELEGANT DARK THEME (ธีมมืดนุ่มนวล สบายตา สีตัวอักษรกลมกลืน ไร้สีแย่งสายตา)
    ========================================================================== */
 
 html.dark {
   color-scheme: dark;
 }
 
-/* 1. Base Canvas — Warm Midnight Charcoal Background */
+/* 1. Base Canvas — Deep Charcoal Slate */
 html.dark body,
 html.dark .min-h-screen.bg-slate-50,
 html.dark .bg-slate-50 {
-  background-color: #12151c !important; /* Soft Matte Warm Midnight Base */
+  background-color: #0b0f19 !important;
   color: #e2e8f0 !important;
 }
 
-/* 2. Surfaces & Elevated Card Containers */
+/* 2. Unified Surfaces & Card Containers */
 html.dark .bg-white {
-  background-color: #1a1e28 !important; /* Elevated Warm Charcoal Card */
-  color: #f1f5f9 !important;
-  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.35) !important;
+  background-color: #111827 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .bg-slate-100,
@@ -76,28 +76,28 @@ html.dark .bg-slate-200,
 html.dark .bg-slate-200\/80,
 html.dark .bg-slate-200\/60,
 html.dark .bg-slate-200\/50 {
-  background-color: #151821 !important; /* Sub-surface Container */
+  background-color: #172033 !important;
   color: #cbd5e1 !important;
 }
 
-/* 3. Subtle Warm Borders & Dividers */
+/* 3. Subtle Borders */
 html.dark .border-slate-200,
 html.dark .border-slate-100,
 html.dark .border-slate-200\/80,
 html.dark .border-slate-200\/60,
 html.dark .border-slate-300,
 html.dark .border-slate-200\/70 {
-  border-color: #262c3a !important; /* Delicate Slate-Warm Border */
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #262c3a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* 4. Warm Typography Hierarchy (Off-White & Warm Grays) */
+/* 4. Strict Neutral Typography Hierarchy (No Rainbow Clashing Text!) */
 html.dark .text-slate-900 {
-  color: #f8fafc !important; /* Warm Off-White (No eye glare) */
+  color: #f8fafc !important; /* Crisp Pure White for Titles & Headers */
 }
 
 html.dark .text-slate-800 {
@@ -105,56 +105,54 @@ html.dark .text-slate-800 {
 }
 
 html.dark .text-slate-700 {
-  color: #cbd5e1 !important; /* Soft Ivory/Slate */
+  color: #e2e8f0 !important; /* Calm Clean Neutral Body Text */
 }
 
 html.dark .text-slate-600 {
-  color: #94a3b8 !important; /* Warm Readable Gray */
+  color: #cbd5e1 !important; /* Soft Secondary Text */
 }
 
 html.dark .text-slate-500 {
-  color: #64748b !important; /* Muted Charcoal */
+  color: #94a3b8 !important; /* Readable Muted Text */
 }
 
 html.dark .text-slate-400 {
   color: #64748b !important;
 }
 
-/* 5. Sidebar & Header Harmony */
+/* 5. Navigation & Header Harmony */
 html.dark aside,
 html.dark header {
-  background-color: #151821 !important;
-  border-color: #222734 !important;
+  background-color: #0e1422 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark .hover\:bg-slate-50:hover,
 html.dark .hover\:bg-slate-100:hover,
 html.dark .hover\:bg-white\/50:hover {
-  background-color: #202533 !important;
+  background-color: #1a2336 !important;
   color: #ffffff !important;
 }
 
-/* 6. Overview KPI Cards (Warm Floating Cards with Subtle Depth) */
+/* 6. Overview KPI Cards */
 html.dark .from-white.to-emerald-50\/30,
 html.dark .from-white.to-rose-50\/30,
 html.dark .from-white.to-orange-50\/30,
 html.dark .from-white.to-amber-50\/30 {
-  background-color: #1a1e28 !important;
-  border-color: #262c3a !important;
-  box-shadow: 0 4px 18px -3px rgba(0, 0, 0, 0.4) !important;
-  transition: all 0.2s ease;
+  background-color: #111827 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
 }
 
 html.dark .from-white.to-emerald-50\/30:hover,
 html.dark .from-white.to-rose-50\/30:hover,
 html.dark .from-white.to-orange-50\/30:hover,
 html.dark .from-white.to-amber-50\/30:hover {
-  background-color: #1e2330 !important;
-  border-color: #363e52 !important;
-  transform: translateY(-1px);
+  background-color: #151e30 !important;
+  border-color: rgba(249, 115, 22, 0.35) !important;
 }
 
-/* Harmonized Warm Status Pills */
+/* 7. Tasteful, Non-Clashing Status Badges */
 html.dark .bg-emerald-100\/70,
 html.dark .bg-emerald-100 {
   background-color: rgba(16, 185, 129, 0.12) !important;
@@ -194,142 +192,164 @@ html.dark .bg-blue-100 {
   border: 1px solid rgba(59, 130, 246, 0.25) !important;
 }
 
-/* 7. Form Controls, Inputs & Filters */
+/* 8. Neutralized Form Controls */
 html.dark input,
 html.dark select,
 html.dark textarea {
-  background-color: #141720 !important;
-  border-color: #262c3a !important;
-  color: #f1f5f9 !important;
+  background-color: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
 }
 
 html.dark input:focus,
 html.dark select:focus,
 html.dark textarea:focus {
   border-color: #f97316 !important;
-  background-color: #181c26 !important;
+  background-color: #141f33 !important;
   box-shadow: 0 0 0 1px #f97316 !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #4b5568 !important;
+  color: #64748b !important;
 }
 
 html.dark select option {
-  background-color: #1a1e28 !important;
-  color: #f1f5f9 !important;
+  background-color: #111827 !important;
+  color: #f8fafc !important;
 }
 
-/* Active Toggle Buttons & Pills */
+/* 9. Active Toggle Tabs */
 html.dark .bg-white.text-orange-600,
 html.dark .bg-white.text-emerald-700,
 html.dark .bg-white.text-orange-700,
 html.dark .bg-white.text-slate-900 {
-  background-color: #242a38 !important;
+  background-color: #1c273c !important;
   color: #fb923c !important;
-  border-color: #3b445a !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  border-color: rgba(249, 115, 22, 0.3) !important;
 }
 
-/* 8. Tables & Lists */
+/* 10. Tables */
 html.dark thead.bg-slate-100,
 html.dark thead {
-  background-color: #141720 !important;
+  background-color: #0d121f !important;
   color: #94a3b8 !important;
-  border-color: #262c3a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html.dark tbody tr {
-  border-color: #1e2330 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
 }
 
 html.dark tbody tr:hover {
-  background-color: #1f2431 !important;
+  background-color: #151e30 !important;
 }
 
-/* 9. Header Action Buttons & Badges */
-html.dark .bg-slate-50\/80 {
-  background-color: #1a1e28 !important;
-}
-
-html.dark .bg-slate-200\/80 {
-  background-color: #242a38 !important;
-  color: #cbd5e1 !important;
-}
-
-/* 10. Glass Card & Modals */
+/* 11. Glass Cards & Dialog Modals */
 html.dark .glass-card {
-  background: rgba(26, 30, 40, 0.97) !important;
-  border-color: #2a3142 !important;
-  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65) !important;
+  background: rgba(17, 24, 39, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* 11. User Manual (/manual) Callout Banners */
-html.dark .from-orange-50\/50.to-white,
-html.dark .from-amber-50\/50.to-white,
-html.dark .from-blue-50\/50.to-white {
-  background-color: #1a1e28 !important;
-  border-color: #262c3a !important;
+/* 12. Harmonized Callout Notice Boxes (Neutral Dark Surfaces with Soft Accent Icons) */
+html.dark .bg-orange-50,
+html.dark .bg-orange-50\/90,
+html.dark .bg-orange-50\/80,
+html.dark .bg-orange-50\/70,
+html.dark .bg-orange-50\/60,
+html.dark .bg-orange-50\/50,
+html.dark .from-orange-50\/50.to-white {
+  background-color: rgba(249, 115, 22, 0.06) !important;
+  border-color: rgba(249, 115, 22, 0.2) !important;
 }
 
-html.dark .bg-rose-50\/50,
-html.dark .bg-rose-50 {
-  background-color: rgba(244, 63, 94, 0.08) !important;
-  border-color: rgba(244, 63, 94, 0.22) !important;
-}
-
-html.dark .text-rose-950,
-html.dark .text-rose-900,
-html.dark .text-rose-800 {
-  color: #fca5a5 !important;
-}
-
-html.dark .bg-rose-100\/70 {
-  background-color: rgba(244, 63, 94, 0.16) !important;
-  color: #fca5a5 !important;
-  border-color: rgba(244, 63, 94, 0.3) !important;
-}
-
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/90,
+html.dark .bg-amber-50\/80,
+html.dark .bg-amber-50\/70,
 html.dark .bg-amber-50\/60,
-html.dark .bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.08) !important;
-  border-color: rgba(245, 158, 11, 0.22) !important;
+html.dark .bg-amber-50\/50,
+html.dark .from-amber-50\/50.to-white {
+  background-color: rgba(245, 158, 11, 0.06) !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
 }
 
+html.dark .bg-blue-50,
+html.dark .bg-blue-50\/90,
+html.dark .bg-blue-50\/80,
+html.dark .bg-blue-50\/70,
+html.dark .bg-blue-50\/60,
+html.dark .bg-blue-50\/50,
+html.dark .from-blue-50\/50.to-white {
+  background-color: rgba(59, 130, 246, 0.06) !important;
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/90,
+html.dark .bg-emerald-50\/80,
+html.dark .bg-emerald-50\/70,
+html.dark .bg-emerald-50\/60,
+html.dark .bg-emerald-50\/50,
+html.dark .from-emerald-50\/50.to-white {
+  background-color: rgba(16, 185, 129, 0.06) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/90,
+html.dark .bg-rose-50\/80,
+html.dark .bg-rose-50\/70,
+html.dark .bg-rose-50\/60,
+html.dark .bg-rose-50\/50,
+html.dark .from-rose-50\/50.to-white {
+  background-color: rgba(244, 63, 94, 0.06) !important;
+  border-color: rgba(244, 63, 94, 0.2) !important;
+}
+
+html.dark .bg-teal-50,
+html.dark .bg-teal-50\/90,
+html.dark .bg-teal-50\/80,
+html.dark .bg-teal-50\/70,
+html.dark .bg-teal-50\/60,
+html.dark .bg-teal-50\/50,
+html.dark .bg-indigo-50,
+html.dark .bg-indigo-50\/90,
+html.dark .bg-indigo-50\/80,
+html.dark .bg-indigo-50\/70,
+html.dark .bg-indigo-50\/60,
+html.dark .bg-indigo-50\/50 {
+  background-color: rgba(99, 102, 241, 0.06) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+/* 13. Ensure All Callout Paragraphs Use Calm Neutral Text in Dark Mode (No Clashing Colors) */
+html.dark .text-orange-950,
+html.dark .text-orange-900,
 html.dark .text-amber-950,
 html.dark .text-amber-900,
-html.dark .text-amber-800 {
-  color: #fde047 !important;
+html.dark .text-blue-950,
+html.dark .text-blue-900,
+html.dark .text-emerald-950,
+html.dark .text-emerald-900,
+html.dark .text-rose-950,
+html.dark .text-rose-900,
+html.dark .text-teal-950,
+html.dark .text-teal-900,
+html.dark .text-indigo-950,
+html.dark .text-indigo-900 {
+  color: #cbd5e1 !important; /* Calm, Unified Neutral Text for All Callout Bodies */
 }
 
-html.dark .bg-emerald-50 {
-  background-color: rgba(16, 185, 129, 0.08) !important;
-  border-color: rgba(16, 185, 129, 0.22) !important;
-}
-
-html.dark .text-emerald-800,
-html.dark .text-emerald-900 {
-  color: #86efac !important;
-}
-
-html.dark .bg-orange-50 {
-  background-color: rgba(249, 115, 22, 0.08) !important;
-  border-color: rgba(249, 115, 22, 0.22) !important;
-}
-
-html.dark .text-orange-800,
-html.dark .text-orange-900 {
-  color: #fdba74 !important;
-}
-
-/* Custom scrollbar for dark theme */
+/* Custom sleek dark scrollbar */
 html.dark ::-webkit-scrollbar-track {
-  background: #12151c;
+  background: #0b0f19;
 }
 html.dark ::-webkit-scrollbar-thumb {
-  background: #262c3a;
+  background: #1e293b;
+  border-radius: 9999px;
 }
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #3b445a;
+  background: #334155;
 }

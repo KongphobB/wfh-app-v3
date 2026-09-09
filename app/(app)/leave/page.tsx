@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CalendarDays, Plus, CheckCircle2, XCircle, Clock, 
-  ShieldCheck, AlertCircle, RefreshCw, UserCheck, MessageSquare, ChevronRight
+  ShieldCheck, AlertCircle, RefreshCw, UserCheck, MessageSquare, ChevronRight,
+  Paperclip, Eye, X, Download, FileText
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LeaveRequestModal } from '@/components/LeaveRequestModal';
+import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
 import { LeaveRequest, LeaveStatus } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 
@@ -19,7 +21,9 @@ export default function LeavePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'my_requests' | 'team_approvals'>('my_requests');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null);
 
   const fetchRequests = async () => {
     try {
@@ -100,7 +104,17 @@ export default function LeavePage() {
           <p className="text-xs text-slate-500 mt-1">{t.leave.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHolidayOpen(true)}
+            className="text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/40 font-bold"
+          >
+            <CalendarDays className="w-3.5 h-3.5 text-orange-600" />
+            <span>{t.holiday.openBtn}</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -172,7 +186,7 @@ export default function LeavePage() {
             }`}
           >
             <CalendarDays className="w-4 h-4" />
-            <span>{t.leave.historyTitle}</span>
+            <span>{t.leave.allHistoryTitle}</span>
           </button>
         </div>
       )}
@@ -198,13 +212,13 @@ export default function LeavePage() {
                 {pendingApprovals.map((req) => (
                   <div key={req.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm text-slate-900">{req.employee_name}</span>
                         <span className="text-xs text-slate-400 font-mono">({req.employee_id})</span>
                         {req.department && (
                           <Badge variant="outline" className="text-[10px]">{req.department}</Badge>
                         )}
-                        <Badge variant="default" className="bg-orange-100 text-orange-700 border-orange-200 text-[10px]">
+                        <Badge variant="default" className="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 text-[10px]">
                           {req.leave_type}
                         </Badge>
                       </div>
@@ -217,6 +231,25 @@ export default function LeavePage() {
                       <p className="text-xs text-slate-600 bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
                         <strong>เหตุผล:</strong> {req.reason}
                       </p>
+
+                      {req.attachment_url && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewAttachment({
+                                url: req.attachment_url!,
+                                name: req.attachment_name || 'เอกสารหลักฐานประกอบการลา',
+                                type: req.attachment_type || 'image',
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px] font-bold hover:bg-orange-100 transition-colors cursor-pointer"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span>📎 ดูหลักฐานแนบ (ใบรับรองแพทย์/เอกสาร)</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
@@ -254,8 +287,12 @@ export default function LeavePage() {
       {activeTab === 'my_requests' && (
         <Card className="glass-card shadow-sm border border-slate-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold text-slate-900">{t.leave.historyTitle}</CardTitle>
-            <CardDescription className="text-xs text-slate-500">{t.leave.historySubtitle}</CardDescription>
+            <CardTitle className="text-base font-bold text-slate-900">
+              {role === 'supervisor' || role === 'admin' ? t.leave.allHistoryTitle : t.leave.historyTitle}
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-500">
+              {role === 'supervisor' || role === 'admin' ? t.leave.allHistorySubtitle : t.leave.historySubtitle}
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {myRequests.length === 0 ? (
@@ -267,9 +304,16 @@ export default function LeavePage() {
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {myRequests.map((req) => (
                   <div key={req.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900">{req.leave_type}</span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-slate-900">{req.employee_name}</span>
+                        <span className="text-xs text-slate-400 font-mono">({req.employee_id})</span>
+                        {req.department && (
+                          <Badge variant="outline" className="text-[10px]">{req.department}</Badge>
+                        )}
+                        <Badge variant="default" className="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 text-[10px]">
+                          {req.leave_type}
+                        </Badge>
                         {getStatusBadge(req.status)}
                       </div>
 
@@ -280,6 +324,25 @@ export default function LeavePage() {
                       <p className="text-xs text-slate-500">
                         {req.reason}
                       </p>
+
+                      {req.attachment_url && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewAttachment({
+                                url: req.attachment_url!,
+                                name: req.attachment_name || 'เอกสารหลักฐานประกอบการลา',
+                                type: req.attachment_type || 'image',
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px] font-bold hover:bg-orange-100 transition-colors cursor-pointer"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span>📎 ดูหลักฐานแนบ</span>
+                          </button>
+                        </div>
+                      )}
 
                       {req.reviewed_by && (
                         <p className="text-[11px] text-slate-400 mt-1">
@@ -307,6 +370,64 @@ export default function LeavePage() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchRequests}
       />
+
+      {/* Holiday Calendar Modal */}
+      <HolidayCalendarModal
+        isOpen={isHolidayOpen}
+        onClose={() => setIsHolidayOpen(false)}
+      />
+
+      {/* Attachment Preview Lightbox Modal */}
+      {previewAttachment && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
+          <div className="relative max-w-3xl max-h-[90vh] w-full bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 truncate">
+                <Paperclip className="w-4 h-4 text-orange-600" />
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">
+                  {previewAttachment.name}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>ดาวน์โหลด</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAttachment(null)}
+                  className="text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 flex justify-center items-center bg-slate-50 dark:bg-slate-950 rounded-2xl mt-3 max-h-[70vh]">
+              {previewAttachment.type === 'pdf' || previewAttachment.url.startsWith('data:application/pdf') ? (
+                <iframe
+                  src={previewAttachment.url}
+                  title="Document Preview"
+                  className="w-full h-[65vh] rounded-xl border-0"
+                />
+              ) : (
+                <img
+                  src={previewAttachment.url}
+                  alt="Medical Certificate / Leave Attachment"
+                  className="max-h-[65vh] w-auto object-contain rounded-xl shadow-md"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

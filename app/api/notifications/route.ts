@@ -28,18 +28,42 @@ export async function GET() {
         (s) => String(s.employeeId) === String(session.employee_id) && s.date === todayStr
       );
 
+      // Group spot checks by round to prevent false failure alerts on duplicate records
+      const roundsMap = new Map<string, any[]>();
       for (const s of userChecks) {
-        const id = s.uuid || `${s.employeeId}_${s.date}_${s.round}`;
-        const scheduledTime = s.triggeredTime || s.scheduledTime || s.time || (s.round === 'เช้า' ? '09:30:00' : '14:30:00');
-        const triggerTimeMs = new Date(`${s.date || todayStr}T${scheduledTime}+07:00`).getTime();
-        const nowMs = Date.now();
+        const r = s.round || 'เช้า';
+        if (!roundsMap.has(r)) roundsMap.set(r, []);
+        roundsMap.get(r)!.push(s);
+      }
+
+      const nowMs = Date.now();
+
+      for (const [roundName, checksInRound] of roundsMap.entries()) {
+        const isRoundPassed = checksInRound.some((s) => {
+          const status = s.status || s.resultStatus || '';
+          return status === 'Pass' || status === 'ผ่าน' || status === 'ผ่านการสุ่มตรวจ' || Boolean(s.actualScanTime);
+        });
+
+        // If employee has already PASSED this round today, skip any active/failed notifications for this round!
+        if (isRoundPassed) {
+          continue;
+        }
+
+        // Otherwise check the most relevant check for this round
+        const latestCheck = checksInRound[0];
+        const id = latestCheck.uuid || `${latestCheck.employeeId}_${latestCheck.date}_${roundName}`;
+        const scheduledTime = latestCheck.triggeredTime || latestCheck.scheduledTime || latestCheck.time || (roundName === 'เช้า' ? '09:30:00' : '14:30:00');
+        const triggerTimeMs = new Date(`${latestCheck.date || todayStr}T${scheduledTime}+07:00`).getTime();
 
         const isCurrentlyActive =
-          (s.status === 'Scheduled' || s.status === 'Pending' || s.status === 'รอการยืนยัน') &&
+          (latestCheck.status === 'Scheduled' || latestCheck.status === 'Pending' || latestCheck.status === 'รอการยืนยัน') &&
           nowMs >= triggerTimeMs &&
           nowMs <= triggerTimeMs + 10 * 60 * 1000;
 
-        const isFailed = s.status && (s.status.includes('ไม่ผ่าน') || s.status.includes('ขาดการติดต่อ'));
+        const isFailed = checksInRound.some((s) => {
+          const status = s.status || s.resultStatus || '';
+          return status.includes('ไม่ผ่าน') || status.includes('ขาดการติดต่อ');
+        });
 
         if (isCurrentlyActive) {
           const notifId = `spot_active_${id}`;
@@ -47,19 +71,19 @@ export async function GET() {
             id: notifId,
             employee_id: session.employee_id,
             type: 'spotcheck',
-            title: `🚨 สุ่มตรวจยืนยันตัวตน (รอบ${s.round})`,
+            title: `🚨 สุ่มตรวจยืนยันตัวตน (รอบ${roundName})`,
             message: `ถึงเวลาสุ่มตรวจยืนยันตัวตนแล้ว กรุณาสแกนถ่ายภาพ Selfie ภายใน 10 นาที`,
             link: '/spotcheck',
             is_read: isNotifRead(notifId),
             created_at: new Date(triggerTimeMs).toISOString(),
           });
-        } else if (isFailed) {
+        } else if (isFailed && nowMs > triggerTimeMs + 10 * 60 * 1000) {
           const notifId = `spot_fail_${id}`;
           dynamicNotifs.push({
             id: notifId,
             employee_id: session.employee_id,
             type: 'spotcheck',
-            title: `⚠️ ไม่ผ่านการสุ่มตรวจรอบ${s.round} (ขาดการติดต่อ)`,
+            title: `⚠️ ไม่ผ่านการสุ่มตรวจรอบ${roundName} (ขาดการติดต่อ)`,
             message: `คุณไม่ได้ยืนยันตัวตนตามเวลาที่กำหนด`,
             link: '/spotcheck',
             is_read: isNotifRead(notifId),

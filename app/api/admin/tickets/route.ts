@@ -134,6 +134,20 @@ export async function PATCH(request: Request) {
       console.warn('Failed to notify employee on ticket resolution:', notifErr);
     }
 
+    // Record Audit Log
+    try {
+      const { createAuditLog } = await import('@/lib/auditStore');
+      createAuditLog({
+        admin_id: session.employee_id,
+        admin_name: session.name,
+        action_type: 'RESOLVE_TICKET',
+        action_title: 'ตอบกลับ & ดำเนินการ Ticket แจ้งปัญหา',
+        details: `${session.name} ปรับสถานะ Ticket (${ticket_id}) เป็น "${status}" ${admin_notes ? `[บันทึกแอดมิน: ${admin_notes}]` : ''}`,
+      });
+    } catch (auditErr) {
+      console.warn('Failed to write ticket audit log:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: 'อัปเดตสถานะ Ticket ใน Google Sheet เรียบร้อยแล้ว',

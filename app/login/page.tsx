@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { User, Lock, AlertCircle, ArrowRight, Unlock, UserPlus, X, CheckCircle2, Info, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { useLanguage } from '@/lib/i18n';
 import LanguageToggle from '@/components/LanguageToggle';
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [canUnblock, setCanUnblock] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // Registration Modal State
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -235,20 +237,34 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Register Link */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-medium">{t.auth.noEmpIdYet}</span>
+          {/* Register & Quick Guide Links */}
+          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={() => setIsOnboardingOpen(true)}
+              className="text-slate-500 hover:text-orange-600 font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Info className="w-4 h-4 text-orange-500 shrink-0" />
+              <span>{t.onboarding.quickGuideBtn}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsRegisterOpen(true)}
-              className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1.5 cursor-pointer"
+              className="text-orange-600 hover:text-orange-700 font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 shrink-0" />
               <span>{t.auth.registerNewEmp}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Onboarding Quick Guide Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
 
       {/* Registration Modal Dialog */}
       {isRegisterOpen && (

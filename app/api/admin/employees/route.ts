@@ -4,6 +4,7 @@ import { getSession, determineRole, formatPositionForRole } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { Employee, WfhStatus } from '@/types';
 import { getExemptConfig } from '@/lib/photoExempt';
+import { createAuditLog } from '@/lib/auditStore';
 
 const createEmployeeSchema = z.object({
   employee_id: z.string().min(1, 'กรุณาระบุรหัสพนักงาน 4 หลัก'),
@@ -138,6 +139,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: gasResult.message || 'บันทึกข้อมูลพนักงานลง Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'CREATE_EMPLOYEE',
+      action_title: 'สร้างพนักงานใหม่',
+      target_employee_id: newEmpData.employee_id,
+      target_employee_name: newEmpData.name,
+      details: `${session.name} สร้างพนักงานใหม่: ${newEmpData.name} (${newEmpData.employee_id}) แผนก: ${newEmpData.department || 'ทั่วไป'} บทบาท: ${newEmpData.role}`,
+    });
+
     return NextResponse.json({
       success: true,
       message: `สร้างพนักงาน ${newEmpData.name} สำเร็จใน Google Sheet (PIN เริ่มต้น: 1234)`,
@@ -180,6 +191,15 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: gasResult.message || 'ปรับสิทธิ์ WFH ไม่สำเร็จ' }, { status: 400 });
       }
 
+      createAuditLog({
+        admin_id: session.employee_id,
+        admin_name: session.name,
+        action_type: wfh_status === 'เปิดสิทธิ์' ? 'UNSUSPEND_WFH' : 'SUSPEND_WFH',
+        action_title: wfh_status === 'เปิดสิทธิ์' ? 'ปลดระงับสิทธิ์ WFH' : 'ระงับสิทธิ์ WFH',
+        target_employee_id: employee_id,
+        details: `${session.name} ปรับสิทธิ์ WFH ของพนักงาน ${employee_id} เป็น "${wfh_status}"`,
+      });
+
       return NextResponse.json({
         success: true,
         message: gasResult?.message || `ปรับสิทธิ์ WFH ของพนักงาน ${employee_id} เป็น ${wfh_status} สำเร็จ`,
@@ -220,6 +240,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: gasResult.message || 'แก้ไขข้อมูลใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
 
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'EDIT_EMPLOYEE',
+      action_title: reset_pin ? 'รีเซ็ต PIN & แก้ไขข้อมูลพนักงาน' : 'แก้ไขข้อมูลพนักงาน',
+      target_employee_id: employee_id,
+      target_employee_name: finalName,
+      details: `${session.name} แก้ไขข้อมูลพนักงาน ${finalName} (${employee_id}) แผนก: ${finalDept}, ตำแหน่ง: ${finalPosition}${reset_pin ? ' [รีเซ็ต PIN เป็น 1234]' : ''}`,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'อัปเดตข้อมูลพนักงานเรียบร้อยแล้วใน Google Sheet',
@@ -256,6 +286,15 @@ export async function DELETE(request: Request) {
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'ลบข้อมูลพนักงานใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
+
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'EDIT_EMPLOYEE',
+      action_title: 'ลบข้อมูลพนักงาน',
+      target_employee_id: employee_id,
+      details: `${session.name} ลบพนักงานรหัส ${employee_id} ออกจากระบบ`,
+    });
 
     return NextResponse.json({
       success: true,

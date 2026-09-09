@@ -209,6 +209,13 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         return;
       }
 
+      if (photoDataUrl) {
+        try {
+          localStorage.setItem(`wfh_selfie_spot_${spotCheck.id}`, photoDataUrl);
+          localStorage.setItem(`wfh_selfie_${spotCheck.check_date}_สุ่มตรวจ`, photoDataUrl);
+        } catch {}
+      }
+
       onSuccess();
       onClose();
     } catch {

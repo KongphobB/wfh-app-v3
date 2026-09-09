@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import CheckinModal from '@/components/CheckinModal';
+import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,19 +12,21 @@ import { useLanguage } from '@/lib/i18n';
 
 export default function CheckinPage() {
   const { t, lang } = useLanguage();
-  const [checkinLogs, setCheckinLogs] = useState<CheckinLog[]>([]);
+  const [allLogs, setAllLogs] = useState<CheckinLog[]>([]);
+  const [viewFilter, setViewFilter] = useState<'today' | 'all'>('today');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<CheckinType>('เข้างาน');
   const [alertPopup, setAlertPopup] = useState<{ title: string; message: string } | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
 
   const fetchCheckinLogs = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const res = await fetch('/api/checkin');
+      const res = await fetch('/api/checkin?scope=self');
       if (res.ok) {
         const data = await res.json();
-        setCheckinLogs(data.logs || []);
+        setAllLogs(data.logs || []);
       }
     } catch (err) {
       console.error('Fetch checkin logs error:', err);
@@ -61,6 +64,44 @@ export default function CheckinPage() {
     }
     setSelectedType(type);
     setIsModalOpen(true);
+  };
+
+  const todayStr = (() => {
+    try {
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  })();
+
+  const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
+  const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr === todayStr) return lang === 'en' ? 'Today' : 'วันนี้';
+    try {
+      const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00+07:00`);
+      return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getEffectivePhotoUrl = (log: CheckinLog) => {
+    if (log.photo_url) return log.photo_url;
+    if (typeof window === 'undefined') return null;
+    try {
+      return (
+        localStorage.getItem(`wfh_selfie_${log.id}`) ||
+        localStorage.getItem(`wfh_selfie_${log.log_date}_${log.log_type}`) ||
+        localStorage.getItem(`wfh_selfie_${log.log_date}`) ||
+        localStorage.getItem(`wfh_selfie_spot_${log.id}`) ||
+        null
+      );
+    } catch {
+      return null;
+    }
   };
 
   return (
@@ -124,20 +165,89 @@ export default function CheckinPage() {
 
       {/* History List */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="w-5 h-5 text-orange-500" />
-            <span>{t.checkin.historyTitle}</span>
+            <span>
+              {viewFilter === 'today'
+                ? (lang === 'en' ? "Today's Check-in History" : 'ประวัติการลงเวลาวันนี้')
+                : (lang === 'en' ? 'All Check-in History' : 'ประวัติการลงเวลาทั้งหมด')}
+            </span>
           </CardTitle>
+
+          {/* Segmented Filter: วันนี้ vs ทั้งหมด */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setViewFilter('today')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewFilter === 'today'
+                  ? 'bg-white dark:bg-slate-900 text-orange-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>📅</span>
+              <span>{lang === 'en' ? 'Today' : 'วันนี้'}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  viewFilter === 'today'
+                    ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-600'
+                    : 'bg-slate-200/70 dark:bg-slate-700 text-slate-500'
+                }`}
+              >
+                {todayLogs.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewFilter('all')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewFilter === 'all'
+                  ? 'bg-white dark:bg-slate-900 text-orange-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>📋</span>
+              <span>{lang === 'en' ? 'All' : 'ทั้งหมด'}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  viewFilter === 'all'
+                    ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-600'
+                    : 'bg-slate-200/70 dark:bg-slate-700 text-slate-500'
+                }`}
+              >
+                {allLogs.length}
+              </span>
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
-          {checkinLogs.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs font-medium">
-              {t.common.noData}
+          {displayedLogs.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 text-xs font-medium space-y-3">
+              <p>
+                {viewFilter === 'today'
+                  ? (lang === 'en'
+                      ? `No check-in records for today (${formatDateDisplay(todayStr)})`
+                      : `ยังไม่มีการลงเวลาสำหรับวันนี้ (${formatDateDisplay(todayStr)})`)
+                  : t.common.noData}
+              </p>
+              {viewFilter === 'today' && allLogs.length > 0 && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewFilter('all')}
+                    className="text-xs font-bold text-orange-600 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/30 hover:bg-orange-100 cursor-pointer shadow-xs"
+                  >
+                    📋 {lang === 'en' ? `View past check-ins (${allLogs.length} records)` : `คลิกเพื่อดูประวัติย้อนหลังทั้งหมด (${allLogs.length} รายการ)`}
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {checkinLogs.map((log) => (
+              {displayedLogs.map((log) => (
                 <div
                   key={log.id}
                   className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs"
@@ -159,29 +269,67 @@ export default function CheckinPage() {
                           {log.verification_status}
                         </Badge>
                       </div>
-                      <p className="text-slate-500 text-[11px] font-medium mt-0.5">
-                        {new Date(log.log_time).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }) + (lang === 'en' ? '' : ' น.')}
-                        {log.note && ` • ${log.note}`}
+                      <p className="text-slate-500 text-[11px] font-medium mt-0.5 flex items-center flex-wrap gap-1">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {formatDateDisplay(log.log_date)}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {new Date(log.log_time).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }) + (lang === 'en' ? '' : ' น.')}
+                        </span>
+                        {log.note && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-600 dark:text-slate-400">{log.note}</span>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>
 
-                  {log.photo_url && (
-                    <a
-                      href={log.photo_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-orange-600 font-bold hover:underline border border-orange-200 bg-orange-50 px-3 py-1 rounded-lg"
-                    >
-                      {lang === 'en' ? 'View Photo ↗' : 'ดูรูปถ่าย ↗'}
-                    </a>
-                  )}
+                  {(() => {
+                    const candidatePhotoUrl = log.photo_url || getEffectivePhotoUrl(log) || '';
+                    const hasAnyPhoto = Boolean(log.photo_url) || Boolean(log.has_photo) || Boolean(getEffectivePhotoUrl(log));
+
+                    if (hasAnyPhoto && candidatePhotoUrl) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLightboxPhoto({
+                              url: candidatePhotoUrl,
+                              name: log.employee_name || 'พนักงาน',
+                              employee_id: log.employee_id,
+                              time: new Date(log.log_time).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }) + (lang === 'en' ? '' : ' น.'),
+                              date: log.log_date,
+                              type: log.log_type,
+                              status: log.verification_status,
+                              gps_lat: log.gps_lat,
+                              gps_lng: log.gps_lng,
+                              note: log.note,
+                            })
+                          }
+                          className="text-xs text-orange-600 font-bold hover:underline border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/40 px-3 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1 shrink-0"
+                        >
+                          <span>{lang === 'en' ? 'View Photo' : 'ดูรูปถ่าย'}</span>
+                          <span className="text-[10px]">↗</span>
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Selfie Lightbox Modal */}
+      <SelfieLightboxModal
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+      />
 
       {/* Popup Alert Dialog Modal */}
       {alertPopup && (

@@ -179,14 +179,14 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-28px)] rounded-3xl bg-white border border-slate-200 shadow-2xl z-50 overflow-hidden animate-fade-in text-xs">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-28px)] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-fade-in text-xs">
           {/* Header */}
-          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BellRing className="w-4 h-4 text-orange-500" />
-              <h3 className="font-bold text-slate-900 text-sm">{lang === 'en' ? 'Notifications' : 'การแจ้งเตือน'}</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{lang === 'en' ? 'Notifications' : 'การแจ้งเตือน'}</h3>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-[10px] font-bold">
                   {unreadCount} {lang === 'en' ? 'new' : 'ใหม่'}
                 </span>
               )}
@@ -195,7 +195,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={() => handleMarkAsRead(undefined, true)}
-                className="text-orange-600 hover:text-orange-700 text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                className="text-orange-600 dark:text-orange-400 hover:text-orange-700 text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 <span>{lang === 'en' ? 'Mark all as read' : 'อ่านทั้งหมด'}</span>
@@ -204,10 +204,10 @@ export default function NotificationBell() {
           </div>
 
           {/* List */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 font-medium">
-                <Sparkles className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              <div className="p-8 text-center text-slate-400 dark:text-slate-500 font-medium">
+                <Sparkles className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                 <span>{lang === 'en' ? 'No notifications at this time' : 'ยังไม่มีการแจ้งเตือนในขณะนี้'}</span>
               </div>
             ) : (
@@ -215,25 +215,17 @@ export default function NotificationBell() {
                 <div
                   key={n.id}
                   onClick={() => handleItemClick(n)}
-                  className={`p-4 transition-colors cursor-pointer flex items-start gap-3 hover:bg-slate-50 ${
-                    !n.is_read ? 'bg-orange-50/40' : ''
+                  className={`p-4 transition-colors cursor-pointer flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                    !n.is_read ? 'bg-orange-50/40 dark:bg-orange-950/20' : ''
                   }`}
                 >
-                  <div className="mt-1">
-                    {!n.is_read ? (
-                      <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block shrink-0" />
-                    ) : (
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-200 inline-block shrink-0" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-slate-900 text-xs">{n.title}</p>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {formatRelativeTime(n.created_at, lang)}
-                      </span>
-                    </div>
-                    <p className="text-slate-600 text-[11px] leading-relaxed">{n.message}</p>
+                  <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-orange-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{n.title}</p>
+                    <p className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1 block">
+                      {formatRelativeTime(n.created_at, lang)}
+                    </span>
                   </div>
                 </div>
               ))

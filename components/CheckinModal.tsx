@@ -91,11 +91,14 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         if (data.employee_position) {
           setEmployeePosition(data.employee_position);
         }
+        const todayStr = new Date().toISOString().split('T')[0];
         const logs: CheckinLog[] = data.logs || [];
-        const morningLogs = logs.filter((l) => l.log_type === 'เข้างาน');
-        if (morningLogs.length > 0) {
-          morningLogs.sort((a, b) => new Date(a.log_time).getTime() - new Date(b.log_time).getTime());
-          const firstLog = morningLogs[0];
+        const todayMorningLogs = logs.filter(
+          (l) => l.log_type === 'เข้างาน' && l.log_date === todayStr
+        );
+        if (todayMorningLogs.length > 0) {
+          todayMorningLogs.sort((a, b) => new Date(a.log_time).getTime() - new Date(b.log_time).getTime());
+          const firstLog = todayMorningLogs[0];
           if (firstLog.gps_lat != null && firstLog.gps_lng != null) {
             setFirstCheckInGps({ lat: firstLog.gps_lat, lng: firstLog.gps_lng });
           } else {
@@ -297,6 +300,17 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         });
         setLoading(false);
         return;
+      }
+
+      if (photoDataUrl) {
+        try {
+          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+          localStorage.setItem(`wfh_selfie_${today}_${logType}`, photoDataUrl);
+          localStorage.setItem(`wfh_selfie_${today}`, photoDataUrl);
+          if (data?.data?.uuid) {
+            localStorage.setItem(`wfh_selfie_${data.data.uuid}`, photoDataUrl);
+          }
+        } catch {}
       }
 
       setLoading(false);

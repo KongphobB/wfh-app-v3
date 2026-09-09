@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getLeaveRequestsForUser, createLeaveRequest, updateLeaveStatus } from '@/lib/leaveStore';
 import { createNotification, createNotificationForAdmins } from '@/lib/notifications';
+import { createAuditLog } from '@/lib/auditStore';
 import { LeaveType, LeaveStatus } from '@/types';
 import { z } from 'zod';
 
@@ -12,6 +13,9 @@ const CreateLeaveSchema = z.object({
   start_date: z.string().min(10),
   end_date: z.string().min(10),
   reason: z.string().min(3),
+  attachment_url: z.string().optional(),
+  attachment_name: z.string().optional(),
+  attachment_type: z.enum(['image', 'pdf']).optional(),
 });
 
 const UpdateLeaveSchema = z.object({
@@ -60,6 +64,9 @@ export async function POST(request: Request) {
       start_date: parsed.data.start_date,
       end_date: parsed.data.end_date,
       reason: parsed.data.reason,
+      attachment_url: parsed.data.attachment_url,
+      attachment_name: parsed.data.attachment_name,
+      attachment_type: parsed.data.attachment_type,
     });
 
     const isOnsite = newRequest.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
@@ -116,6 +123,17 @@ export async function PATCH(request: Request) {
     if (!updated) {
       return NextResponse.json({ error: 'ไม่พบรายการคำขอดังกล่าว' }, { status: 404 });
     }
+
+    // Record Audit Log
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: updated.status === 'Approved' ? 'APPROVE_LEAVE' : 'REJECT_LEAVE',
+      action_title: `${updated.status === 'Approved' ? 'อนุมัติ' : 'ปฏิเสธ'}คำขอ${updated.leave_type}`,
+      target_employee_id: updated.employee_id,
+      target_employee_name: updated.employee_name,
+      details: `${session.name} พิจารณา${updated.status === 'Approved' ? 'อนุมัติ' : 'ไม่อนุมัติ'} คำขอ${updated.leave_type} วันที่ ${updated.start_date} ถึง ${updated.end_date} (เหตุผล: ${updated.reason})${parsed.data.review_note ? ` [หมายเหตุ: ${parsed.data.review_note}]` : ''}`,
+    });
 
     // Notify the employee about the approval/rejection
     await createNotification({

@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   ShieldCheck, Users, Ticket as TicketIcon, Settings, Plus, 
   CheckCircle2, RefreshCw, X, Save, Edit3, Trash2, KeyRound, Sparkles, MapPin, Clock,
-  Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Camera
+  Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Camera, MessageSquarePlus, Shield,
+  Calendar, Palmtree, FileText, Upload, Download, Eye, ExternalLink, History, ScrollText, Activity, ShieldAlert
 } from 'lucide-react';
-import { Employee, Ticket, AppConfig, CheckinLog } from '@/types';
+import { Employee, Ticket, AppConfig, CheckinLog, SuggestionItem, SuggestionStatus, CompanyHoliday, HolidayPolicyDoc, AuditLogItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 
 export default function AdminPage() {
   const { t, lang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'employees' | 'checkins' | 'tickets' | 'config'>('employees');
+  const [activeTab, setActiveTab] = useState<'employees' | 'checkins' | 'tickets' | 'suggestions' | 'holidays' | 'audit' | 'config'>('employees');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allCheckins, setAllCheckins] = useState<(CheckinLog & { employee_name?: string })[]>([]);
   const [logFilter, setLogFilter] = useState<'all' | 'attendance' | 'system'>('all');
@@ -23,6 +24,31 @@ export default function AdminPage() {
   const [logPage, setLogPage] = useState(1);
   const [logPageSize, setLogPageSize] = useState(10);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<SuggestionItem | null>(null);
+  const [sugStatus, setSugStatus] = useState<SuggestionStatus>('New');
+  const [sugAdminNote, setSugAdminNote] = useState('');
+  const [sugCategoryFilter, setSugCategoryFilter] = useState('all');
+
+  // Holidays state
+  const [adminHolidays, setAdminHolidays] = useState<CompanyHoliday[]>([]);
+  const [adminPolicyDoc, setAdminPolicyDoc] = useState<HolidayPolicyDoc | null>(null);
+  const [isAddHolOpen, setIsAddHolOpen] = useState(false);
+  const [newHolDate, setNewHolDate] = useState('');
+  const [newHolName, setNewHolName] = useState('');
+  const [newHolNameEn, setNewHolNameEn] = useState('');
+  const [newHolNotes, setNewHolNotes] = useState('');
+  const [isUploadPolicyOpen, setIsUploadPolicyOpen] = useState(false);
+  const [policyFileName, setPolicyFileName] = useState('');
+  const [policyFileUrl, setPolicyFileUrl] = useState('');
+  const [policyFileType, setPolicyFileType] = useState<'pdf' | 'image' | 'link'>('pdf');
+  const [policyFileSize, setPolicyFileSize] = useState('');
+
+  // Audit Trail state
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+
   const [configs, setConfigs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -62,16 +88,32 @@ export default function AdminPage() {
   const fetchAdminData = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const [eRes, cRes, tRes, confRes] = await Promise.all([
+      const [eRes, cRes, tRes, confRes, sugRes, holRes, auditRes] = await Promise.all([
         fetch('/api/admin/employees'),
         fetch('/api/checkin?scope=all'),
         fetch('/api/admin/tickets'),
         fetch('/api/admin/config'),
+        fetch('/api/suggestions'),
+        fetch('/api/holidays'),
+        fetch('/api/admin/audit'),
       ]);
 
       if (eRes.ok) setEmployees((await eRes.json()).employees || []);
       if (cRes.ok) setAllCheckins((await cRes.json()).logs || []);
       if (tRes.ok) setTickets((await tRes.json()).tickets || []);
+      if (sugRes.ok) setSuggestions((await sugRes.json()).data || []);
+      if (holRes.ok) {
+        const hData = await holRes.json();
+        setAdminHolidays(hData.holidays || []);
+        setAdminPolicyDoc(hData.policyDoc || null);
+        if (hData.policyDoc) {
+          setPolicyFileName(hData.policyDoc.file_name || '');
+          setPolicyFileUrl(hData.policyDoc.file_url || '');
+          setPolicyFileType(hData.policyDoc.file_type || 'pdf');
+          setPolicyFileSize(hData.policyDoc.file_size || '');
+        }
+      }
+      if (auditRes.ok) setAuditLogs((await auditRes.json()).logs || []);
       if (confRes.ok) {
         const cData = await confRes.json();
         const confObj: Record<string, string> = {};
@@ -84,6 +126,152 @@ export default function AdminPage() {
       console.error('Fetch admin data error:', err);
     } finally {
       if (isInitial) setLoading(false);
+    }
+  };
+
+  const handleUpdateSuggestion = async () => {
+    if (!selectedSuggestion || submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const res = await fetch('/api/suggestions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedSuggestion.id,
+          status: sugStatus,
+          admin_note: sugAdminNote.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+      }
+
+      setMessage(data.message || 'บันทึกสถานะข้อเสนอแนะสำเร็จ');
+      setSelectedSuggestion(null);
+      await fetchAdminData();
+    } catch (err: any) {
+      setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateHoliday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const res = await fetch('/api/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: newHolDate,
+          name: newHolName.trim(),
+          name_en: newHolNameEn.trim() || undefined,
+          notes: newHolNotes.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'เพิ่มวันหยุดไม่สำเร็จ');
+      }
+
+      setMessage(data.message || 'เพิ่มวันหยุดเรียบร้อย');
+      setIsAddHolOpen(false);
+      setNewHolDate('');
+      setNewHolName('');
+      setNewHolNameEn('');
+      setNewHolNotes('');
+      await fetchAdminData();
+    } catch (err: any) {
+      setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleHoliday = async (hol: CompanyHoliday) => {
+    try {
+      const res = await fetch('/api/holidays', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: hol.id,
+          is_active: !hol.is_active,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchAdminData();
+      }
+    } catch (err) {
+      console.error('Toggle holiday error:', err);
+    }
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    if (!confirm('คุณต้องการลบวันหยุดนี้ใช่หรือไม่?')) return;
+
+    try {
+      const res = await fetch(`/api/holidays?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setMessage('ลบวันหยุดเรียบร้อยแล้ว');
+        await fetchAdminData();
+      }
+    } catch (err) {
+      console.error('Delete holiday error:', err);
+    }
+  };
+
+  const handleSavePolicyDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const res = await fetch('/api/holidays', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'policy_doc',
+          policyDoc: {
+            file_name: policyFileName.trim(),
+            file_url: policyFileUrl.trim(),
+            file_type: policyFileType,
+            file_size: policyFileSize.trim() || undefined,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'อัปเดตไฟล์ประกาศไม่สำเร็จ');
+      }
+
+      setMessage(data.message || 'บันทึกไฟล์ประกาศวันหยุดสำเร็จ');
+      setIsUploadPolicyOpen(false);
+      await fetchAdminData();
+    } catch (err: any) {
+      setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -444,6 +632,42 @@ export default function AdminPage() {
         >
           <TicketIcon className="w-4 h-4" />
           <span>{t.admin.tabTickets} ({pendingTickets})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('suggestions')}
+          className={`pb-3 px-2 flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'suggestions'
+              ? 'border-teal-600 text-teal-700 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <MessageSquarePlus className="w-4 h-4" />
+          <span>ข้อเสนอแนะ ({suggestions.filter((s) => s.status === 'New').length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('holidays')}
+          className={`pb-3 px-2 flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'holidays'
+              ? 'border-orange-600 text-orange-700 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Palmtree className="w-4 h-4" />
+          <span>วันหยุด & ประกาศ ({adminHolidays.filter((h) => h.is_active).length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`pb-3 px-2 flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'audit'
+              ? 'border-indigo-600 text-indigo-700 font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>{t.audit.tabTitle} ({auditLogs.length})</span>
         </button>
 
         <button
@@ -1218,6 +1442,661 @@ export default function AdminPage() {
             )}
           </Button>
         </Card>
+      )}
+
+      {/* Tab 5: Suggestions Tab */}
+      {activeTab === 'suggestions' && (
+        <div className="space-y-4">
+          <Card className="glass-card shadow-sm border border-slate-200">
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MessageSquarePlus className="w-5 h-5 text-teal-600" />
+                  <span>กล่องรับฟังข้อเสนอแนะ ({suggestions.length} รายการ)</span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  ข้อเสนอแนะและไอเดียการปรับปรุงการทำงานจากพนักงาน
+                </p>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">หมวดหมู่:</span>
+                <select
+                  value={sugCategoryFilter}
+                  onChange={(e) => setSugCategoryFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-teal-500"
+                >
+                  <option value="all">ทั้งหมด</option>
+                  <option value="การทำงาน WFH">การทำงาน WFH</option>
+                  <option value="ระบบและอุปกรณ์">ระบบและอุปกรณ์</option>
+                  <option value="ทั่วไป">ทั่วไป</option>
+                  <option value="สวัสดิการและสถานที่">สวัสดิการและสถานที่</option>
+                  <option value="อื่นๆ">อื่นๆ</option>
+                </select>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {(() => {
+                const filtered = suggestions.filter(
+                  (s) => sugCategoryFilter === 'all' || s.category === sugCategoryFilter
+                );
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-xs text-slate-500">
+                      <MessageSquarePlus className="w-10 h-10 text-slate-300 mx-auto mb-2 opacity-80" />
+                      <p>ยังไม่มีข้อเสนอแนะในหมวดหมู่นี้</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filtered.map((sug) => (
+                      <div key={sug.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900">{sug.topic}</span>
+                            <Badge variant="outline" className="text-[10px] bg-slate-50 dark:bg-slate-800">
+                              {sug.category}
+                            </Badge>
+                            {sug.is_anonymous ? (
+                              <Badge variant="default" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 text-[10px] gap-1">
+                                <Shield className="w-3 h-3" />
+                                <span>ไม่ระบุตัวตน</span>
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">
+                                {sug.employee_name} ({sug.employee_id})
+                              </Badge>
+                            )}
+
+                            {sug.status === 'New' && (
+                              <Badge variant="warning" className="text-[10px] bg-amber-500 text-white">รับเรื่องใหม่</Badge>
+                            )}
+                            {sug.status === 'In Progress' && (
+                              <Badge variant="default" className="text-[10px] bg-blue-600">กำลังดำเนินการ</Badge>
+                            )}
+                            {sug.status === 'Resolved' && (
+                              <Badge variant="success" className="text-[10px] bg-emerald-600">ดำเนินการเรียบร้อย</Badge>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            {sug.content}
+                          </p>
+
+                          {sug.admin_note && (
+                            <p className="text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/30 p-2.5 rounded-xl border border-teal-100 dark:border-teal-900/40 font-medium">
+                              <strong>ตอบรับจากแอดมิน:</strong> {sug.admin_note}
+                            </p>
+                          )}
+
+                          <span className="text-[10px] text-slate-400 font-mono block">
+                            ส่งเมื่อ: {new Date(sug.created_at).toLocaleString('th-TH')}
+                          </span>
+                        </div>
+
+                        <div className="shrink-0">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => {
+                              setSelectedSuggestion(sug);
+                              setSugStatus(sug.status);
+                              setSugAdminNote(sug.admin_note || '');
+                            }}
+                            className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs gap-1.5"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>ตอบรับ & ปรับสถานะ</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab 6: Holidays & Policy Document Tab */}
+      {activeTab === 'holidays' && (
+        <div className="space-y-6">
+          {/* Policy Document Card */}
+          <Card className="glass-card shadow-sm border border-slate-200">
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-orange-600" />
+                  <span>ไฟล์ประกาศวันหยุดประจำปีของบริษัท (Official Holiday Policy)</span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  แนบไฟล์ประกาศ PDF หรือรูปภาพ เพื่อให้พนักงานทุกคนสามารถเปิดดูและดาวน์โหลดได้จากหน้าปฏิทิน
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => setIsUploadPolicyOpen(true)}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs gap-1.5 shrink-0"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>แนบ / เปลี่ยนไฟล์ประกาศ</span>
+              </Button>
+            </CardHeader>
+
+            <CardContent>
+              {adminPolicyDoc ? (
+                <div className="p-4 rounded-2xl bg-orange-50/70 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold shrink-0">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs">
+                      <h4 className="font-bold text-orange-950 dark:text-orange-200 flex items-center gap-2">
+                        <span>{adminPolicyDoc.file_name}</span>
+                        <Badge variant="outline" className="text-[10px] bg-orange-200/80 text-orange-800 font-mono">
+                          {adminPolicyDoc.file_type.toUpperCase()}
+                        </Badge>
+                      </h4>
+                      <p className="text-slate-500 text-[11px] mt-0.5">
+                        ขนาด: {adminPolicyDoc.file_size || 'ไม่ระบุ'} • อัปเดตเมื่อ: {new Date(adminPolicyDoc.uploaded_at).toLocaleString('th-TH')} • โดย: {adminPolicyDoc.uploaded_by || 'Admin'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={adminPolicyDoc.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>เปิดดูไฟล์</span>
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-xs text-slate-500 border border-dashed rounded-2xl">
+                  <FileText className="w-8 h-8 text-slate-300 mx-auto mb-1.5 opacity-80" />
+                  <p>ยังไม่มีการแนบไฟล์ประกาศวันหยุดของบริษัท</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Holidays List Management */}
+          <Card className="glass-card shadow-sm border border-slate-200">
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Palmtree className="w-5 h-5 text-orange-600" />
+                  <span>รายการวันหยุดประจำปี ({adminHolidays.length} วัน)</span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  จัดการวันหยุดนักขัตฤกษ์และวันหยุดพิเศษของบริษัท (เปิด/ปิด หรือเพิ่มวันหยุดเฉพาะขององค์กร)
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => setIsAddHolOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ เพิ่มวันหยุดบริษัท</span>
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 uppercase border-y border-slate-200 dark:border-slate-800 text-[11px]">
+                    <tr>
+                      <th className="p-3.5 font-bold">วันที่ (YYYY-MM-DD)</th>
+                      <th className="p-3.5 font-bold">ชื่อวันหยุด</th>
+                      <th className="p-3.5 font-bold">ประเภท</th>
+                      <th className="p-3.5 font-bold text-center">สถานะใช้งาน</th>
+                      <th className="p-3.5 font-bold text-right">การจัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {adminHolidays.map((hol) => (
+                      <tr key={hol.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-slate-900 dark:text-slate-100">
+                          {hol.date}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900 dark:text-slate-100">{hol.name}</div>
+                          {hol.name_en && (
+                            <div className="text-[11px] text-slate-500">{hol.name_en}</div>
+                          )}
+                          {hol.notes && (
+                            <div className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">📌 {hol.notes}</div>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <Badge
+                            variant={hol.type === 'official' ? 'default' : 'outline'}
+                            className={`text-[10px] ${
+                              hol.type === 'official' ? 'bg-blue-600 text-white' : 'border-orange-300 text-orange-700 bg-orange-50'
+                            }`}
+                          >
+                            {hol.type === 'official' ? 'นักขัตฤกษ์' : 'วันหยุดบริษัท'}
+                          </Badge>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleHoliday(hol)}
+                            className={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
+                              hol.is_active
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                            }`}
+                          >
+                            {hol.is_active ? '✓ เปิดใช้งาน' : '✕ ปิด'}
+                          </button>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          {hol.type === 'company' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteHoliday(hol.id)}
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="ลบวันหยุดนี้"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab 7: Audit Trail (ประวัติการทำงานของผู้ดูแลระบบ) */}
+      {activeTab === 'audit' && (() => {
+        const filteredAuditLogs = auditLogs.filter((log) => {
+          const matchSearch =
+            !auditSearchQuery.trim() ||
+            (log.admin_name && log.admin_name.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+            (log.admin_id && log.admin_id.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+            (log.target_employee_name && log.target_employee_name.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+            (log.target_employee_id && log.target_employee_id.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+            (log.details && log.details.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+            (log.action_title && log.action_title.toLowerCase().includes(auditSearchQuery.toLowerCase()));
+
+          const matchAction = auditActionFilter === 'all' || log.action_type === auditActionFilter;
+
+          return matchSearch && matchAction;
+        });
+
+        const getActionBadge = (type: string) => {
+          switch (type) {
+            case 'UNSUSPEND_WFH':
+              return <Badge variant="success" className="bg-emerald-600 text-white text-[10px]">ปลดระงับสิทธิ์ WFH</Badge>;
+            case 'SUSPEND_WFH':
+              return <Badge variant="destructive" className="text-[10px]">ระงับสิทธิ์ WFH</Badge>;
+            case 'CREATE_EMPLOYEE':
+              return <Badge variant="default" className="bg-indigo-600 text-white text-[10px]">สร้างพนักงานใหม่</Badge>;
+            case 'EDIT_EMPLOYEE':
+              return <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-[10px]">แก้ไขพนักงาน</Badge>;
+            case 'TOGGLE_PHOTO_EXEMPT':
+              return <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-[10px]">ปรับสิทธิ์ถ่ายภาพ</Badge>;
+            case 'UPDATE_CONFIG':
+              return <Badge variant="default" className="bg-slate-800 text-white text-[10px]">ตั้งค่าระบบ</Badge>;
+            case 'RESOLVE_TICKET':
+              return <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50 text-[10px]">ตอบกลับ Ticket</Badge>;
+            case 'RESPOND_SUGGESTION':
+              return <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 text-[10px]">ตอบกลับข้อเสนอแนะ</Badge>;
+            case 'ADD_HOLIDAY':
+            case 'TOGGLE_HOLIDAY':
+            case 'DELETE_HOLIDAY':
+              return <Badge variant="outline" className="border-orange-300 text-orange-700 bg-orange-50 text-[10px]">จัดการวันหยุด</Badge>;
+            case 'UPDATE_POLICY_DOC':
+              return <Badge variant="outline" className="border-rose-300 text-rose-700 bg-rose-50 text-[10px]">อัปเดตไฟล์ประกาศ</Badge>;
+            case 'APPROVE_LEAVE':
+              return <Badge variant="success" className="bg-emerald-600 text-white text-[10px]">อนุมัติการลา</Badge>;
+            case 'REJECT_LEAVE':
+              return <Badge variant="destructive" className="text-[10px]">ปฏิเสธการลา</Badge>;
+            default:
+              return <Badge variant="outline" className="text-[10px]">{type}</Badge>;
+          }
+        };
+
+        return (
+          <div className="space-y-6">
+            {/* Header & Filter Card */}
+            <Card className="glass-card shadow-sm border border-slate-200">
+              <CardHeader className="pb-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <History className="w-5 h-5 text-indigo-600" />
+                      <span>{t.audit.pageTitle}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-1">
+                      {t.audit.pageSubtitle}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-xs border-indigo-200 bg-indigo-50/70 text-indigo-800 font-mono">
+                      ทั้งหมด {filteredAuditLogs.length} รายการ
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                  <div className="sm:col-span-2 relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      placeholder={t.audit.searchPlaceholder}
+                      value={auditSearchQuery}
+                      onChange={(e) => setAuditSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <select
+                      value={auditActionFilter}
+                      onChange={(e) => setAuditActionFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="all">{t.audit.filterAllActions}</option>
+                      <option value="UPDATE_CONFIG">⚙️ ตั้งค่าระบบ (UPDATE_CONFIG)</option>
+                      <option value="UNSUSPEND_WFH">🔓 ปลดระงับสิทธิ์ WFH (UNSUSPEND_WFH)</option>
+                      <option value="SUSPEND_WFH">🔒 ระงับสิทธิ์ WFH (SUSPEND_WFH)</option>
+                      <option value="EDIT_EMPLOYEE">✏️ แก้ไข/ลบพนักงาน (EDIT_EMPLOYEE)</option>
+                      <option value="CREATE_EMPLOYEE">➕ สร้างพนักงานใหม่ (CREATE_EMPLOYEE)</option>
+                      <option value="TOGGLE_PHOTO_EXEMPT">📸 สิทธิ์ยกเว้นถ่ายรูป (TOGGLE_PHOTO_EXEMPT)</option>
+                      <option value="RESOLVE_TICKET">🎫 ดำเนินการ Ticket (RESOLVE_TICKET)</option>
+                      <option value="RESPOND_SUGGESTION">💬 ตอบกลับข้อเสนอแนะ (RESPOND_SUGGESTION)</option>
+                      <option value="ADD_HOLIDAY">📅 เพิ่มวันหยุด (ADD_HOLIDAY)</option>
+                      <option value="TOGGLE_HOLIDAY">🔄 เปิด/ปิดวันหยุด (TOGGLE_HOLIDAY)</option>
+                      <option value="UPDATE_POLICY_DOC">📄 ประกาศวันหยุด (UPDATE_POLICY_DOC)</option>
+                      <option value="APPROVE_LEAVE">✅ อนุมัติการลา (APPROVE_LEAVE)</option>
+                      <option value="REJECT_LEAVE">❌ ปฏิเสธการลา (REJECT_LEAVE)</option>
+                    </select>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                {filteredAuditLogs.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-500">
+                    <ScrollText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="font-semibold">{t.audit.emptyText}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 uppercase border-y border-slate-200 dark:border-slate-800 text-[11px]">
+                        <tr>
+                          <th className="p-3.5 font-bold whitespace-nowrap">{t.audit.colTimestamp}</th>
+                          <th className="p-3.5 font-bold whitespace-nowrap">{t.audit.colAdmin}</th>
+                          <th className="p-3.5 font-bold whitespace-nowrap">{t.audit.colAction}</th>
+                          <th className="p-3.5 font-bold whitespace-nowrap">{t.audit.colTarget}</th>
+                          <th className="p-3.5 font-bold">{t.audit.colDetails}</th>
+                          <th className="p-3.5 font-bold text-right whitespace-nowrap">IP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredAuditLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                            <td className="p-3.5 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>{new Date(log.timestamp).toLocaleString('th-TH')}</span>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 whitespace-nowrap">
+                              <div className="font-bold text-slate-900 dark:text-slate-100">{log.admin_name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {log.admin_id}</div>
+                            </td>
+
+                            <td className="p-3.5 whitespace-nowrap">
+                              <div className="flex flex-col items-start gap-1">
+                                {getActionBadge(log.action_type)}
+                                <span className="text-[10px] text-slate-500 font-medium">{log.action_title}</span>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 whitespace-nowrap">
+                              {log.target_employee_name || log.target_employee_id ? (
+                                <div>
+                                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                                    {log.target_employee_name || '-'}
+                                  </span>
+                                  {log.target_employee_id && (
+                                    <span className="text-[10px] text-slate-400 font-mono block">
+                                      ({log.target_employee_id})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">- (การตั้งค่าส่วนกลาง)</span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 min-w-[280px]">
+                              <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
+                                {log.details}
+                              </p>
+                            </td>
+
+                            <td className="p-3.5 text-right whitespace-nowrap font-mono text-[10px] text-slate-400">
+                              {log.ip_address || '127.0.0.1'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* Add Custom Holiday Modal */}
+      {isAddHolOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <Card className="w-full max-w-md p-6 relative border-emerald-300 bg-white shadow-2xl space-y-4">
+            <button
+              onClick={() => !submitting && setIsAddHolOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Palmtree className="w-5 h-5 text-emerald-600" />
+                <span>เพิ่มวันหยุดพิเศษของบริษัท</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                ระบุวันที่และชื่อวันหยุด เช่น วันหยุด Company Outing หรือวันหยุดชดเชย
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateHoliday} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">วันที่วันหยุด (YYYY-MM-DD) *</label>
+                <input
+                  type="date"
+                  required
+                  value={newHolDate}
+                  onChange={(e) => setNewHolDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">ชื่อวันหยุด (ภาษาไทย) *</label>
+                <input
+                  type="text"
+                  required
+                  value={newHolName}
+                  onChange={(e) => setNewHolName(e.target.value)}
+                  placeholder="เช่น วันหยุดสัมมนาประจำปีบริษัท"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">ชื่อวันหยุด (ภาษาอังกฤษ)</label>
+                <input
+                  type="text"
+                  value={newHolNameEn}
+                  onChange={(e) => setNewHolNameEn(e.target.value)}
+                  placeholder="e.g. Annual Company Outing"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">หมายเหตุเพิ่มเติม</label>
+                <input
+                  type="text"
+                  value={newHolNotes}
+                  onChange={(e) => setNewHolNotes(e.target.value)}
+                  placeholder="เช่น ปิดทำการทุกแผนก"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsAddHolOpen(false)} className="w-1/2">
+                  ยกเลิก
+                </Button>
+                <Button type="submit" disabled={submitting} className="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+                  {submitting ? 'กำลังบันทึก...' : 'บันทึกวันหยุด'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Upload / Edit Policy Document Modal */}
+      {isUploadPolicyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <Card className="w-full max-w-md p-6 relative border-orange-300 bg-white shadow-2xl space-y-4">
+            <button
+              onClick={() => !submitting && setIsUploadPolicyOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-orange-600" />
+                <span>อัปโหลดไฟล์ประกาศวันหยุดบริษัท</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                เลือกไฟล์เอกสาร PDF หรือรูปภาพ (PNG/JPG) จากเครื่องเพื่ออัปโหลดขึ้นระบบโดยตรง
+              </p>
+            </div>
+
+            <form onSubmit={handleSavePolicyDoc} className="space-y-3.5 text-xs">
+              {/* Direct File Picker Zone */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">เลือกไฟล์จากเครื่อง (PDF / รูปภาพ) *</label>
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-orange-300 dark:border-orange-800 rounded-2xl bg-orange-50/50 dark:bg-orange-950/20 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors cursor-pointer text-center">
+                  <Upload className="w-6 h-6 text-orange-600 dark:text-orange-400 mb-1.5 animate-bounce" />
+                  <span className="font-bold text-orange-950 dark:text-orange-200 text-xs">
+                    คลิกเพื่อเลือกไฟล์ PDF หรือรูปภาพประกาศ
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    รองรับไฟล์ .PDF, .PNG, .JPG, .JPEG (ขนาดสูงสุด 10 MB)
+                  </span>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      setPolicyFileName(file.name);
+                      const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
+                      setPolicyFileType(isPdf ? 'pdf' : 'image');
+
+                      const sizeStr =
+                        file.size < 1024 * 1024
+                          ? `${Math.round(file.size / 1024)} KB`
+                          : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+                      setPolicyFileSize(sizeStr);
+
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          setPolicyFileUrl(event.target.result as string);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Selected File Details & Preview */}
+              {policyFileName && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="truncate">
+                      <p className="font-bold text-xs truncate">{policyFileName}</p>
+                      <p className="text-[10px] text-emerald-700">
+                        {policyFileType.toUpperCase()} {policyFileSize ? `• ${policyFileSize}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="success" className="text-[10px] shrink-0 bg-emerald-600">พร้อมอัปโหลด</Badge>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">ชื่อไฟล์เอกสารที่จะแสดง *</label>
+                <input
+                  type="text"
+                  required
+                  value={policyFileName}
+                  onChange={(e) => setPolicyFileName(e.target.value)}
+                  placeholder="เช่น ประกาศบริษัท_005-2568_วันหยุดประจำปี2569.png"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsUploadPolicyOpen(false)} className="w-1/2">
+                  ยกเลิก
+                </Button>
+                <Button type="submit" disabled={submitting || !policyFileUrl} className="w-1/2 bg-orange-600 hover:bg-orange-500 text-white font-bold">
+                  {submitting ? 'กำลังบันทึก...' : 'บันทึกไฟล์ประกาศ'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
 
       {/* Add Employee Modal */}

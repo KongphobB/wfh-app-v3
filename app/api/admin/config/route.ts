@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
+import { createAuditLog } from '@/lib/auditStore';
 
 export async function GET() {
   try {
@@ -51,6 +52,14 @@ export async function POST(request: Request) {
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'บันทึกการตั้งค่าใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
+
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'UPDATE_CONFIG',
+      action_title: 'อัปเดตการตั้งค่าระบบ & พิกัดบริษัท',
+      details: `${session.name} บันทึกการตั้งค่าระบบใหม่: พิกัด (${configs.office_lat}, ${configs.office_lng}) รัศมี: ${configs.max_allowed_radius_meters}m, ตำแหน่งยกเว้นถ่ายรูป: ${configs.photo_exempt_positions}`,
+    });
 
     return NextResponse.json({
       success: true,

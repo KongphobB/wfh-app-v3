@@ -6,7 +6,8 @@ import {
   BookOpen, User, UserCheck, ShieldCheck, Search, CheckCircle2, 
   AlertTriangle, Clock, MapPin, Camera, BellRing, FileText, 
   Ticket, KeyRound, ArrowRight, ShieldAlert, Sparkles, ChevronRight, Info,
-  Volume2, Moon, Globe, SlidersHorizontal, HelpCircle, Check, ExternalLink, Calendar, TrendingUp
+  Volume2, Moon, Globe, SlidersHorizontal, HelpCircle, Check, ExternalLink, Calendar, TrendingUp, MessageSquare, MessageSquarePlus,
+  Palmtree, History, Paperclip
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -193,7 +194,7 @@ export default function ManualPage() {
               </CardHeader>
               <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
                 <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-2">
-                  <p className="font-bold text-rose-950">สิ่งที่ต้องทำเมื่อมีสัญญาณสุ่มตรวจ:</p>
+                  <p className="font-bold text-rose-950">สิ่งที่ต้องทำเมื่อมีสัญญาณสุ่มตรวจ (รอบเช้า 09:00 - 11:00 น. และ รอบบ่าย 14:00 - 16:00 น.):</p>
                   <ul className="list-disc list-inside space-y-1.5 pl-1 text-rose-900">
                     <li>เมื่อถึงรอบสุ่มตรวจ ระบบจะมีเสียงเตือน <strong>"ปิ๊ง-ป่อง! 🔔"</strong> พร้อมกล่องสีแดงนับถอยหลัง <strong>10:00 นาที</strong> เด้งขึ้นมาบนหน้าจอ</li>
                     <li>ให้กดปุ่ม <strong>"📸 เปิดกล้องสแกน ↗"</strong> ทันที</li>
@@ -345,6 +346,7 @@ export default function ManualPage() {
                     <li>ไปที่เมนู <strong>"📅 ขอลาหยุด / สลับวัน"</strong> และกดปุ่ม <strong>"+ ยื่นคำขอลา / สลับวัน"</strong></li>
                     <li>เลือกประเภทการลา (ลาป่วย, ลากิจ, ลาพักร้อน, หรือ ปฏิบัติงานที่ออฟฟิศ Onsite)</li>
                     <li>เลือกช่วงวันที่เริ่มต้น - วันที่สิ้นสุด พร้อมระบุเหตุผลความจำเป็น</li>
+                    <li><strong>📎 แนบหลักฐานประกอบการลา:</strong> สามารถเลือกไฟล์รูปภาพใบรับรองแพทย์ หรือไฟล์เอกสารราชการ (PDF/JPG/PNG) เพื่อให้หัวหน้างานประกอบการพิจารณา</li>
                     <li>เมื่อหัวหน้างานกดอนุมัติ (Approved) ระบบจะ <strong>ยกเว้นการส่งอีเมลและแจ้งเตือนขาดลงเวลาเข้างาน</strong> ในวันดังกล่าวให้อัตโนมัติ</li>
                   </ol>
                 </div>
@@ -378,6 +380,78 @@ export default function ManualPage() {
                     <li><strong>คะแนนดาวเฉลี่ย (Average Star Rating):</strong> คุณภาพงานเฉลี่ย 1.0 - 5.0 ดาว ที่ได้รับการประเมินจากหัวหน้า</li>
                     <li><strong>อัตราส่งมอบงาน (Task Completion):</strong> สัดส่วนจำนวนงานที่ทำเสร็จเทียบกับงานที่ได้รับมอบหมาย</li>
                     <li><strong>แนวโน้มรอบ 7 วัน (Weekly Trend):</strong> กราฟไทม์ไลน์แสดงสถานะการเข้างานและผลงานรายวัน</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 8: Suggestion Box & Lunch Break */}
+          {matchesSearch('ข้อเสนอแนะ suggestion anonymous ไม่ระบุตัวตน พักเที่ยง lunch break 12:00 13:00') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center font-bold shrink-0">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      8. กล่องรับฟังข้อเสนอแนะ & เวลาพักเที่ยง (Suggestion Box & Lunch Break)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ส่งข้อเสนอแนะปรับปรุงการทำงานแบบไม่ระบุตัวตน และรอบเวลาพักเที่ยง 12:00 - 13:00 น.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-1.5 text-teal-950">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <span>💬 กล่องข้อเสนอแนะ (Anonymous 100%)</span>
+                    </p>
+                    <p className="text-[11px] text-teal-900 leading-relaxed">
+                      กดปุ่ม <strong>"กล่องข้อเสนอแนะ"</strong> ที่มุมขวาบนของแดชบอร์ด สามารถเลือกติ๊ก <strong>"ส่งแบบไม่ระบุตัวตน"</strong> เพื่อส่งความคิดเห็นหรือข้อร้องเรียนถึงผู้บริหารและแอดมินได้อย่างสบายใจ
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-1.5 text-amber-950">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <span>🍱 เวลาพักเที่ยง (12:00 - 13:00 น.)</span>
+                    </p>
+                    <p className="text-[11px] text-amber-900 leading-relaxed">
+                      ในช่วงเวลา 12:00 - 13:00 น. จะมีแถบสถานะพักเที่ยงแสดงบนแดชบอร์ด โดยระบบจะ <strong>ยกเว้นการสุ่มตรวจอัตโนมัติ</strong> เพื่อให้พนักงานได้พักรับประทานอาหารอย่างเต็มที่
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 9: Annual Holidays & Company Policy Document */}
+          {matchesSearch('วันหยุด ปฏิทิน holidays นักขัตฤกษ์ ประกาศบริษัท แนบไฟล์ ดาวน์โหลด') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      9. ปฏิทินวันหยุดประจำปี & ไฟล์ประกาศบริษัท (Holiday Calendar & Policy)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ตรวจสอบวันหยุดนักขัตฤกษ์ไทย วันหยุดของบริษัท และเปิดดูเอกสารประกาศทางการ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-2 text-orange-950">
+                  <p className="font-bold">วิธีใช้งานปฏิทินวันหยุด:</p>
+                  <ul className="list-disc list-inside space-y-1.5 pl-1 text-orange-900">
+                    <li>กดปุ่ม <strong>"📅 ปฏิทินวันหยุด"</strong> ที่มุมขวาบนของหน้าแดชบอร์ด หรือหน้าขอลาหยุด</li>
+                    <li>ตรวจสอบวันหยุดรายเดือน ไฮไลต์สีส้ม 🏖️ และดูตัวนับถอยหลังวันหยุดที่กำลังจะมาถึง</li>
+                    <li>สามารถกดปุ่ม <strong>"👁️ เปิดดูประกาศ"</strong> หรือ <strong>"📥 ดาวน์โหลดเอกสาร"</strong> เพื่ออ่านไฟล์ประกาศวันหยุดอย่างเป็นทางการของบริษัท</li>
                   </ul>
                 </div>
               </CardContent>
@@ -500,9 +574,19 @@ export default function ManualPage() {
           {matchesSearch('สุ่มตรวจทันที on demand เฉพาะกิจ') && (
             <Card>
               <CardHeader className="p-4 sm:p-5 pb-3">
-                <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
-                  5. การส่งคำสั่งสุ่มตรวจเจาะจงบุคคล (On-Demand Spot Check)
-                </CardTitle>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">
+                    <BellRing className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      5. การส่งคำสั่งสุ่มตรวจเจาะจงบุคคล (On-Demand Spot Check)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      สั่งสุ่มตรวจลูกทีมเฉพาะกิจพร้อมเสียงแจ้งเตือนและกล่องนับถอยหลัง 10 นาที
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
                 <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2">
@@ -512,6 +596,69 @@ export default function ManualPage() {
                     <li>พิมพ์ระบุหมายเหตุและกดยืนยัน ➔ หน้าจอลูกทีมจะมีเสียงเตือนและกล่องนับถอยหลัง 10 นาทีทันที</li>
                     <li>ลูกทีมต้องเปิดกล้องถ่ายภาพ Selfie สดส่งกลับมาภายใน 10 นาที</li>
                   </ol>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 6: Supervisor Leave Approvals */}
+          {matchesSearch('อนุมัติ ลา ลาป่วย ลากิจ พักร้อน ออฟฟิศ leave approve supervisor') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      6. การพิจารณาอนุมัติคำขอลาของทีม (Leave Approvals)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ตรวจสอบและกดอนุมัติคำขอลาป่วย ลากิจ ลาพักร้อนของสมาชิกในทีม
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-2">
+                  <p className="font-bold text-blue-950">หลักการพิจารณาคำขอลา:</p>
+                  <ul className="list-disc list-inside space-y-1.5 pl-1 text-blue-900">
+                    <li>ไปที่เมนู <strong>"📅 ขอลาหยุด / สลับวัน"</strong> ➔ เลือกแท็บ <strong>"รายการคำขอลาของทีมที่ต้องพิจารณา"</strong></li>
+                    <li>ตรวจสอบชื่อพนักงาน, ช่วงวันที่, และเหตุผลความจำเป็น</li>
+                    <li><strong>📎 ตรวจสอบหลักฐานแนบ:</strong> หากมีปุ่ม <em>"📎 ดูหลักฐานแนบ"</em> หัวหน้างานสามารถคลิกเพื่อเปิดดูรูปภาพใบรับรองแพทย์หรือเอกสารราชการแบบ Lightbox ขยายใหญ่ และกดดาวน์โหลดได้ทันที</li>
+                    <li>กดปุ่ม <strong>"อนุมัติคำขอ (Approve)"</strong> หรือ <strong>"ปฏิเสธคำขอ (Reject)"</strong> พร้อมระบุหมายเหตุ</li>
+                    <li>⚡ <em>หมายเหตุ:</em> กรณีพนักงานแจ้ง <strong>"ปฏิบัติงานที่ออฟฟิศ (Onsite)"</strong> ระบบจะอนุมัติให้อัตโนมัติทันทีโดยไม่ต้องรอหัวหน้ากด</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 7: Team Analytics */}
+          {matchesSearch('สถิติทิม analytics กราฟ ประสิทธิภาพ ดาว ตรงเวลา team metrics') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold shrink-0">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      7. การวิเคราะห์สถิติและคะแนนดาวลูกทีม (Analytics & Performance)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      ติดตามอัตราการเข้างานตรงเวลา คะแนนดาวสะสม และแนวโน้มประสิทธิภาพ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200/80 space-y-2">
+                  <p className="font-bold text-purple-950">การดูสถิติ:</p>
+                  <ul className="list-disc list-inside space-y-1.5 pl-1 text-purple-900">
+                    <li>เข้าเมนู <strong>"📊 สถิติการทำงาน"</strong> เพื่อดูภาพรวมสถิติรายบุคคลและแนวโน้มรอบ 7 วัน</li>
+                    <li>สามารถตรวจเช็คอัตราเข้างานตรงเวลา (On-time Rate) และอัตราผ่านการสุ่มตรวจ 10 นาทีได้อย่างโปร่งใส</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
@@ -640,6 +787,130 @@ export default function ManualPage() {
                   <p>• <strong>พิกัดออฟฟิศ (Office GPS):</strong> ตั้งค่าละติจูดและลองจิจูดของสำนักงาน เพื่อให้ระบบคำนวณระยะทางว่าพนักงาน WFH หรือเข้าออฟฟิศ</p>
                   <p>• <strong>รัศมี Geofence:</strong> กำหนดระยะปลอดภัยรอบออฟฟิศ (เมตร)</p>
                   <p>• <strong>เวลาสุ่มตรวจ:</strong> กำหนดช่วงเวลาการสุ่มตรวจอัตโนมัติรอบเช้าและรอบบ่าย</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 6: Missing Check-in Alert & Exemption Rule */}
+          {matchesSearch('แจ้งเตือน ขาดลงเวลา 08:00 อีเมล ยกเว้น อัตโนมัติ email alert cron') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      6. กฎการแจ้งเตือนขาดลงเวลา 08:00 น. และระบบยกเว้นอัตโนมัติ (Alert & Exemption Rules)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      การตรวจจับและส่งอีเมลแจ้งเตือนอัตโนมัติ พร้อมการยกเว้นเมื่อพนักงานลา/เข้าออฟฟิศ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-2.5 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-1.5 text-orange-950">
+                  <p>• <strong>เวลาตรวจจับ:</strong> ระบบจะตรวจเช็คพนักงานที่ยังไม่ได้ลงเวลาเข้างานทุกเช้าเวลา <strong>08:05 น.</strong></p>
+                  <p>• <strong>การแจ้งเตือน:</strong> ส่ง In-App Notification และ Email Alert ไปยังอีเมลของพนักงานทันที</p>
+                  <p>• <strong>การยกเว้นอัตโนมัติ (Auto Suppression):</strong> หากพนักงานได้รับการอนุมัติการลา หรือเลือก <strong>"ปฏิบัติงานที่ออฟฟิศ"</strong> ระบบจะข้ามและไม่ส่งการแจ้งเตือนให้โดยอัตโนมัติ</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 7: Suggestions Management */}
+          {matchesSearch('ข้อเสนอแนะ suggestion ความคิดเห็น anonymous กล่อง admin desk') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center font-bold shrink-0">
+                    <MessageSquarePlus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      7. การบริหารจัดการกล่องข้อเสนอแนะ (Tab 5: ข้อเสนอแนะ)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      อ่านข้อเสนอแนะจากพนักงาน กรองตามหมวดหมู่ และพิมพ์ตอบรับพร้อมปรับสถานะ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-2.5 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-1.5 text-teal-950">
+                  <p>1. ไปที่หน้า <strong>Admin Desk</strong> ➔ เลือกแท็บ <strong>"💬 ข้อเสนอแนะ"</strong></p>
+                  <p>2. สามารถใช้ตัวกรองหมวดหมู่เพื่อค้นหาข้อเสนอแนะเรื่อง <em>การทำงาน WFH, ระบบและอุปกรณ์, สวัสดิการและสถานที่</em></p>
+                  <p>3. กดปุ่ม <strong>"✏️ ตอบรับ & ปรับสถานะ"</strong> เพื่อเปลี่ยนสถานะเป็น <em>รับเรื่องใหม่ / กำลังดำเนินการ / ดำเนินการเรียบร้อย</em> พร้อมพิมพ์บันทึกตอบรับ</p>
+                  <p>4. หากพนักงานไม่ได้ส่งแบบไม่ระบุตัวตน ระบบจะส่ง In-App Notification แจ้งเตือนสถานะกลับไปยังพนักงานเจ้าของเรื่องให้อัตโนมัติ</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 8: Holiday & Policy Document Management for Admin */}
+          {matchesSearch('จัดการวันหยุด holiday policy แนบไฟล์ ประกาศบริษัท pdf upload admin desk') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
+                    <Palmtree className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      8. การจัดการวันหยุดและแนบไฟล์ประกาศบริษัท (Tab 6: วันหยุด & ประกาศ)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      อัปโหลดไฟล์ประกาศวันหยุดประจำปี เพิ่ม/ลบวันหยุดพิเศษ และเปิด-ปิดสถานะการใช้งาน
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-2.5 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-1.5 text-orange-950">
+                  <p>1. ไปที่หน้า <strong>Admin Desk</strong> ➔ เลือกแท็บ <strong>"📅 วันหยุด & ประกาศ"</strong></p>
+                  <p>2. <strong>แนบไฟล์ประกาศบริษัท:</strong> กดปุ่ม <em>"แนบ / เปลี่ยนไฟล์ประกาศ"</em> เพื่อระบุชื่อไฟล์และลิงก์เอกสารทางการ (เช่น Google Drive, PDF Cloud) เพื่อให้พนักงานกดเปิดดูได้จากหน้าปฏิทิน</p>
+                  <p>3. <strong>เพิ่มวันหยุดพิเศษ:</strong> กดปุ่ม <em>"+ เพิ่มวันหยุดบริษัท"</em> เพื่อใส่วันที่และชื่อวันหยุดเฉพาะขององค์กร</p>
+                  <p>4. <strong>เปิด-ปิดสถานะ:</strong> สามารถกดปุ่มสลับ <em>"✓ เปิดใช้งาน / ✕ ปิด"</em> ในตารางรายการวันหยุดได้อย่างอิสระ</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 9: Admin Audit Trail & Governance */}
+          {matchesSearch('ประวัติ audit trail log ตรวจสอบ แอดมิน ปลดสิทธิ์ แก้ไข พิกัด ผู้ดูแลระบบ') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      9. การตรวจสอบประวัติการทำงานของผู้ดูแลระบบ (Tab 7: ประวัติการทำงาน - Audit Trail)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      เก็บบันทึกทุกการกระทำของ Admin และ Supervisor ในระบบเพื่อความโปร่งใสและตรวจสอบย้อนหลังได้ 100%
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-2.5 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 space-y-2 text-indigo-950">
+                  <p className="font-bold">กิจกรรมที่ระบบบันทึก Audit Log ให้อัตโนมัติ:</p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-[11px]">
+                    <li><strong>🔓 ปลดระงับ / ระงับสิทธิ์ WFH:</strong> บันทึกเมื่อแอดมินทำการปรับสถานะสิทธิ์ WFH ของพนักงาน</li>
+                    <li><strong>✏️ แก้ไข / เพิ่มพนักงาน / รีเซ็ต PIN:</strong> บันทึกการเปลี่ยนแปลงข้อมูลและรหัส PIN พนักงาน</li>
+                    <li><strong>📸 สิทธิ์ยกเว้นถ่ายภาพ (Photo Exemption):</strong> บันทึกการเปิด-ปิดข้อยกเว้นกล้องถ่ายภาพ</li>
+                    <li><strong>⚙️ แก้ไขการตั้งค่าระบบ:</strong> บันทึกการเปลี่ยนพิกัด GPS สำนักงานใหญ่, รัศมีทำการ (Meters), และตำแหน่งยกเว้น</li>
+                    <li><strong>🎫 ดำเนินการ Ticket & ข้อเสนอแนะ:</strong> บันทึกการตอบรับและปรับสถานะตั๋วแจ้งปัญหา</li>
+                    <li><strong>📅 จัดการวันหยุด & ไฟล์ประกาศ:</strong> บันทึกการเพิ่ม/ลบวันหยุดและอัปโหลดไฟล์ประกาศทางการ</li>
+                    <li><strong>✅ อนุมัติ / ปฏิเสธคำขอลา:</strong> บันทึกผลการพิจารณาคำขอลาของหัวหน้างานและแอดมิน</li>
+                  </ul>
+                  <p className="pt-1 text-[11px] text-indigo-900">
+                    💡 <em>คำแนะนำ:</em> สามารถใช้ <strong>ช่องค้นหาด่วน</strong> หรือ <strong>Dropdown กรองประเภทกิจกรรม</strong> เพื่อสืบค้นข้อมูลย้อนหลังตามชื่อแอดมิน, รหัสพนักงานเป้าหมาย หรือรายละเอียดกิจกรรมได้ทันที
+                  </p>
                 </div>
               </CardContent>
             </Card>

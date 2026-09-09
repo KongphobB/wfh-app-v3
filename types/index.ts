@@ -156,7 +156,40 @@ export interface LeaveRequest {
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   review_note?: string | null;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: 'image' | 'pdf' | null;
   created_at: string;
+}
+
+export type AuditActionType =
+  | 'UNSUSPEND_WFH'
+  | 'SUSPEND_WFH'
+  | 'EDIT_EMPLOYEE'
+  | 'CREATE_EMPLOYEE'
+  | 'TOGGLE_PHOTO_EXEMPT'
+  | 'UPDATE_CONFIG'
+  | 'RESOLVE_TICKET'
+  | 'RESPOND_SUGGESTION'
+  | 'ADD_HOLIDAY'
+  | 'TOGGLE_HOLIDAY'
+  | 'DELETE_HOLIDAY'
+  | 'UPDATE_POLICY_DOC'
+  | 'APPROVE_LEAVE'
+  | 'REJECT_LEAVE'
+  | 'SYSTEM_ACTION';
+
+export interface AuditLogItem {
+  id: string;
+  timestamp: string;
+  admin_id: string;
+  admin_name: string;
+  action_type: AuditActionType;
+  action_title: string;
+  target_employee_id?: string | null;
+  target_employee_name?: string | null;
+  details: string;
+  ip_address?: string | null;
 }
 
 export interface AnalyticsSummary {
@@ -183,4 +216,41 @@ export interface AnalyticsSummary {
     starRating?: number | null;
     tasksCount?: number;
   }[];
+}
+
+export type SuggestionCategory = 'ทั่วไป' | 'การทำงาน WFH' | 'ระบบและอุปกรณ์' | 'สวัสดิการและสถานที่' | 'อื่นๆ';
+export type SuggestionStatus = 'New' | 'In Progress' | 'Resolved';
+
+export interface SuggestionItem {
+  id: string;
+  topic: string;
+  category: SuggestionCategory;
+  content: string;
+  is_anonymous: boolean;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  department?: string | null;
+  status: SuggestionStatus;
+  admin_note?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface CompanyHoliday {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  name_en?: string;
+  type: 'official' | 'company';
+  is_active: boolean;
+  notes?: string | null;
+}
+
+export interface HolidayPolicyDoc {
+  file_name: string;
+  file_url: string;
+  file_type: 'pdf' | 'image' | 'link';
+  file_size?: string | null;
+  uploaded_at: string;
+  uploaded_by?: string;
 }

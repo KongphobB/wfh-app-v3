@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import SpotCheckModal from '@/components/SpotCheckModal';
+import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,7 @@ export default function SpotCheckPage() {
   const [loading, setLoading] = useState(true);
   const [activeCheck, setActiveCheck] = useState<SpotCheck | null>(null);
   const [modalCheck, setModalCheck] = useState<SpotCheck | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
 
   const fetchSpotChecks = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -129,110 +131,178 @@ export default function SpotCheckPage() {
       {/* Spot Check History */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-slate-900 font-bold flex items-center gap-2">
+          <CardTitle className="text-base text-slate-900 dark:text-slate-100 font-bold flex items-center gap-2">
             <Clock className="w-5 h-5 text-orange-500" />
             <span>{t.spotcheck.historyTitle}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {spotChecks.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs font-medium">
-              {t.common.noData}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {spotChecks.map((s) => {
-                const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
-                const isPassed =
-                  s.result_status === 'Pass' ||
-                  s.result_status === 'ผ่าน' ||
-                  s.result_status === 'ผ่านการสุ่มตรวจ' ||
-                  (typeof s.result_status === 'string' && s.result_status.includes('ผ่าน') && !s.result_status.includes('ไม่ผ่าน'));
-                const isCurrentlyActive = isSpotCheckCurrentlyActive(s);
+          {(() => {
+            const historyChecks = spotChecks.filter((s) => {
+              const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
+              let triggerTimeMs = 0;
+              if (s.created_at) triggerTimeMs = new Date(s.created_at).getTime();
+              if (!triggerTimeMs || isNaN(triggerTimeMs)) triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
+              const isUpcoming = isPending && Date.now() < triggerTimeMs;
+              // Don't show future un-triggered scheduled checks in the history list
+              return !isUpcoming;
+            });
 
-                let triggerTimeMs = 0;
-                if (s.created_at) triggerTimeMs = new Date(s.created_at).getTime();
-                if (!triggerTimeMs || isNaN(triggerTimeMs)) triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
-                const isUpcoming = isPending && Date.now() < triggerTimeMs;
+            if (historyChecks.length === 0) {
+              return (
+                <div className="text-center py-8 text-slate-400 text-xs font-medium">
+                  {t.common.noData}
+                </div>
+              );
+            }
 
-                return (
-                  <div
-                    key={s.id}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {lang === 'en' ? `Round ${s.round}` : `รอบ ${s.round}`} {isUpcoming ? `(${lang === 'en' ? 'Scheduled' : 'รอการสุ่มตรวจ'})` : isCurrentlyActive ? `(${lang === 'en' ? 'Ready to Scan' : 'ถึงเวลาสุ่มตรวจ'})` : `(${s.scheduled_time}${lang === 'en' ? '' : ' น.'})`}
-                        </span>
-                        <Badge
-                          variant={
-                            isPassed
-                              ? 'success'
-                              : isCurrentlyActive
-                              ? 'warning'
-                              : isUpcoming
-                              ? 'default'
-                              : 'destructive'
-                          }
-                        >
-                          {isPassed
-                            ? (lang === 'en' ? 'Passed' : 'ผ่านการสุ่มตรวจ')
-                            : isCurrentlyActive
-                            ? (lang === 'en' ? 'Pending Scan' : 'รอการยืนยันตัวตน')
-                            : isUpcoming
-                            ? (lang === 'en' ? 'Scheduled' : 'ยังไม่ถึงเวลาสุ่ม')
-                            : (lang === 'en' ? 'Missed / Expired' : 'ไม่ผ่าน (ขาดการติดต่อ)')}
-                        </Badge>
-                      </div>
-                      <p className="text-slate-500 text-[11px] font-medium mt-0.5">
-                        {lang === 'en' ? 'Date: ' : 'วันที่: '}{s.check_date}
-                        {s.actual_scan_time && (
-                          <span>
-                            {lang === 'en' ? ' • Scanned at ' : ' • สแกนเมื่อ '}
-                            {(() => {
-                              try {
-                                const d = new Date(s.actual_scan_time);
-                                if (!isNaN(d.getTime())) {
-                                  return d.toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + (lang === 'en' ? '' : ' น.');
-                                }
-                              } catch {}
-                              return String(s.actual_scan_time) + (lang === 'en' ? '' : ' น.');
-                            })()}
+            return (
+              <div className="space-y-3">
+                {historyChecks.map((s) => {
+                  const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
+                  const isPassed =
+                    s.result_status === 'Pass' ||
+                    s.result_status === 'ผ่าน' ||
+                    s.result_status === 'ผ่านการสุ่มตรวจ' ||
+                    (typeof s.result_status === 'string' && s.result_status.includes('ผ่าน') && !s.result_status.includes('ไม่ผ่าน'));
+                  const isCurrentlyActive = isSpotCheckCurrentlyActive(s);
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                            {lang === 'en' ? `Round ${s.round}` : `รอบ ${s.round}`}{' '}
+                            {isCurrentlyActive
+                              ? `(${lang === 'en' ? 'Ready to Scan' : 'ถึงเวลาสุ่มตรวจ'})`
+                              : s.actual_scan_time
+                              ? `(${(() => {
+                                  try {
+                                    const d = new Date(s.actual_scan_time);
+                                    return !isNaN(d.getTime())
+                                      ? d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' น.'
+                                      : s.actual_scan_time;
+                                  } catch {
+                                    return s.actual_scan_time;
+                                  }
+                                })()})`
+                              : ''}
                           </span>
+                          <Badge
+                            variant={
+                              isPassed
+                                ? 'success'
+                                : isCurrentlyActive
+                                ? 'warning'
+                                : 'destructive'
+                            }
+                          >
+                            {isPassed
+                              ? (lang === 'en' ? 'Passed' : 'ผ่านการสุ่มตรวจ')
+                              : isCurrentlyActive
+                              ? (lang === 'en' ? 'Pending Scan' : 'รอการยืนยันตัวตน')
+                              : (lang === 'en' ? 'Missed / Expired' : 'ไม่ผ่าน (ขาดการติดต่อ)')}
+                          </Badge>
+                        </div>
+                        <p className="text-slate-500 text-[11px] font-medium mt-0.5">
+                          {lang === 'en' ? 'Date: ' : 'วันที่: '}{s.check_date}
+                          {s.actual_scan_time && (
+                            <span>
+                              {lang === 'en' ? ' • Scanned at ' : ' • สแกนเมื่อ '}
+                              {(() => {
+                                try {
+                                  const d = new Date(s.actual_scan_time);
+                                  if (!isNaN(d.getTime())) {
+                                    return d.toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + (lang === 'en' ? '' : ' น.');
+                                  }
+                                } catch {}
+                                return String(s.actual_scan_time) + (lang === 'en' ? '' : ' น.');
+                              })()}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isCurrentlyActive && (
+                          <Button
+                            size="sm"
+                            onClick={() => setModalCheck(s)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            {t.spotcheck.scanButton}
+                          </Button>
                         )}
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      {isCurrentlyActive && (
-                        <Button
-                          size="sm"
-                          onClick={() => setModalCheck(s)}
-                          className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-xs cursor-pointer"
-                        >
-                          {t.spotcheck.scanButton}
-                        </Button>
-                      )}
-
-                      {s.photo_url && (
-                        <a
-                          href={s.photo_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-orange-600 font-bold hover:underline border border-orange-200 bg-orange-50 px-3 py-1 rounded-lg"
-                        >
-                          {lang === 'en' ? 'View Photo ↗' : 'ดูรูปสุ่มตรวจ ↗'}
-                        </a>
-                      )}
+                        {(() => {
+                          const localPhoto = typeof window !== 'undefined'
+                            ? localStorage.getItem(`wfh_selfie_spot_${s.id}`) ||
+                              localStorage.getItem(`wfh_selfie_${s.check_date}_สุ่มตรวจ`)
+                            : null;
+                          const effectivePhoto = s.photo_url || localPhoto;
+                          if (effectivePhoto) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightboxPhoto({
+                                    url: effectivePhoto,
+                                    name: 'พนักงาน',
+                                    employee_id: s.employee_id,
+                                    time: s.actual_scan_time
+                                      ? (() => {
+                                          try {
+                                            const d = new Date(s.actual_scan_time);
+                                            return !isNaN(d.getTime())
+                                              ? d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.'
+                                              : s.actual_scan_time;
+                                          } catch {
+                                            return s.actual_scan_time;
+                                          }
+                                        })()
+                                      : s.scheduled_time + ' น.',
+                                    date: s.check_date,
+                                    type: `สุ่มตรวจรอบ ${s.round}`,
+                                    status: s.result_status === 'Pass' ? 'ผ่านการสุ่มตรวจ' : s.result_status,
+                                    gps_lat: s.gps_lat,
+                                    gps_lng: s.gps_lng,
+                                    note: `สุ่มตรวจรอบ ${s.round}`,
+                                  })
+                                }
+                                className="text-orange-600 hover:text-orange-700 font-bold hover:underline flex items-center gap-1 cursor-pointer text-xs"
+                              >
+                                <span>{lang === 'en' ? 'View Photo' : 'ดูรูปสุ่มตรวจ'}</span>
+                                <span className="text-[10px]">↗</span>
+                              </button>
+                            );
+                          }
+                          if (s.result_status === 'Pass' || s.actual_scan_time) {
+                            return (
+                              <Badge variant="outline" className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/40 gap-1 py-1 px-2.5">
+                                📸 {lang === 'en' ? 'Photo Verified' : 'ถ่ายรูปยืนยันแล้ว'}
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
+
+      {/* Selfie Lightbox Modal */}
+      <SelfieLightboxModal
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+      />
 
       <SpotCheckModal
         spotCheck={modalCheck}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS, invalidateGasCache } from '@/lib/gas';
 import { getLocalExemptIds, saveLocalExemptIds, getExemptConfig } from '@/lib/photoExempt';
+import { createAuditLog } from '@/lib/auditStore';
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,15 @@ export async function POST(request: Request) {
     }
 
     invalidateGasCache();
+
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'TOGGLE_PHOTO_EXEMPT',
+      action_title: is_exempt ? 'เปิดสิทธิ์ยกเว้นการถ่ายรูป' : 'ปิดสิทธิ์ยกเว้นการถ่ายรูป',
+      target_employee_id: targetEmpId,
+      details: `${session.name} ${is_exempt ? 'เปิดสิทธิ์' : 'ปิดสิทธิ์'} การยกเว้นถ่ายภาพให้พนักงานรหัส ${targetEmpId}`,
+    });
 
     return NextResponse.json({
       success: true,

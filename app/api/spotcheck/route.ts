@@ -48,7 +48,7 @@ export async function GET() {
         }
       }
 
-      const photoUrl = getSelfiePhoto([
+      let photoUrl = getSelfiePhoto([
         s.photo,
         s.photoUrl,
         s.uuid,
@@ -56,6 +56,10 @@ export async function GET() {
         `${s.employeeId}_${s.date}_${s.round}`,
         String(s.employeeId),
       ]);
+
+      if (!photoUrl && (s.hasPhoto === true || Boolean(s.photo))) {
+        photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(s.uuid)}&type=spotcheck`;
+      }
 
       return {
         id: s.uuid || `${s.employeeId}_${s.date}_${s.round}`,
@@ -71,6 +75,23 @@ export async function GET() {
         created_at: `${s.date || todayStr}T${scheduledTime}+07:00`,
       };
     });
+
+    // Deduplicate spot checks by date + round (keep completed or latest)
+    const dedupedMap = new Map<string, SpotCheck>();
+    for (const item of formatted) {
+      const key = `${item.check_date}_${item.round}`;
+      const existing = dedupedMap.get(key);
+      if (!existing) {
+        dedupedMap.set(key, item);
+      } else {
+        const isCurrentCompleted = item.result_status === 'Pass' || item.result_status === 'Fail' || Boolean(item.actual_scan_time);
+        const isExistingCompleted = existing.result_status === 'Pass' || existing.result_status === 'Fail' || Boolean(existing.actual_scan_time);
+        if (isCurrentCompleted && !isExistingCompleted) {
+          dedupedMap.set(key, item);
+        }
+      }
+    }
+    const dedupedFormatted = Array.from(dedupedMap.values());
 
     // Check if employee is working at office today
     let isWorkingAtOfficeToday = false;
@@ -102,7 +123,7 @@ export async function GET() {
       });
     }
 
-    const combined = [...testChecks, ...formatted];
+    const combined = [...testChecks, ...dedupedFormatted];
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
     const employeesMap = await getLiveEmployeesMap();

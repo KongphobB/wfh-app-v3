@@ -283,6 +283,8 @@ export interface Translations {
     rejected: string;
     historyTitle: string;
     historySubtitle: string;
+    allHistoryTitle: string;
+    allHistorySubtitle: string;
     supervisorTitle: string;
     supervisorSubtitle: string;
     approveBtn: string;
@@ -313,6 +315,94 @@ export interface Translations {
     excellentScore: string;
     goodScore: string;
     improveScore: string;
+  };
+  // Onboarding Tour
+  onboarding: {
+    title: string;
+    subtitle: string;
+    step1Title: string;
+    step1Desc: string;
+    step1Point1: string;
+    step1Point2: string;
+    step2Title: string;
+    step2Desc: string;
+    step2Point1: string;
+    step2Point2: string;
+    step3Title: string;
+    step3Desc: string;
+    step3Point1: string;
+    step3Point2: string;
+    step4Title: string;
+    step4Desc: string;
+    step4Point1: string;
+    step4Point2: string;
+    nextBtn: string;
+    prevBtn: string;
+    getStartedBtn: string;
+    viewManualBtn: string;
+    quickGuideBtn: string;
+  };
+  // Suggestion Box
+  suggestion: {
+    title: string;
+    subtitle: string;
+    openBtn: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    topicLabel: string;
+    topicPlaceholder: string;
+    categoryLabel: string;
+    contentLabel: string;
+    contentPlaceholder: string;
+    anonymousToggle: string;
+    anonymousNote: string;
+    submitBtn: string;
+    statusNew: string;
+    statusInProgress: string;
+    statusResolved: string;
+    adminReplyLabel: string;
+    adminReplyPlaceholder: string;
+    updateStatusBtn: string;
+  };
+  // Lunch Break
+  lunchBreak: {
+    bannerTitle: string;
+    bannerDesc: string;
+    badge: string;
+  };
+  // Company Holiday Calendar
+  holiday: {
+    title: string;
+    subtitle: string;
+    openBtn: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    upcomingTitle: string;
+    upcomingEmpty: string;
+    policyDocTitle: string;
+    policyDocSubtitle: string;
+    viewDocBtn: string;
+    downloadDocBtn: string;
+    daysLeftText: string;
+    todayText: string;
+    officialBadge: string;
+    companyBadge: string;
+    addHolidayBtn: string;
+    uploadPolicyBtn: string;
+  };
+  // Admin Audit Trail
+  audit: {
+    tabTitle: string;
+    pageTitle: string;
+    pageSubtitle: string;
+    searchPlaceholder: string;
+    filterAllActions: string;
+    colTimestamp: string;
+    colAdmin: string;
+    colAction: string;
+    colTarget: string;
+    colDetails: string;
+    emptyText: string;
   };
 }
 
@@ -589,6 +679,8 @@ export const translations: Record<Language, Translations> = {
       rejected: 'ไม่อนุมัติ',
       historyTitle: 'ประวัติการขอลาหยุดของฉัน',
       historySubtitle: 'รายการคำขอลาหยุดและการอนุมัติทั้งหมด',
+      allHistoryTitle: 'ประวัติและบันทึกการลา / เข้าออฟฟิศทั้งหมด',
+      allHistorySubtitle: 'รายการประวัติการขอลาและแจ้งเข้าปฏิบัติงานที่ออฟฟิศทั้งหมดในระบบ',
       supervisorTitle: 'รายการคำขอลาของทีมที่ต้องพิจารณา',
       supervisorSubtitle: 'ตรวจสอบและกดอนุมัติคำขอลาของสมาชิกในทีม',
       approveBtn: 'อนุมัติคำขอ',
@@ -618,6 +710,89 @@ export const translations: Record<Language, Translations> = {
       excellentScore: 'ยอดเยี่ยม (5 ดาว)',
       goodScore: 'ดีมาก (3-4 ดาว)',
       improveScore: 'ต้องปรับปรุง (1-2 ดาว)',
+    },
+    onboarding: {
+      title: '🎉 ยินดีต้อนรับสู่ระบบ SNU WFH!',
+      subtitle: '4 ขั้นตอนง่ายๆ ในการปฏิบัติงาน Work From Home ประจำวันอย่างมีประสิทธิภาพ',
+      step1Title: '1. ลงเวลาเข้างานช่วงเช้า (Check-in)',
+      step1Desc: 'กดลงเวลาก่อน 08:00 น. เพื่อรักษาสถิติตรงเวลา',
+      step1Point1: 'เปิดกล้องถ่ายรูป Selfie สดและตรวจสอบระยะห่างพิกัด GPS',
+      step1Point2: 'หากลงเวลาหลัง 08:00 น. ระบบจะบันทึกว่าสาย และให้ระบุเหตุผลความจำเป็น',
+      step2Title: '2. สุ่มตรวจยืนยันตัวตน (Spot Check)',
+      step2Desc: 'สแกนใบหน้าภายใน 10:00 นาทีเมื่อได้รับสัญญาณแจ้งเตือน',
+      step2Point1: 'เมื่อมีเสียงเตือน 🔔 ให้เปิดกล้องและถ่ายรูป Selfie สดยืนยันตัวตน',
+      step2Point2: 'หากไม่สแกนภายใน 10 นาทีครบ 3 ครั้ง สิทธิ์ WFH จะถูกระงับอัตโนมัติ',
+      step3Title: '3. ส่งรายงานผลงานประจำวัน (Daily Tasks)',
+      step3Desc: 'บันทึกงานที่ทำเสร็จและแนบลิงก์ก่อนเลิกงาน',
+      step3Point1: 'ระบุจำนวนงานที่ทำเสร็จ แนบลิงก์ชิ้นงาน (Google Drive / GitHub / เอกสาร)',
+      step3Point2: 'หัวหน้างานจะตรวจงานและให้คะแนน 1-5 ดาวสะสมในหน้าสถิติ',
+      step4Title: '4. ขอลาหยุด / สลับเข้าออฟฟิศ (Leave & Onsite)',
+      step4Desc: 'แจ้งล่วงหน้าเพื่อยกเว้นการแจ้งเตือนขาดงานอัตโนมัติ',
+      step4Point1: 'ยื่นคำขอลาป่วย ลากิจ ลาพักร้อน เพื่อรอหัวหน้างานอนุมัติ',
+      step4Point2: 'แจ้ง "ปฏิบัติงานที่ออฟฟิศ (Onsite)" ระบบจะอนุมัติทันทีและไม่ส่งอีเมลเตือนสาย',
+      nextBtn: 'ถัดไป',
+      prevBtn: 'ย้อนกลับ',
+      getStartedBtn: '🚀 เข้าใจแล้ว เริ่มต้นใช้งาน!',
+      viewManualBtn: '📖 ดูคู่มือการใช้งานฉบับเต็ม',
+      quickGuideBtn: 'แนะนำการใช้งาน (Quick Guide)',
+    },
+    suggestion: {
+      title: 'กล่องรับฟังข้อเสนอแนะ (Suggestion Box)',
+      subtitle: 'ส่งความคิดเห็นและข้อเสนอแนะในการปรับปรุงระบบและการทำงาน (เลือกไม่ระบุตัวตนได้ 100%)',
+      openBtn: 'กล่องข้อเสนอแนะ',
+      modalTitle: 'แบบฟอร์มส่งข้อเสนอแนะ',
+      modalSubtitle: 'ส่งความคิดเห็นโดยตรงถึงผู้บริหารและแอดมิน เพื่อร่วมพัฒนาองค์กรและระบบ WFH',
+      topicLabel: 'หัวข้อข้อเสนอแนะ *',
+      topicPlaceholder: 'เช่น เสนอปรับปรุงความเร็วระบบ, เสนอเพิ่มเมนู...',
+      categoryLabel: 'หมวดหมู่ *',
+      contentLabel: 'รายละเอียดข้อคิดเห็น / ข้อเสนอแนะ *',
+      contentPlaceholder: 'พิมพ์ข้อเสนอแนะหรือปัญหาที่พบอย่างละเอียด เพื่อให้ทีมงานนำไปปรับปรุง...',
+      anonymousToggle: 'ส่งแบบไม่ระบุตัวตน (100% Anonymous)',
+      anonymousNote: '🔒 เมื่อเปิดใช้งาน ระบบจะไม่บันทึกชื่อ รหัสพนักงาน หรือข้อมูลระบุตัวตนใดๆ',
+      submitBtn: 'ส่งข้อเสนอแนะ',
+      statusNew: 'รับเรื่องใหม่',
+      statusInProgress: 'กำลังดำเนินการ',
+      statusResolved: 'ดำเนินการเรียบร้อย',
+      adminReplyLabel: 'ข้อความตอบรับ / บันทึกการดำเนินการจากแอดมิน',
+      adminReplyPlaceholder: 'พิมพ์บันทึกการตอบรับหรือแนวทางแก้ไข...',
+      updateStatusBtn: 'บันทึกสถานะ',
+    },
+    lunchBreak: {
+      bannerTitle: '🍱 เวลาพักรับประทานอาหารกลางวัน (Lunch Break)',
+      bannerDesc: 'ขณะนี้เวลา 12:00 - 13:00 น. เป็นเวลาพักเที่ยง พักผ่อนและทานอาหารได้อย่างสบายใจ ระบบจะยกเว้นการสุ่มตรวจอัตโนมัติในช่วงเวลานี้',
+      badge: '12:00 - 13:00 น.',
+    },
+    holiday: {
+      title: 'ปฏิทินวันหยุดประจำปี (Company Holidays)',
+      subtitle: 'วันหยุดนักขัตฤกษ์และวันหยุดตามประเพณีของบริษัทประจำปี',
+      openBtn: 'ปฏิทินวันหยุด',
+      modalTitle: 'ปฏิทินวันหยุดประจำปี 2026',
+      modalSubtitle: 'ตรวจสอบวันหยุดนักขัตฤกษ์และประกาศวันหยุดของบริษัท เพื่อวางแผนการทำงานและการลาล่วงหน้า',
+      upcomingTitle: 'วันหยุดที่กำลังจะมาถึง (Upcoming Holidays)',
+      upcomingEmpty: 'ไม่มีวันหยุดในช่วง 60 วันข้างหน้า',
+      policyDocTitle: '📄 เอกสารประกาศวันหยุดทางการของบริษัท',
+      policyDocSubtitle: 'แนบและรับรองโดยฝ่ายทรัพยากรบุคคล (HR & Admin)',
+      viewDocBtn: 'เปิดดูประกาศ',
+      downloadDocBtn: 'ดาวน์โหลดเอกสาร',
+      daysLeftText: 'อีก {days} วัน',
+      todayText: 'วันนี้วันหยุด! 🎉',
+      officialBadge: 'นักขัตฤกษ์',
+      companyBadge: 'วันหยุดบริษัท',
+      addHolidayBtn: 'เพิ่มวันหยุดพิเศษ',
+      uploadPolicyBtn: 'แนบไฟล์ประกาศวันหยุด',
+    },
+    audit: {
+      tabTitle: 'ประวัติการทำงาน (Audit Trail)',
+      pageTitle: 'บันทึกประวัติการทำงานของผู้ดูแลระบบ (Admin Audit Trail)',
+      pageSubtitle: 'ติดตามและตรวจสอบทุกการกระทำของ Admin และ Supervisor ในระบบอย่างโปร่งใส',
+      searchPlaceholder: 'ค้นหาด้วยชื่อแอดมิน, รหัสพนักงาน หรือรายละเอียด...',
+      filterAllActions: 'ทุกประเภทกิจกรรม',
+      colTimestamp: 'วัน-เวลา',
+      colAdmin: 'ผู้ดำเนินการ',
+      colAction: 'กิจกรรม / คำสั่ง',
+      colTarget: 'เป้าหมาย',
+      colDetails: 'รายละเอียดการเปลี่ยนแปลง',
+      emptyText: 'ไม่พบบันทึกประวัติการทำงานตามเงื่อนไขที่เลือก',
     },
   },
   en: {
@@ -892,6 +1067,8 @@ export const translations: Record<Language, Translations> = {
       rejected: 'Rejected',
       historyTitle: 'My Leave History',
       historySubtitle: 'All past leave and schedule exemption requests',
+      allHistoryTitle: 'All Leave & Work Onsite History',
+      allHistorySubtitle: 'Comprehensive record of all leave and onsite requests in the system',
       supervisorTitle: 'Team Leave Requests for Approval',
       supervisorSubtitle: 'Review and approve leave submissions from team members',
       approveBtn: 'Approve Request',
@@ -921,6 +1098,89 @@ export const translations: Record<Language, Translations> = {
       excellentScore: 'Excellent (5 Stars)',
       goodScore: 'Good (3-4 Stars)',
       improveScore: 'Needs Improvement (1-2 Stars)',
+    },
+    onboarding: {
+      title: '🎉 Welcome to SNU WFH System!',
+      subtitle: '4 Simple steps to excel in your daily Work From Home routine',
+      step1Title: '1. Morning Attendance Check-in',
+      step1Desc: 'Check in before 08:00 AM to maintain your on-time score',
+      step1Point1: 'Take a live selfie camera photo and verify your office GPS distance',
+      step1Point2: 'Check-ins after 08:00 AM are marked as late and require a reason note',
+      step2Title: '2. Identity Spot-Check Verification',
+      step2Desc: 'Verify your live identity within 10:00 minutes when notified',
+      step2Point1: 'When the alert sound pings 🔔, open camera and capture a live selfie',
+      step2Point2: 'Missing 3 consecutive 10-minute checks will automatically suspend WFH privileges',
+      step3Title: '3. Daily Tasks Submission',
+      step3Desc: 'Log your completed workload and links before end of day',
+      step3Point1: 'Report completed task counts and attach work links (Drive, GitHub, Docs)',
+      step3Point2: 'Supervisors review and award 1-5 star ratings shown in your analytics',
+      step4Title: '4. Leave & Work Onsite Exemption',
+      step4Desc: 'Request in advance to auto-suppress missing check-in alerts',
+      step4Point1: 'Submit Sick, Personal, or Vacation leave for supervisor approval',
+      step4Point2: 'Work Onsite is auto-approved instantly and disables morning email alerts',
+      nextBtn: 'Next',
+      prevBtn: 'Previous',
+      getStartedBtn: '🚀 Got it, Get Started!',
+      viewManualBtn: '📖 View Complete User Manual',
+      quickGuideBtn: 'Quick Start Guide',
+    },
+    suggestion: {
+      title: 'Suggestion Box',
+      subtitle: 'Submit feedback, ideas, or improvement requests (100% Anonymous option available)',
+      openBtn: 'Suggestion Box',
+      modalTitle: 'Submit Suggestion / Feedback',
+      modalSubtitle: 'Share ideas directly with management and administrators to improve the WFH workflow',
+      topicLabel: 'Suggestion Topic *',
+      topicPlaceholder: 'e.g. Speed improvements, dark mode tweaks...',
+      categoryLabel: 'Category *',
+      contentLabel: 'Details / Feedback Description *',
+      contentPlaceholder: 'Provide constructive feedback or issues encountered...',
+      anonymousToggle: 'Submit as 100% Anonymous',
+      anonymousNote: '🔒 When enabled, your name, ID, and identity are completely excluded',
+      submitBtn: 'Submit Feedback',
+      statusNew: 'New',
+      statusInProgress: 'In Progress',
+      statusResolved: 'Resolved',
+      adminReplyLabel: 'Admin Response / Action Note',
+      adminReplyPlaceholder: 'Enter review response or resolution action...',
+      updateStatusBtn: 'Update Status',
+    },
+    lunchBreak: {
+      bannerTitle: '🍱 Lunch Break Time (12:00 - 13:00)',
+      bannerDesc: 'It is currently lunch break time (12:00 - 13:00). Enjoy your meal and rest! Spot checks are automatically paused during this hour.',
+      badge: '12:00 - 13:00',
+    },
+    holiday: {
+      title: 'Company Holiday Calendar',
+      subtitle: 'Official national holidays and annual company holiday schedules',
+      openBtn: 'Holidays',
+      modalTitle: 'Annual Holiday Calendar 2026',
+      modalSubtitle: 'Review national and company holidays to plan work schedules and leave requests in advance',
+      upcomingTitle: 'Upcoming Holidays',
+      upcomingEmpty: 'No holidays in the next 60 days',
+      policyDocTitle: '📄 Official Company Holiday Announcement',
+      policyDocSubtitle: 'Attached and certified by Human Resources & Admin',
+      viewDocBtn: 'View Announcement',
+      downloadDocBtn: 'Download Document',
+      daysLeftText: '{days} days away',
+      todayText: 'Holiday Today! 🎉',
+      officialBadge: 'Official',
+      companyBadge: 'Company',
+      addHolidayBtn: 'Add Custom Holiday',
+      uploadPolicyBtn: 'Attach Holiday Policy',
+    },
+    audit: {
+      tabTitle: 'Audit Trail',
+      pageTitle: 'Administrator Audit Trail & Activity Logs',
+      pageSubtitle: 'Transparently track and inspect all administrator and supervisor actions across the platform',
+      searchPlaceholder: 'Search by admin name, employee ID, or action details...',
+      filterAllActions: 'All Activity Types',
+      colTimestamp: 'Timestamp',
+      colAdmin: 'Actor / Admin',
+      colAction: 'Activity / Command',
+      colTarget: 'Target',
+      colDetails: 'Action Details',
+      emptyText: 'No audit records match the selected filters',
     },
   },
 };

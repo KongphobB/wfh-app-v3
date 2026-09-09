@@ -16,6 +16,7 @@ const CACHE_RULES: Record<string, number> = {
   getLogs: 15000,              // 15 seconds
   getDashboardSummary: 15000,  // 15 seconds
   inspectTab: 20000,           // 20 seconds
+  adminGetLogPhoto: 300000,    // 5 minutes
 };
 
 // Mutating actions that should immediately invalidate cache

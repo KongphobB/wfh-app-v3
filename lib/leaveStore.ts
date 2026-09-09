@@ -54,6 +54,9 @@ export function createLeaveRequest(params: {
   start_date: string;
   end_date: string;
   reason: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: 'image' | 'pdf' | null;
 }): LeaveRequest {
   const isOnsite = params.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
 
@@ -70,6 +73,9 @@ export function createLeaveRequest(params: {
     reviewed_by: isOnsite ? 'ระบบอัตโนมัติ (Auto-approved)' : null,
     reviewed_at: isOnsite ? new Date().toISOString() : null,
     review_note: isOnsite ? 'อนุมัติเข้าปฏิบัติงานที่ออฟฟิศอัตโนมัติ' : null,
+    attachment_url: params.attachment_url || null,
+    attachment_name: params.attachment_name || null,
+    attachment_type: params.attachment_type || null,
     created_at: new Date().toISOString(),
   };
 

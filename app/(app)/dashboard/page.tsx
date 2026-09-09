@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   CheckCircle2, Clock, MapPin, AlertTriangle, FileText, 
-  HelpCircle, Star, RefreshCw, ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert
+  HelpCircle, Star, RefreshCw, ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { OnboardingModal } from '@/components/OnboardingModal';
+import { SuggestionModal } from '@/components/SuggestionModal';
+import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 
@@ -21,6 +24,10 @@ export default function DashboardPage() {
   const [activeSpotCheck, setActiveSpotCheck] = useState<SpotCheck | null>(null);
   const [userRole, setUserRole] = useState<string>('employee');
   const [wfhStatus, setWfhStatus] = useState<string>('เปิดสิทธิ์');
+  const [currentEmpId, setCurrentEmpId] = useState<string>('');
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const [isHolidayOpen, setIsHolidayOpen] = useState(false);
 
   const fetchData = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -28,12 +35,24 @@ export default function DashboardPage() {
       const res = await fetch('/api/dashboard/summary');
       if (res.ok) {
         const data = await res.json();
+        const empId = data.employeeId || data.employee_id || '';
+        setCurrentEmpId(empId);
         setUserRole(data.role || 'employee');
         setWfhStatus(data.wfhStatus || 'เปิดสิทธิ์');
         setCheckinLogs(data.checkinLogs || []);
         setTasks(data.tasks || []);
         setSpotChecks(data.spotChecks || []);
         setActiveSpotCheck(data.activeSpotCheck || null);
+
+        // Auto-show onboarding tour on first login
+        if (isInitial && empId) {
+          try {
+            const viewed = localStorage.getItem(`wfh_onboarding_viewed_${empId}`);
+            if (!viewed) {
+              setIsOnboardingOpen(true);
+            }
+          } catch {}
+        }
       }
     } catch (err) {
       console.error('Fetch dashboard error:', err);
@@ -66,20 +85,21 @@ export default function DashboardPage() {
     )
   );
 
-  // Check verification and check-in windows
-  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin } = (() => {
+  // Check verification, check-in, and lunch break windows
+  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak } = (() => {
     try {
       const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
       const [thHourStr, thMinStr] = thaiTimeStr.split(':');
       const thHour = parseInt(thHourStr, 10);
       const thMin = parseInt(thMinStr, 10);
       return {
+        isLunchBreak: thHour === 12,
         isAfternoonVerifyWindow: thHour === 13 && thMin >= 0 && thMin <= 20,
         isLateAfternoonVerifyWindow: (thHour === 13 && thMin > 20) || (thHour >= 14 && thHour < 18),
         isMorningMissingCheckin: (thHour > 8 || (thHour === 8 && thMin > 0)) && thHour < 18,
       };
     } catch {
-      return { isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false };
+      return { isLunchBreak: false, isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false };
     }
   })();
 
@@ -96,19 +116,73 @@ export default function DashboardPage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">{t.dashboard.subtitle}</p>
         </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHolidayOpen(true)}
+            className="text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/40 font-bold"
+          >
+            <Calendar className="w-3.5 h-3.5 text-orange-600" />
+            <span>{t.holiday.openBtn}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSuggestionOpen(true)}
+            className="text-xs gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/40 font-bold"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5 text-teal-600" />
+            <span>{t.suggestion.openBtn}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOnboardingOpen(true)}
+            className="text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900 font-bold"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+            <span>{t.onboarding.quickGuideBtn}</span>
+          </Button>
+        </div>
       </div>
+
+      {/* Lunch Break Status Banner (12:00 - 13:00) */}
+      {isLunchBreak && (
+        <Card className="border-teal-300 bg-teal-50/90 dark:bg-teal-950/30 dark:border-teal-800/40 shadow-sm animate-fade-in">
+          <CardContent className="p-4 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0 font-bold text-xl shadow-xs">
+              🍱
+            </div>
+            <div>
+              <h3 className="font-bold text-teal-950 dark:text-teal-200 text-sm flex items-center gap-2">
+                <span>{t.lunchBreak.bannerTitle}</span>
+                <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-teal-600">
+                  {t.lunchBreak.badge}
+                </Badge>
+              </h3>
+              <p className="text-xs text-teal-800 dark:text-teal-300 font-medium mt-0.5">
+                {t.lunchBreak.bannerDesc}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Suspension Alert Banner */}
       {wfhStatus === 'ระงับสิทธิ์' && (
-        <Card className="border-rose-300 bg-rose-50/90 shadow-sm">
+        <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold">
-                <ShieldAlert className="w-6 h-6 text-rose-600" />
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold">
+                <ShieldAlert className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-rose-900 text-sm">{t.dashboard.suspendedBannerTitle}</h3>
-                <p className="text-xs text-rose-700 font-medium mt-0.5">
+                <h3 className="font-bold text-rose-900 dark:text-slate-100 text-sm">{t.dashboard.suspendedBannerTitle}</h3>
+                <p className="text-xs text-rose-700 dark:text-slate-300 font-medium mt-0.5">
                   {t.dashboard.suspendedBannerDesc}
                 </p>
               </div>
@@ -119,20 +193,20 @@ export default function DashboardPage() {
 
       {/* Morning Missing Check-in Alert Banner (After 08:00 AM) */}
       {!todayCheckin && isMorningMissingCheckin && (
-        <Card className="border-rose-300 bg-rose-50/90 shadow-sm animate-fade-in">
+        <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                <Clock className="w-6 h-6 text-rose-600" />
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
+                <Clock className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-rose-950 text-sm flex items-center gap-2">
+                <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
                   <span>{lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างานช่วงเช้า'}</span>
                   <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
                     {lang === 'en' ? 'Overdue > 08:00 AM' : 'เกินเวลา 08:00 น.'}
                   </Badge>
                 </h3>
-                <p className="text-xs text-rose-800 font-medium mt-0.5">
+                <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
                   {lang === 'en'
                     ? 'You have not checked in this morning. Please submit your attendance with late reason.'
                     : 'ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาเข้างาน กรุณาลงเวลาและระบุเหตุผลความจำเป็นในช่องหมายเหตุ'}
@@ -151,18 +225,18 @@ export default function DashboardPage() {
 
       {/* 1. Normal Afternoon Verification Alert Banner (13:00 - 13:20) - ONLY FOR WFH WHO CHECKED IN */}
       {!todayVerify && isCheckedInWfhToday && isAfternoonVerifyWindow && (
-        <Card className="border-blue-300 bg-blue-50/90 shadow-sm animate-fade-in">
+        <Card className="border-blue-300 bg-blue-50/90 dark:bg-blue-950/30 dark:border-blue-800/40 shadow-sm animate-fade-in">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 font-bold animate-bounce">
-                <MapPin className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold animate-bounce">
+                <MapPin className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-blue-900 text-sm flex items-center gap-2">
+                <h3 className="font-bold text-blue-900 dark:text-slate-100 text-sm flex items-center gap-2">
                   <span>{t.dashboard.verifyWindowBannerTitle}</span>
                   <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-blue-600">{t.dashboard.verifyWindowBannerBadge}</Badge>
                 </h3>
-                <p className="text-xs text-blue-700 font-medium mt-0.5">
+                <p className="text-xs text-blue-700 dark:text-slate-300 font-medium mt-0.5">
                   {t.dashboard.verifyWindowBannerDesc}
                 </p>
               </div>
@@ -179,18 +253,18 @@ export default function DashboardPage() {
 
       {/* 2. Overdue Afternoon Verification Alert Banner (After 13:20) - ONLY FOR WFH WHO CHECKED IN */}
       {!todayVerify && isCheckedInWfhToday && isLateAfternoonVerifyWindow && (
-        <Card className="border-amber-300 bg-amber-50/90 shadow-sm animate-fade-in">
+        <Card className="border-amber-300 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-800/40 shadow-sm animate-fade-in">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
+                <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-amber-950 text-sm flex items-center gap-2">
+                <h3 className="font-bold text-amber-950 dark:text-slate-100 text-sm flex items-center gap-2">
                   <span>{t.dashboard.overdueBannerTitle}</span>
                   <Badge variant="warning" className="text-[10px] px-1.5 py-0 bg-amber-500 text-white border-amber-600">{t.dashboard.overdueBannerBadge}</Badge>
                 </h3>
-                <p className="text-xs text-amber-800 font-medium mt-0.5">
+                <p className="text-xs text-amber-800 dark:text-slate-300 font-medium mt-0.5">
                   {t.dashboard.overdueBannerDesc}
                 </p>
               </div>
@@ -207,15 +281,15 @@ export default function DashboardPage() {
 
       {/* Pending Spot Check Alert Banner */}
       {activeSpotCheck && (
-        <Card className="border-orange-200 bg-orange-50/80">
+        <Card className="border-orange-200 bg-orange-50/80 dark:bg-orange-950/30 dark:border-orange-800/40">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 animate-bounce font-bold">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 animate-bounce font-bold">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">{t.dashboard.spotcheckPendingBannerTitle}</h3>
-                <p className="text-xs text-orange-700 font-medium">{t.dashboard.spotcheckPendingBannerDesc}</p>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t.dashboard.spotcheckPendingBannerTitle}</h3>
+                <p className="text-xs text-orange-700 dark:text-slate-300 font-medium">{t.dashboard.spotcheckPendingBannerDesc}</p>
               </div>
             </div>
             <Link href="/spotcheck">
@@ -357,6 +431,26 @@ export default function DashboardPage() {
           </Link>
         )}
       </div>
+
+      {/* Onboarding Quick Guide Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        employeeId={currentEmpId}
+      />
+
+      {/* Suggestion Box Modal */}
+      <SuggestionModal
+        isOpen={isSuggestionOpen}
+        onClose={() => setIsSuggestionOpen(false)}
+        onSuccess={fetchData}
+      />
+
+      {/* Holiday Calendar Modal */}
+      <HolidayCalendarModal
+        isOpen={isHolidayOpen}
+        onClose={() => setIsHolidayOpen(false)}
+      />
     </div>
   );
 }
