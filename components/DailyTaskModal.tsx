@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileText, Link as LinkIcon, X, AlertCircle, Send, Edit3, Info } from 'lucide-react';
+import { FileText, X, AlertCircle, Send, Edit3, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TaskItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';
+import { playSuccessChime } from '@/lib/sound';
 
 interface DailyTaskModalProps {
   isOpen: boolean;
@@ -77,6 +78,7 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
         return;
       }
 
+      playSuccessChime();
       onSuccess();
       onClose();
     } catch {

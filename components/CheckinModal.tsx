@@ -6,6 +6,7 @@ import { CheckinType, CheckinLog } from '@/types';
 import { Button } from '@/components/ui/button';
 import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 import { useLanguage } from '@/lib/i18n';
+import { playSuccessChime } from '@/lib/sound';
 
 interface CheckinModalProps {
   isOpen: boolean;
@@ -313,6 +314,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       }
 
       setLoading(false);
+      playSuccessChime();
       setSuccessPopup({
         title: `ลงเวลา${logType}สำเร็จ!`,
         message: data.message || `ระบบได้ทำการบันทึกข้อมูลการลงเวลา ${logType} เรียบร้อยแล้ว`,

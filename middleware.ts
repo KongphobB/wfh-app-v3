@@ -70,6 +70,9 @@ export const config = {
     '/checkin/:path*',
     '/spotcheck/:path*',
     '/tasks/:path*',
+    '/leave/:path*',
+    '/analytics/:path*',
+    '/manual/:path*',
     '/change-pin/:path*',
   ],
 };

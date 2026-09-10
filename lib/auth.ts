@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import { SessionPayload } from '@/types';
@@ -18,29 +17,9 @@ const COOKIE_NAME = 'wfh_session';
 const memoryRateLimits = new Map<string, { attempts: number; lockedUntil: number | null }>();
 
 /**
- * Hash PIN using bcrypt (10 rounds)
+ * Create JWT Session Token (Internal helper)
  */
-export async function hashPin(pin: string): Promise<string> {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(pin, salt);
-}
-
-/**
- * Verify PIN against bcrypt hash or plain text
- */
-export async function verifyPin(pin: string, hash: string): Promise<boolean> {
-  if (!hash) return false;
-  if (hash === pin) return true;
-  if (hash.startsWith('$2a$') || hash.startsWith('$2b$')) {
-    return bcrypt.compare(pin, hash);
-  }
-  return hash === pin;
-}
-
-/**
- * Create JWT Session Token
- */
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
+async function createSessionToken(payload: SessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -115,13 +94,6 @@ export async function recordFailedAttempt(employeeId: string) {
  */
 export async function resetFailedAttempt(employeeId: string) {
   memoryRateLimits.delete(employeeId);
-}
-
-/**
- * Clear all memory rate limits
- */
-export function clearAllMemoryRateLimits() {
-  memoryRateLimits.clear();
 }
 
 /**
