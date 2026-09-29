@@ -8,6 +8,7 @@ import {
 } from '@/lib/notifications';
 import { callGAS } from '@/lib/gas';
 import { AppNotification } from '@/types';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 export async function GET() {
   try {
@@ -16,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
@@ -97,10 +98,7 @@ export async function GET() {
 
     // 2. Afternoon Attendance Verification Notification (13:00 - 13:20) (Exempt for office employees)
     try {
-      const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-      const [thHourStr, thMinStr] = thaiTimeStr.split(':');
-      const thHour = parseInt(thHourStr, 10);
-      const thMin = parseInt(thMinStr, 10);
+      const { hour: thHour, minute: thMin } = getThaiTime();
 
       // Check if employee checked in for WFH today (Only WFH checked-in employees get afternoon notification)
       let isCheckedInWfhToday = false;

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 export async function GET() {
   try {
@@ -10,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
 
     // Fetch unified dashboard data from Google Sheets in ONE single call
     const res = await callGAS('getDashboardSummary', { employeeId: session.employee_id });

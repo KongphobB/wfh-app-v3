@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SpotCheckModal from '@/components/SpotCheckModal';
 import { SpotCheck } from '@/types';
 import { playSpotCheckAlert } from '@/lib/sound';
-import { syncServerTime, getSyncedNow } from '@/lib/timeSync';
+import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { BellRing, Clock, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
 
-  const todayStr = new Date(getSyncedNow()).toISOString().split('T')[0];
+  const todayStr = getThaiDateStr(getSyncedNow());
   if (s.check_date !== todayStr) return false;
 
   let triggerTimeMs = 0;
@@ -118,7 +118,7 @@ export default function GlobalSpotCheckWatcher() {
         spotTime = new Date(activeCheck.created_at).getTime();
       }
       if (!spotTime || isNaN(spotTime)) {
-        const today = new Date(getSyncedNow()).toISOString().split('T')[0];
+        const today = getThaiDateStr(getSyncedNow());
         spotTime = new Date(`${today}T${activeCheck.scheduled_time}+07:00`).getTime();
       }
       if (!spotTime || isNaN(spotTime)) {

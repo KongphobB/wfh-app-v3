@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 import { useLanguage } from '@/lib/i18n';
 import { playSuccessChime } from '@/lib/sound';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 interface CheckinModalProps {
   isOpen: boolean;
@@ -38,20 +39,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   const [popupAlert, setPopupAlert] = useState<{ title: string; message: string } | null>(null);
   const [successPopup, setSuccessPopup] = useState<{ title: string; message: string } | null>(null);
 
-  const getThaiTime = () => {
-    try {
-      const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-      const [thHourStr, thMinStr] = thaiTimeStr.split(':');
-      return { hour: parseInt(thHourStr, 10), minute: parseInt(thMinStr, 10) };
-    } catch {
-      const now = new Date();
-      return { hour: now.getHours(), minute: now.getMinutes() };
-    }
-  };
-
-  const thaiTime = getThaiTime();
-  const currentHour = thaiTime.hour;
-  const currentMinute = thaiTime.minute;
+  const { hour: currentHour, minute: currentMinute } = getThaiTime();
 
   const isMorningLate = logType === 'เข้างาน' && (currentHour > 8 || (currentHour === 8 && currentMinute > 0));
   const isEarlyLeave = logType === 'ออกงาน' && currentHour < 17;
@@ -91,7 +79,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         if (data.employee_position) {
           setEmployeePosition(data.employee_position);
         }
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getThaiDateStr();
         const logs: CheckinLog[] = data.logs || [];
         const todayMorningLogs = logs.filter(
           (l) => l.log_type === 'เข้างาน' && l.log_date === todayStr
@@ -304,7 +292,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
 
       if (photoDataUrl) {
         try {
-          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+          const today = getThaiDateStr();
           localStorage.setItem(`wfh_selfie_${today}_${logType}`, photoDataUrl);
           localStorage.setItem(`wfh_selfie_${today}`, photoDataUrl);
           if (data?.data?.uuid) {

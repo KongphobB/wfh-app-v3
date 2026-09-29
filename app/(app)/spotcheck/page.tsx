@@ -8,14 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BellRing, RefreshCw, Clock } from 'lucide-react';
 import { SpotCheck } from '@/types';
-import { syncServerTime, getSyncedNow } from '@/lib/timeSync';
+import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
 
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
 
-  const todayStr = new Date(getSyncedNow()).toISOString().split('T')[0];
+  const todayStr = getThaiDateStr(getSyncedNow());
   if (s.check_date !== todayStr) return false;
 
   let triggerTimeMs = 0;

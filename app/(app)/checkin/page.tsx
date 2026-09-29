@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock, AlertCircle } from 'lucide-react';
 import { CheckinLog, CheckinType } from '@/types';
 import { useLanguage } from '@/lib/i18n';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 export default function CheckinPage() {
   const { t, lang } = useLanguage();
@@ -47,13 +48,7 @@ export default function CheckinPage() {
 
   const openCheckinModal = (type: CheckinType) => {
     if (type === 'ยืนยันตัวตน') {
-      let currentHour = 0;
-      try {
-        const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-        currentHour = parseInt(thaiTimeStr.split(':')[0], 10);
-      } catch {
-        currentHour = new Date().getHours();
-      }
+      const currentHour = getThaiTime().hour;
       if (currentHour < 13) {
         setAlertPopup({
           title: lang === 'en' ? 'Afternoon Window Not Open Yet' : 'ยังไม่ถึงเวลายืนยันตัวตน',
@@ -66,13 +61,7 @@ export default function CheckinPage() {
     setIsModalOpen(true);
   };
 
-  const todayStr = (() => {
-    try {
-      return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-    } catch {
-      return new Date().toISOString().split('T')[0];
-    }
-  })();
+  const todayStr = getThaiDateStr();
 
   const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
   const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;

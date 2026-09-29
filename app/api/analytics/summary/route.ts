@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { getLeaveRequestsForUser } from '@/lib/leaveStore';
 import { AnalyticsSummary } from '@/types';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,8 +105,8 @@ export async function GET(request: Request) {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const dayName = d.toLocaleDateString('th-TH', { weekday: 'short' });
+      const dateStr = getThaiDateStr(d);
+      const dayName = d.toLocaleDateString('th-TH', { weekday: 'short', timeZone: 'Asia/Bangkok' });
 
       const checkinToday = rawCheckins.find((c) => c.date === dateStr);
       const isLeaveToday = rawLeaves.some((l) => l.start_date <= dateStr && dateStr <= l.end_date);

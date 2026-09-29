@@ -9,6 +9,7 @@ import { FileText, Plus, Star, Edit3 } from 'lucide-react';
 import { TaskItem } from '@/types';
 
 import { useLanguage } from '@/lib/i18n';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 export default function DailyTasksPage() {
   const { t, lang } = useLanguage();
@@ -16,7 +17,7 @@ export default function DailyTasksPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getThaiDateStr();
   const todayTask = tasks.find((t) => t.submit_date === todayStr);
 
   const fetchTasks = async (isInitial = false) => {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/lib/i18n';
 import { CompanyHoliday, HolidayPolicyDoc } from '@/types';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 interface HolidayCalendarModalProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
 
   // Upcoming holidays across the next 60 days
   const upcomingHolidays = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
     const todayMs = new Date(todayStr).getTime();
 
     return holidays
@@ -215,7 +216,7 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
                 const dayNum = idx + 1;
                 const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                 const hol = monthHolidays.find((h) => h.date === dateStr);
-                const isToday = new Date().toISOString().split('T')[0] === dateStr;
+                const isToday = getThaiDateStr() === dateStr;
 
                 return (
                   <div

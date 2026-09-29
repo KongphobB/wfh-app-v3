@@ -5,6 +5,7 @@ import { CalendarDays, X, AlertCircle, CheckCircle2, ShieldCheck, Paperclip, Upl
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { LeaveType } from '@/types';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 interface LeaveRequestModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface LeaveRequestModalProps {
 
 export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestModalProps) {
   const { t } = useLanguage();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getThaiDateStr();
 
   const [leaveType, setLeaveType] = useState<LeaveType>('ลาป่วย');
   const [startDate, setStartDate] = useState(todayStr);

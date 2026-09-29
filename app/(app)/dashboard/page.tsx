@@ -15,6 +15,7 @@ import { SuggestionModal } from '@/components/SuggestionModal';
 import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { useLanguage } from '@/lib/i18n';
+import { getThaiTime } from '@/lib/timeSync';
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
@@ -90,10 +91,7 @@ export default function DashboardPage() {
   // Check verification, check-in, lunch break, and evening checkout windows
   const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak, isEveningCheckoutWindow } = (() => {
     try {
-      const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-      const [thHourStr, thMinStr] = thaiTimeStr.split(':');
-      const thHour = parseInt(thHourStr, 10);
-      const thMin = parseInt(thMinStr, 10);
+      const { hour: thHour, minute: thMin } = getThaiTime();
       return {
         isLunchBreak: thHour === 12,
         isAfternoonVerifyWindow: thHour === 13 && thMin >= 0 && thMin <= 20,

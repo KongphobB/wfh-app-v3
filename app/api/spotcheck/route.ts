@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { callGAS, invalidateGasCache } from '@/lib/gas';
 import { SpotCheck } from '@/types';
 import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 declare global {
   var __activeTestSpotChecks: SpotCheck[] | undefined;
@@ -15,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
 
     const gasRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 300 });
     const rawSpotChecks = (gasRes?.data || []) as any[];
@@ -150,9 +151,8 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    const timeStr = now.toTimeString().split(' ')[0];
+    const todayStr = getThaiDateStr();
+    const timeStr = getThaiTime().timeStr;
 
     const testSpotCheck: SpotCheck = {
       id: `TEST-${Date.now()}`,
@@ -201,7 +201,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสการสุ่มตรวจ' }, { status: 400 });
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
 
     if (photo_base64 && typeof photo_base64 === 'string') {
       saveSelfiePhoto(spot_check_id, photo_base64, [

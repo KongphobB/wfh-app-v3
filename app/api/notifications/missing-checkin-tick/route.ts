@@ -4,6 +4,7 @@ import { verifyCronAuth } from '@/lib/cron';
 import { createNotification } from '@/lib/notifications';
 import { sendEmailAlert } from '@/lib/email';
 import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
+import { getThaiDateStr } from '@/lib/timeSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
     const employeesMap = await getLiveEmployeesMap();
     const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 200 });
     const checkinLogs = (checkinRes?.data || []) as any[];

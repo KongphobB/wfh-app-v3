@@ -4,6 +4,7 @@ import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { CheckinLog } from '@/types';
 import { isEmployeePhotoExempt } from '@/lib/photoExempt';
 import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get('scope'); // 'all' | 'team' | 'self'
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
 
     const [gasRes, gasSpotRes] = await Promise.all([
       callGAS('getLogs', { logType: 'checkin', limit: 300 }),
@@ -200,10 +201,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-    const [thHourStr, thMinStr] = thaiTimeStr.split(':');
-    const currentHour = parseInt(thHourStr, 10);
-    const currentMinute = parseInt(thMinStr, 10);
+    const { hour: currentHour, minute: currentMinute } = getThaiTime();
 
     if (log_type === 'เข้างาน' && (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) && (!note || !note.trim())) {
       return NextResponse.json(
@@ -226,7 +224,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getThaiDateStr();
 
     // Store in memory cache & disk for persistent preview
     if (photo_base64 && typeof photo_base64 === 'string') {

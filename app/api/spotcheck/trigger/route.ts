@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { getLiveEmployeesMap } from '@/lib/gas';
 import { createNotification } from '@/lib/notifications';
 import { SpotCheck } from '@/types';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 declare global {
   var __activeTestSpotChecks: SpotCheck[] | undefined;
@@ -34,8 +35,8 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const todayStr = getThaiDateStr(now);
+    const timeStr = getThaiTime(now).timeStr;
 
     const newSpotCheckId = `SPOT-MANUAL-${Date.now()}-${employee_id}`;
 
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       employee_id: String(employee_id),
       check_date: todayStr,
       round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
-      scheduled_time: now.toTimeString().split(' ')[0],
+      scheduled_time: timeStr,
       actual_scan_time: null,
       gps_lat: null,
       gps_lng: null,

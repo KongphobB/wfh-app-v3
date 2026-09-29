@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, MapPin, X, AlertCircle, CheckCircle2, BellRing, RefreshCw, ShieldCheck } from 'lucide-react';
 import { SpotCheck } from '@/types';
 import { Button } from '@/components/ui/button';
-import { getSyncedNow } from '@/lib/timeSync';
+import { getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
 import { playSpotCheckChime } from '@/lib/sound';
 
@@ -65,7 +65,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         spotTime = new Date(spotCheck.created_at).getTime();
       }
       if (!spotTime || isNaN(spotTime)) {
-        const today = new Date(getSyncedNow()).toISOString().split('T')[0];
+        const today = getThaiDateStr(getSyncedNow());
         spotTime = new Date(`${today}T${spotCheck.scheduled_time}+07:00`).getTime();
       }
       if (!spotTime || isNaN(spotTime)) {
