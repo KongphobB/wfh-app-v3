@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, Clock, Star, ShieldCheck, 
-  TrendingUp, Calendar, RefreshCw, Award, CheckCheck
+  TrendingUp, Calendar, RefreshCw, Award, CheckCheck,
+  Users, UserCheck
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,20 +12,43 @@ import { Button } from '@/components/ui/button';
 import { AnalyticsSummary } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 
+interface AccessibleEmployee {
+  id: string;
+  name: string;
+  dept: string;
+  position: string;
+  isSelf: boolean;
+}
+
 export default function AnalyticsPage() {
   const { t, lang } = useLanguage();
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [employeeInfo, setEmployeeInfo] = useState<{ id: string; name: string } | null>(null);
+  const [employeeInfo, setEmployeeInfo] = useState<{ id: string; name: string; department?: string; position?: string } | null>(null);
+  const [accessibleEmployees, setAccessibleEmployees] = useState<AccessibleEmployee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [userRole, setUserRole] = useState<'admin' | 'supervisor' | 'employee'>('employee');
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (targetId?: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/analytics/summary');
+      const url = targetId
+        ? `/api/analytics/summary?employee_id=${encodeURIComponent(targetId)}`
+        : '/api/analytics/summary';
+      const res = await fetch(url);
       const json = await res.json();
       if (res.ok && json.success) {
         setData(json.data);
         setEmployeeInfo(json.employee);
+        if (json.accessibleEmployees) {
+          setAccessibleEmployees(json.accessibleEmployees);
+        }
+        if (json.userRole) {
+          setUserRole(json.userRole);
+        }
+        if (!selectedEmployeeId && json.employee?.id) {
+          setSelectedEmployeeId(json.employee.id);
+        }
       }
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -37,27 +61,65 @@ export default function AnalyticsPage() {
     fetchAnalytics();
   }, []);
 
+  const handleEmployeeChange = (newId: string) => {
+    setSelectedEmployeeId(newId);
+    fetchAnalytics(newId);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <BarChart3 className="w-7 h-7 text-orange-600" />
             <span>{t.analytics.title}</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {t.analytics.subtitle} {employeeInfo ? `(${employeeInfo.name})` : ''}
-          </p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <p className="text-xs text-slate-500">
+              {t.analytics.subtitle}
+            </p>
+            {employeeInfo && (
+              <Badge variant="outline" className="text-xs font-medium border-orange-200 bg-orange-50/80 text-orange-900 px-2 py-0.5 flex items-center gap-1 shadow-2xs">
+                <UserCheck className="w-3.5 h-3.5 text-orange-600" />
+                <span>
+                  {t.analytics.viewingStatsFor}: <strong>{employeeInfo.name}</strong> ({employeeInfo.id})
+                  {employeeInfo.department ? ` • ${employeeInfo.department}` : ''}
+                </span>
+              </Badge>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {accessibleEmployees.length > 1 && (
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 shadow-2xs">
+              <Users className="w-4 h-4 text-orange-600 shrink-0" />
+              <label htmlFor="analytics-employee-select" className="text-xs font-semibold text-slate-600 dark:text-slate-300 shrink-0">
+                {t.analytics.selectTeamMember}:
+              </label>
+              <select
+                id="analytics-employee-select"
+                value={selectedEmployeeId || employeeInfo?.id || ''}
+                onChange={(e) => handleEmployeeChange(e.target.value)}
+                disabled={loading}
+                className="bg-transparent text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
+              >
+                {accessibleEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id} className="text-slate-900 bg-white dark:bg-slate-900 font-medium">
+                    {emp.id} - {emp.name} {emp.dept ? `(${emp.dept})` : ''} {emp.isSelf ? `[${t.analytics.yourself}]` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchAnalytics}
+            onClick={() => fetchAnalytics(selectedEmployeeId)}
             disabled={loading}
-            className="text-xs gap-1.5"
+            className="text-xs gap-1.5 shadow-2xs cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>{t.common.refresh}</span>

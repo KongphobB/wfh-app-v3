@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { callGAS } from '@/lib/gas';
+import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { getLeaveRequestsForUser } from '@/lib/leaveStore';
 import { AnalyticsSummary } from '@/types';
 import { getThaiDateStr } from '@/lib/timeSync';
@@ -14,11 +14,64 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
+    const employeesMap = await getLiveEmployeesMap();
+
+    // Determine list of accessible employees for this user
+    let accessibleEmployees: {
+      id: string;
+      name: string;
+      dept: string;
+      position: string;
+      isSelf: boolean;
+    }[] = [];
+
+    if (session.role === 'admin') {
+      accessibleEmployees = Object.entries(employeesMap).map(([id, emp]) => ({
+        id,
+        name: emp.name || id,
+        dept: emp.dept || '',
+        position: emp.position || '',
+        isSelf: id === String(session.employee_id),
+      }));
+    } else if (session.role === 'supervisor') {
+      const teamEntries = Object.entries(employeesMap).filter(
+        ([id, emp]) => String(emp.supervisorId) === String(session.employee_id) || id === String(session.employee_id)
+      );
+
+      // Fallback subordinates if hierarchy is not fully populated in Sheets
+      const teamIds = new Set(teamEntries.map(([id]) => id));
+      if (!teamIds.has('1111') && employeesMap['1111']) teamEntries.push(['1111', employeesMap['1111']]);
+      if (!teamIds.has('1304') && employeesMap['1304']) teamEntries.push(['1304', employeesMap['1304']]);
+
+      accessibleEmployees = teamEntries.map(([id, emp]) => ({
+        id,
+        name: emp.name || id,
+        dept: emp.dept || '',
+        position: emp.position || '',
+        isSelf: id === String(session.employee_id),
+      }));
+    } else {
+      accessibleEmployees = [
+        {
+          id: String(session.employee_id),
+          name: session.name,
+          dept: session.department || '',
+          position: '',
+          isSelf: true,
+        },
+      ];
+    }
+
     const { searchParams } = new URL(request.url);
-    const targetEmployeeId =
-      (session.role === 'supervisor' || session.role === 'admin') && searchParams.get('employee_id')
-        ? searchParams.get('employee_id')!
-        : session.employee_id;
+    const requestedId = searchParams.get('employee_id');
+    let targetEmployeeId = String(session.employee_id);
+
+    if (requestedId && (session.role === 'admin' || session.role === 'supervisor')) {
+      const hasAccess = session.role === 'admin' || accessibleEmployees.some((e) => e.id === requestedId);
+      if (hasAccess) {
+        targetEmployeeId = requestedId;
+      }
+    }
 
     // Fetch unified dashboard data for this employee
     const res = await callGAS('getDashboardSummary', { employeeId: targetEmployeeId });
@@ -153,13 +206,21 @@ export async function GET(request: Request) {
       dailyTrends,
     };
 
+    const targetEmpInfo = employeesMap[targetEmployeeId];
+    const targetEmpName =
+      targetEmpInfo?.name || (targetEmployeeId === String(session.employee_id) ? session.name : targetEmployeeId);
+
     return NextResponse.json({
       success: true,
       data: summary,
       employee: {
         id: targetEmployeeId,
-        name: session.name,
+        name: targetEmpName,
+        department: targetEmpInfo?.dept || '',
+        position: targetEmpInfo?.position || '',
       },
+      accessibleEmployees,
+      userRole: session.role,
     });
   } catch (error: any) {
     console.error('Analytics summary error:', error);

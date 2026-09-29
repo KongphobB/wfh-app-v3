@@ -319,6 +319,11 @@ export interface Translations {
     excellentScore: string;
     goodScore: string;
     improveScore: string;
+    selectTeamMember: string;
+    viewingStatsFor: string;
+    allTeamMembers: string;
+    yourself: string;
+    subordinateBadge: string;
   };
   // Onboarding Tour
   onboarding: {
@@ -718,6 +723,11 @@ export const translations: Record<Language, Translations> = {
       excellentScore: 'ยอดเยี่ยม (5 ดาว)',
       goodScore: 'ดีมาก (3-4 ดาว)',
       improveScore: 'ต้องปรับปรุง (1-2 ดาว)',
+      selectTeamMember: 'เลือกลูกทีม / พนักงาน',
+      viewingStatsFor: 'กำลังดูสถิติของ',
+      allTeamMembers: 'พนักงานทั้งหมดในทีม',
+      yourself: 'ตัวคุณเอง',
+      subordinateBadge: 'ลูกทีม',
     },
     onboarding: {
       title: '🎉 ยินดีต้อนรับสู่ระบบ SNU WFH!',
@@ -1110,6 +1120,11 @@ export const translations: Record<Language, Translations> = {
       excellentScore: 'Excellent (5 Stars)',
       goodScore: 'Good (3-4 Stars)',
       improveScore: 'Needs Improvement (1-2 Stars)',
+      selectTeamMember: 'Select Team Member',
+      viewingStatsFor: 'Viewing statistics for',
+      allTeamMembers: 'All Team Members',
+      yourself: 'Yourself',
+      subordinateBadge: 'Team',
     },
     onboarding: {
       title: '🎉 Welcome to SNU WFH System!',
