@@ -131,6 +131,10 @@ export interface Translations {
     spotcheckPendingBannerTitle: string;
     spotcheckPendingBannerDesc: string;
     spotcheckPendingBannerBtn: string;
+    checkoutBannerTitle: string;
+    checkoutBannerBadge: string;
+    checkoutBannerDesc: string;
+    checkoutBannerBtn: string;
   };
   // Checkin
   checkin: {
@@ -533,6 +537,10 @@ export const translations: Record<Language, Translations> = {
       spotcheckPendingBannerTitle: 'มีรายการสุ่มตรวจยืนยันตัวตน (Spot Check)',
       spotcheckPendingBannerDesc: 'กรุณาสแกนถ่ายรูปยืนยันตัวตนก่อนหมดเวลา',
       spotcheckPendingBannerBtn: 'เข้าสู่หน้าสุ่มตรวจ',
+      checkoutBannerTitle: '🌇 ถึงเวลาลงเวลาออกงานช่วงเย็น (ตั้งแต่ 17:00 น.)',
+      checkoutBannerBadge: 'เลิกงานแล้ว',
+      checkoutBannerDesc: 'สิ้นสุดเวลาปฏิบัติงานประจำวัน กรุณาถ่ายภาพ Selfie เพื่อบันทึกเวลาออกงานให้เรียบร้อยครับ',
+      checkoutBannerBtn: 'ลงเวลาออกงานทันที',
     },
     checkin: {
       pageTitle: 'บันทึกเวลาปฏิบัติงาน (Check-in & GPS)',
@@ -921,6 +929,10 @@ export const translations: Record<Language, Translations> = {
       spotcheckPendingBannerTitle: 'Spot Check Verification Pending',
       spotcheckPendingBannerDesc: 'Please take a live selfie to verify your presence before timer expires.',
       spotcheckPendingBannerBtn: 'Open Spot Check',
+      checkoutBannerTitle: '🌇 Evening Check-out Window Open (After 17:00 PM)',
+      checkoutBannerBadge: 'Workday Ended',
+      checkoutBannerDesc: 'Your workday has ended. Please record your evening check-out with a live selfie.',
+      checkoutBannerBtn: 'Check-out Now',
     },
     checkin: {
       pageTitle: 'Attendance & GPS Verification',

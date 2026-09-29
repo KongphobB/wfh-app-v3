@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Clock, MapPin, AlertTriangle, FileText, 
-  ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar
+  ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar, LogOut
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import CheckinModal from '@/components/CheckinModal';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { SuggestionModal } from '@/components/SuggestionModal';
 import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   const fetchData = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -85,8 +87,8 @@ export default function DashboardPage() {
     )
   );
 
-  // Check verification, check-in, and lunch break windows
-  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak } = (() => {
+  // Check verification, check-in, lunch break, and evening checkout windows
+  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak, isEveningCheckoutWindow } = (() => {
     try {
       const thaiTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
       const [thHourStr, thMinStr] = thaiTimeStr.split(':');
@@ -97,9 +99,10 @@ export default function DashboardPage() {
         isAfternoonVerifyWindow: thHour === 13 && thMin >= 0 && thMin <= 20,
         isLateAfternoonVerifyWindow: (thHour === 13 && thMin > 20) || (thHour >= 14 && thHour < 18),
         isMorningMissingCheckin: (thHour > 8 || (thHour === 8 && thMin > 0)) && thHour < 18,
+        isEveningCheckoutWindow: thHour >= 17,
       };
     } catch {
-      return { isLunchBreak: false, isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false };
+      return { isLunchBreak: false, isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false, isEveningCheckoutWindow: false };
     }
   })();
 
@@ -302,6 +305,41 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Evening Check-out Alert Banner (After 17:00 PM) - ONLY WHEN CHECKED IN AND NOT YET CHECKED OUT */}
+      {todayCheckin && !todayCheckout && isEveningCheckoutWindow && (
+        <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
+                <LogOut className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <span>{t.dashboard.checkoutBannerTitle}</span>
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
+                    {t.dashboard.checkoutBannerBadge}
+                  </Badge>
+                </h3>
+                <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
+                  {t.dashboard.checkoutBannerDesc}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(true)}
+                variant="destructive"
+                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm cursor-pointer"
+              >
+                <span>{t.dashboard.checkoutBannerBtn}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Top Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-emerald-200/80 bg-emerald-50/30">
@@ -450,6 +488,14 @@ export default function DashboardPage() {
       <HolidayCalendarModal
         isOpen={isHolidayOpen}
         onClose={() => setIsHolidayOpen(false)}
+      />
+
+      {/* Evening Check-out Modal */}
+      <CheckinModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        onSuccess={() => fetchData(false)}
+        defaultType="ออกงาน"
       />
     </div>
   );
