@@ -135,6 +135,17 @@ export interface Translations {
     checkoutBannerBadge: string;
     checkoutBannerDesc: string;
     checkoutBannerBtn: string;
+    workDurationTitle: string;
+    workDurationCompletedTitle: string;
+    workDurationActiveBadge: string;
+    workDurationReachedBadge: string;
+    workDurationCompletedBadge: string;
+    workDurationRemaining: string;
+    workDurationGoalReached: string;
+    workDurationStandardGoal: string;
+    hoursUnit: string;
+    minutesUnit: string;
+    secondsUnit: string;
   };
   // Checkin
   checkin: {
@@ -546,6 +557,17 @@ export const translations: Record<Language, Translations> = {
       checkoutBannerBadge: 'เลิกงานแล้ว',
       checkoutBannerDesc: 'สิ้นสุดเวลาปฏิบัติงานประจำวัน กรุณาถ่ายภาพ Selfie เพื่อบันทึกเวลาออกงานให้เรียบร้อยครับ',
       checkoutBannerBtn: 'ลงเวลาออกงานทันที',
+      workDurationTitle: '⏱️ เวลาปฏิบัติงานสะสมวันนี้',
+      workDurationCompletedTitle: '⏱️ เวลาปฏิบัติงานรวมประจำวัน',
+      workDurationActiveBadge: 'กำลังปฏิบัติงาน',
+      workDurationReachedBadge: '🎉 ครบ 8 ชั่วโมงแล้ว',
+      workDurationCompletedBadge: '✅ ลงเวลาออกงานแล้ว',
+      workDurationRemaining: 'เหลืออีก',
+      workDurationGoalReached: 'ครบเวลามาตรฐาน 8 ชม. เรียบร้อยแล้ว',
+      workDurationStandardGoal: 'เป้าหมายมาตรฐาน: 8 ชั่วโมง (08:00 - 17:00 น.)',
+      hoursUnit: 'ชม.',
+      minutesUnit: 'นาที',
+      secondsUnit: 'วินาที',
     },
     checkin: {
       pageTitle: 'บันทึกเวลาปฏิบัติงาน (Check-in & GPS)',
@@ -943,6 +965,17 @@ export const translations: Record<Language, Translations> = {
       checkoutBannerBadge: 'Workday Ended',
       checkoutBannerDesc: 'Your workday has ended. Please record your evening check-out with a live selfie.',
       checkoutBannerBtn: 'Check-out Now',
+      workDurationTitle: '⏱️ Active Work Duration Today',
+      workDurationCompletedTitle: '⏱️ Total Work Duration Today',
+      workDurationActiveBadge: 'In Progress',
+      workDurationReachedBadge: '🎉 8 Hours Reached',
+      workDurationCompletedBadge: '✅ Clocked Out',
+      workDurationRemaining: 'Remaining',
+      workDurationGoalReached: 'Standard 8-hour workday reached',
+      workDurationStandardGoal: 'Standard Goal: 8 Hours (08:00 - 17:00)',
+      hoursUnit: 'h',
+      minutesUnit: 'm',
+      secondsUnit: 's',
     },
     checkin: {
       pageTitle: 'Attendance & GPS Verification',
