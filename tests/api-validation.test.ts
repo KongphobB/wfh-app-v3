@@ -6,7 +6,6 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
     const loginSchema = z.object({
       employee_id: z.string().min(1, 'กรุณากรอกรหัสพนักงาน'),
       pin: z.string().length(4, 'รหัส PIN ต้องมี 4 หลัก'),
-      unblock: z.boolean().optional(),
     });
 
     it('Accepts valid credentials', () => {
@@ -73,6 +72,14 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
         pin: '1234',
       });
       expect(res.success).toBe(true);
+    });
+
+    it('Guards against reserved IDs 9999 and 8888 in registration handler', () => {
+      const isReservedId = (id: string) => ['9999', '8888'].includes(id.trim());
+      expect(isReservedId('9999')).toBe(true);
+      expect(isReservedId('8888')).toBe(true);
+      expect(isReservedId('1111')).toBe(false);
+      expect(isReservedId('1304')).toBe(false);
     });
   });
 

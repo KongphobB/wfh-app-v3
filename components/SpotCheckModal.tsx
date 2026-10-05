@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
 import { playSpotCheckChime } from '@/lib/sound';
-import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
+import { calculateHaversineDistanceKm, isValidCoordinate, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 
 interface SpotCheckModalProps {
   spotCheck: SpotCheck | null;
@@ -33,16 +33,14 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
 
   let distanceFromFirstCheckIn: number | null = null;
   if (
-    gps?.lat != null &&
-    gps?.lng != null &&
-    firstCheckInGps?.lat != null &&
-    firstCheckInGps?.lng != null
+    isValidCoordinate(gps?.lat, gps?.lng) &&
+    isValidCoordinate(firstCheckInGps?.lat, firstCheckInGps?.lng)
   ) {
     distanceFromFirstCheckIn = calculateHaversineDistanceKm(
-      gps.lat,
-      gps.lng,
-      firstCheckInGps.lat,
-      firstCheckInGps.lng
+      gps!.lat,
+      gps!.lng,
+      firstCheckInGps!.lat,
+      firstCheckInGps!.lng
     );
   }
 

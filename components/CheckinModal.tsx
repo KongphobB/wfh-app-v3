@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, MapPin, X, AlertCircle, CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
 import { CheckinType, CheckinLog } from '@/types';
 import { Button } from '@/components/ui/button';
-import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
+import { calculateHaversineDistanceKm, isValidCoordinate, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 import { useLanguage } from '@/lib/i18n';
 import { playSuccessChime } from '@/lib/sound';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
@@ -50,16 +50,14 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   let distanceFromFirstCheckIn: number | null = null;
   if (
     logType === 'ยืนยันตัวตน' &&
-    gps?.lat != null &&
-    gps?.lng != null &&
-    firstCheckInGps?.lat != null &&
-    firstCheckInGps?.lng != null
+    isValidCoordinate(gps?.lat, gps?.lng) &&
+    isValidCoordinate(firstCheckInGps?.lat, firstCheckInGps?.lng)
   ) {
     distanceFromFirstCheckIn = calculateHaversineDistanceKm(
-      gps.lat,
-      gps.lng,
-      firstCheckInGps.lat,
-      firstCheckInGps.lng
+      gps!.lat,
+      gps!.lng,
+      firstCheckInGps!.lat,
+      firstCheckInGps!.lng
     );
   }
 

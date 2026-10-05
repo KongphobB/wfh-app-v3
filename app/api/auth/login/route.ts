@@ -6,7 +6,6 @@ import { setSessionCookie, checkRateLimit, recordFailedAttempt, resetFailedAttem
 const loginSchema = z.object({
   employee_id: z.string().min(1, 'กรุณากรอกรหัสพนักงาน'),
   pin: z.string().length(4, 'รหัส PIN ต้องมี 4 หลัก'),
-  unblock: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -21,20 +20,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { employee_id, pin, unblock } = validation.data;
+    const { employee_id, pin } = validation.data;
     const cleanEmpId = employee_id.trim();
 
     // 1. Rate Limiting Check
-    if (unblock) {
-      await resetFailedAttempt(cleanEmpId);
-    }
-
     const rateCheck = await checkRateLimit(cleanEmpId);
-    if (rateCheck.isLimited && !unblock) {
+    if (rateCheck.isLimited) {
       return NextResponse.json(
         {
-          error: `บัญชีถูกระงับชั่วคราวเนื่องจากใส่ PIN ผิดเกินกำหนด กรุณาลองใหม่ในอีก ${rateCheck.lockMinutesRemaining} นาที`,
-          canUnblock: true,
+          error: `บัญชีถูกระงับชั่วคราวเนื่องจากใส่ PIN ผิดเกินกำหนด กรุณาลองใหม่ในอีก ${rateCheck.lockMinutesRemaining} นาที หรือติดต่อผู้ดูแลระบบ`,
         },
         { status: 429 }
       );

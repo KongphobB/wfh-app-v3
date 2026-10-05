@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Lock, AlertCircle, ArrowRight, Unlock, UserPlus, X, CheckCircle2, Info, GraduationCap } from 'lucide-react';
+import { User, Lock, AlertCircle, ArrowRight, UserPlus, X, CheckCircle2, Info, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { useLanguage } from '@/lib/i18n';
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [employeeId, setEmployeeId] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const [canUnblock, setCanUnblock] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
@@ -29,7 +28,7 @@ export default function LoginPage() {
   const [regSuccess, setRegSuccess] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
 
-  const handleLogin = async (forceUnblock = false) => {
+  const handleLogin = async () => {
     if (loading) return;
     setError('');
 
@@ -48,14 +47,13 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id: employeeId, pin, unblock: forceUnblock }),
+        body: JSON.stringify({ employee_id: employeeId, pin }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error || 'การเข้าสู่ระบบล้มเหลว');
-        if (data.canUnblock) setCanUnblock(true);
         setLoading(false);
         return;
       }
@@ -69,7 +67,7 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleLogin(false);
+    handleLogin();
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -80,6 +78,10 @@ export default function LoginPage() {
 
     if (!regEmpId || regEmpId.length < 4) {
       setRegError(t.auth.regIdLengthError);
+      return;
+    }
+    if (regEmpId.trim() === '9999' || regEmpId.trim() === '8888') {
+      setRegError('รหัสนี้สงวนไว้สำหรับระบบ กรุณาใช้รหัสพนักงานของคุณ');
       return;
     }
     if (!regName.trim()) {
@@ -157,22 +159,9 @@ export default function LoginPage() {
         <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 bg-white">
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium">
-                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-
-                {canUnblock && (
-                  <button
-                    type="button"
-                    onClick={() => handleLogin(true)}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Unlock className="w-4 h-4" />
-                    <span>ปลดล็อกระงับสิทธิ์ และเข้าสู่ระบบทันที</span>
-                  </button>
-                )}
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium">
+                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 

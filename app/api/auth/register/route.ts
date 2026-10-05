@@ -27,6 +27,14 @@ export async function POST(request: Request) {
     const { employee_id, name, email, department, position, pin } = validation.data;
     const cleanEmpId = employee_id.trim();
 
+    // Prevent registering reserved administrative IDs
+    if (cleanEmpId === '9999' || cleanEmpId === '8888') {
+      return NextResponse.json(
+        { error: 'รหัสพนักงานนี้สงวนไว้สำหรับระบบ ไม่สามารถใช้ลงทะเบียนได้' },
+        { status: 400 }
+      );
+    }
+
     const cleanPosition = formatPositionForRole(position?.trim() || 'พนักงาน', 'employee');
 
     // 1. Add employee directly to Google Sheet 'ข้อมูลพนักงาน' via Google Apps Script (Always as Employee)

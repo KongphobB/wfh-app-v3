@@ -4,6 +4,7 @@ import {
   calculateHaversineDistanceMeters,
   determineVerificationStatus,
   isPhotoOptionalForPosition,
+  isValidCoordinate,
   MAX_MOVEMENT_DISTANCE_KM,
 } from '@/lib/geo';
 
@@ -50,6 +51,23 @@ describe('lib/geo.ts Pure Unit Tests', () => {
 
     const statusUndefined = determineVerificationStatus(undefined, undefined, officeLat, officeLng, 500);
     expect(statusUndefined).toBe('ระบุตำแหน่งไม่ได้');
+
+    // 4. (0, 0) Null Island coordinates -> 'ระบุตำแหน่งไม่ได้'
+    const statusZeroZero = determineVerificationStatus(0, 0, officeLat, officeLng, 500);
+    expect(statusZeroZero).toBe('ระบุตำแหน่งไม่ได้');
+  });
+
+  it('isValidCoordinate correctly validates latitude/longitude pairs', () => {
+    // Valid coordinates
+    expect(isValidCoordinate(13.7563, 100.5018)).toBe(true);
+    expect(isValidCoordinate(-33.8688, 151.2093)).toBe(true);
+
+    // Invalid coordinates (null, undefined, 0,0, out of bounds)
+    expect(isValidCoordinate(null, null)).toBe(false);
+    expect(isValidCoordinate(undefined, undefined)).toBe(false);
+    expect(isValidCoordinate(0, 0)).toBe(false);
+    expect(isValidCoordinate(95, 100)).toBe(false); // Lat > 90
+    expect(isValidCoordinate(13, 200)).toBe(false); // Lng > 180
   });
 
   it('isPhotoOptionalForPosition correctly checks senior/manager positions', () => {

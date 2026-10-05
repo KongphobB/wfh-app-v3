@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { photoStore, saveSelfiePhoto, uploadsDir } from '@/lib/photoStore';
 import fs from 'fs';
@@ -8,6 +9,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized: กรุณาเข้าสู่ระบบก่อนดูรูปภาพ' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const uuid = searchParams.get('uuid');
     const type = searchParams.get('type') || searchParams.get('logType') || 'checkin';

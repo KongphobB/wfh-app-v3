@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     // If supervisor, ensure target employee belongs to their team
     if (session.role === 'supervisor') {
       const isSubordinate = String(targetEmployee?.supervisorId) === String(session.employee_id);
-      if (!isSubordinate && employee_id !== '1111' && employee_id !== '1304') {
+      if (!isSubordinate) {
         return NextResponse.json({ error: 'พนักงานคนนี้ไม่ได้อยู่ในสายบังคับบัญชาของคุณ' }, { status: 403 });
       }
     }
