@@ -145,7 +145,7 @@ export async function PATCH(request: Request) {
 
     const { task_id, star_rating, supervisor_note } = validation.data;
     const employeesMap = await getLiveEmployeesMap();
-    const authPin = employeesMap[session.employee_id]?.pin || (session.employee_id === '9999' ? '9998' : '1234');
+    const authPin = employeesMap[session.employee_id]?.pin || (session.employee_id === '9999' ? '9999' : '1234');
 
     // Submit rating directly to Google Sheets
     let gasResult = await callGAS('submitSupervisorRating', {
@@ -159,7 +159,7 @@ export async function PATCH(request: Request) {
       supervisorId: session.employee_id,
       pin: authPin,
       supervisorPin: authPin,
-      adminPin: '9998',
+      adminPin: '9999',
     });
 
     // Fallback for older tasks assigned under 9999 supervisor in Google Sheets
@@ -173,9 +173,9 @@ export async function PATCH(request: Request) {
         note: supervisor_note || '',
         supervisorNotes: supervisor_note || '',
         supervisorId: '9999',
-        pin: '9998',
-        supervisorPin: '9998',
-        adminPin: '9998',
+        pin: '9999',
+        supervisorPin: '9999',
+        adminPin: '9999',
       });
     }
 

@@ -105,8 +105,8 @@ export async function PATCH(request: Request) {
       ticketId: ticket_id,
       status: status,
       adminNotes: admin_notes || 'แก้ไขเรียบร้อย',
-      adminPin: '9998',
-      pin: '9998',
+      adminPin: '9999',
+      pin: '9999',
     });
 
     invalidateGasCache();

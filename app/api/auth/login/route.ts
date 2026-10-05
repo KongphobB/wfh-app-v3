@@ -47,8 +47,8 @@ export async function POST(request: Request) {
     });
 
     if (!gasResult || !gasResult.success) {
-      // Check admin login fallback if employee login failed
-      if (cleanEmpId === '9999' || pin === '9999') {
+      // Check admin login fallback only when employeeId is 9999 and PIN is 9999
+      if (cleanEmpId === '9999' && pin === '9999') {
         gasResult = await callGAS('adminLogin', {
           employeeId: cleanEmpId,
           pin,
