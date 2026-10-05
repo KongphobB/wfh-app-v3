@@ -4,6 +4,7 @@ import { verifyCronAuth } from '@/lib/cron';
 import { createNotification, createNotificationForSupervisor } from '@/lib/notifications';
 import { sendEmailAlert, sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
+import { getHolidayByDate } from '@/lib/holidayStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,30 @@ export async function GET(request: Request) {
 
   try {
     const todayStr = getThaiDateStr();
+
+    // 1. Skip on weekends (Saturday / Sunday) in Bangkok timezone
+    const bkkDayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' }).format(new Date());
+    if (bkkDayName === 'Sat' || bkkDayName === 'Sun') {
+      return NextResponse.json({
+        success: true,
+        message: 'วันนี้เป็นวันหยุดสุดสัปดาห์ (เสาร์-อาทิตย์) ยกเว้นการตรวจสอบการลงเวลาและการส่งแจ้งเตือนขาดงาน',
+        skipped: true,
+        reason: 'weekend',
+      });
+    }
+
+    // 2. Skip on registered official / company holidays
+    const holidayToday = getHolidayByDate(todayStr);
+    if (holidayToday) {
+      return NextResponse.json({
+        success: true,
+        message: `วันนี้เป็นวันหยุด (${holidayToday.name}) ยกเว้นการตรวจสอบการลงเวลาและการส่งแจ้งเตือนขาดงาน`,
+        skipped: true,
+        reason: 'holiday',
+        holiday: holidayToday.name,
+      });
+    }
+
     const employeesMap = await getLiveEmployeesMap();
     const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 200 });
     const checkinLogs = (checkinRes?.data || []) as any[];

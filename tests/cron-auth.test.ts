@@ -88,4 +88,35 @@ describe('Cron Auth Guard Test Suite', () => {
     expect(res2.status).toBe(500);
     expect(data2.error).toBe('CRON_SECRET is not configured');
   });
+
+  it('5. Automatically skips missing-checkin-tick on official company holidays', async () => {
+    // 2026-04-13 is Songkran Festival (Monday)
+    vi.setSystemTime(new Date(2026, 3, 13, 8, 5, 0));
+
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
+      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
+    });
+    const res = await missingCheckinTickGET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.skipped).toBe(true);
+    expect(data.reason).toBe('holiday');
+    expect(data.holiday).toContain('วันสงกรานต์');
+  });
+
+  it('6. Automatically skips missing-checkin-tick on weekends', async () => {
+    // 2026-08-15 is Saturday
+    vi.setSystemTime(new Date(2026, 7, 15, 8, 5, 0));
+
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
+      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
+    });
+    const res = await missingCheckinTickGET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.skipped).toBe(true);
+    expect(data.reason).toBe('weekend');
+  });
 });

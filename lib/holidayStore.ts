@@ -41,6 +41,16 @@ export function getHolidayPolicyDoc(): HolidayPolicyDoc | null {
   return (global as any).__memoryHolidayPolicy || snuPolicyDoc;
 }
 
+export function isHolidayDate(dateStr: string): boolean {
+  const holidays = getAllHolidays();
+  return holidays.some((h) => h.is_active && h.date === dateStr);
+}
+
+export function getHolidayByDate(dateStr: string): CompanyHoliday | null {
+  const holidays = getAllHolidays();
+  return holidays.find((h) => h.is_active && h.date === dateStr) || null;
+}
+
 export function addCustomHoliday(params: {
   date: string;
   name: string;

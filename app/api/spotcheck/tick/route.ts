@@ -25,11 +25,35 @@ export async function GET(request: Request) {
       });
     }
 
+    // Skip spot checks on weekends
+    const bkkDayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' }).format(now);
+    if (bkkDayName === 'Sat' || bkkDayName === 'Sun') {
+      return NextResponse.json({
+        success: true,
+        message: 'ขณะนี้เป็นวันหยุดสุดสัปดาห์ (เสาร์-อาทิตย์) ยกเว้นการสุ่มตรวจอัตโนมัติ',
+        skipped: true,
+        reason: 'weekend',
+      });
+    }
+
+    // Skip spot checks on company/national holidays
+    const { getHolidayByDate } = await import('@/lib/holidayStore');
+    const todayStr = getThaiDateStr(now);
+    const holidayToday = getHolidayByDate(todayStr);
+    if (holidayToday) {
+      return NextResponse.json({
+        success: true,
+        message: `วันนี้เป็นวันหยุด (${holidayToday.name}) ยกเว้นการสุ่มตรวจอัตโนมัติ`,
+        skipped: true,
+        reason: 'holiday',
+        holiday: holidayToday.name,
+      });
+    }
+
     const res = await callGAS('runScheduledSpotChecks');
 
     // Check for expired spot checks exceeding 10 minutes
     const nowMs = Date.now();
-    const todayStr = getThaiDateStr(now);
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { createNotification, createNotificationForSupervisor } = await import('@/lib/notifications');
     const { sendMissedSpotCheckAlertEmail } = await import('@/lib/email');

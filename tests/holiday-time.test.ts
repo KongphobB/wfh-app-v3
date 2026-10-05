@@ -5,6 +5,8 @@ import {
   updateHoliday,
   deleteHoliday,
   getHolidayPolicyDoc,
+  isHolidayDate,
+  getHolidayByDate,
 } from '@/lib/holidayStore';
 import { getThaiDateStr, getThaiTime, syncServerTime, getSyncedNow } from '@/lib/timeSync';
 
@@ -16,6 +18,17 @@ describe('Company Holidays & Time Synchronization QA Suite', () => {
       const newYear = holidays.find((h) => h.date === '2026-01-01');
       expect(newYear).toBeDefined();
       expect(newYear?.name).toBe('วันขึ้นปีใหม่');
+    });
+
+    it('Correctly identifies holidays using isHolidayDate and getHolidayByDate', () => {
+      // 2026-01-01 is New Year's Day
+      expect(isHolidayDate('2026-01-01')).toBe(true);
+      const newYear = getHolidayByDate('2026-01-01');
+      expect(newYear?.name).toBe('วันขึ้นปีใหม่');
+
+      // Regular workday: 2026-08-13
+      expect(isHolidayDate('2026-08-13')).toBe(false);
+      expect(getHolidayByDate('2026-08-13')).toBeNull();
     });
 
     it('Adds a new custom company holiday', () => {
