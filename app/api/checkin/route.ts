@@ -26,6 +26,17 @@ export async function GET(request: Request) {
 
     const rawCheckinLogs = (gasRes?.data || []) as any[];
 
+    // Build map of employee check-in GPS by employeeId_date for fallback
+    const checkinGpsMap = new Map<string, string>();
+    for (const c of rawCheckinLogs) {
+      if (c.employeeId && c.date && c.gps && typeof c.gps === 'string' && c.gps.includes('q=')) {
+        const key = `${c.employeeId}_${c.date}`;
+        if (!checkinGpsMap.has(key)) {
+          checkinGpsMap.set(key, c.gps);
+        }
+      }
+    }
+
     // Only include COMPLETED spot checks in attendance history (never leak scheduled future checks)
     const rawSpotLogs = ((gasSpotRes?.data || []) as any[])
       .filter((s: any) => {
@@ -40,11 +51,59 @@ export async function GET(request: Request) {
           ? actualTime.split('T')[1]?.split('+')[0]?.substring(0, 8)
           : actualTime;
 
+        // Parse coordinates
+        let spotLat: number | null = null;
+        let spotLng: number | null = null;
+        let spotGps = s.gps || null;
+
+        if (typeof spotGps === 'string' && spotGps.includes('q=')) {
+          const parts = spotGps.split('q=')[1]?.split(',');
+          if (parts && parts.length === 2) {
+            spotLat = parseFloat(parts[0]) || null;
+            spotLng = parseFloat(parts[1]) || null;
+          }
+        } else if (typeof spotGps === 'string' && spotGps.includes(',')) {
+          const parts = spotGps.split(',');
+          if (parts && parts.length === 2) {
+            spotLat = parseFloat(parts[0]) || null;
+            spotLng = parseFloat(parts[1]) || null;
+          }
+        }
+
+        if (spotLat === null && (s.lat != null || s.gpsLat != null || s.gps_lat != null)) {
+          spotLat = typeof s.lat === 'number' ? s.lat : (parseFloat(s.lat ?? s.gpsLat ?? s.gps_lat) || null);
+        }
+        if (spotLng === null && (s.lng != null || s.gpsLng != null || s.gps_lng != null)) {
+          spotLng = typeof s.lng === 'number' ? s.lng : (parseFloat(s.lng ?? s.gpsLng ?? s.gps_lng) || null);
+        }
+
+        // If GPS is empty, try building from spotLat/spotLng or fallback to checkin GPS for that employee & date
+        if (!spotGps || spotGps === '') {
+          if (spotLat && spotLng) {
+            spotGps = `https://www.google.com/maps?q=${spotLat},${spotLng}`;
+          } else {
+            const fallbackGps = checkinGpsMap.get(`${s.employeeId}_${s.date}`);
+            if (fallbackGps) {
+              spotGps = fallbackGps;
+              const parts = fallbackGps.split('q=')[1]?.split(',');
+              if (parts && parts.length === 2) {
+                spotLat = parseFloat(parts[0]) || null;
+                spotLng = parseFloat(parts[1]) || null;
+              }
+            }
+          }
+        }
+
         return {
           ...s,
           uuid: s.uuid || `spot_${s.employeeId}_${s.date}_${s.round || cleanTime}`,
           type: 'สุ่มตรวจ',
           time: cleanTime,
+          gps: spotGps,
+          lat: spotLat,
+          lng: spotLng,
+          gps_lat: spotLat,
+          gps_lng: spotLng,
           verificationStatus: s.status === 'Pass' || s.resultStatus === 'Pass' ? 'ยืนยันสำเร็จ' : (s.status || s.resultStatus || 'ยืนยันสำเร็จ'),
           note: s.note || (s.round ? `[สุ่มตรวจรอบ ${s.round}]` : '[สุ่มตรวจ]'),
         };
@@ -58,7 +117,11 @@ export async function GET(request: Request) {
         type: 'สุ่มตรวจเฉพาะกิจ',
         date: s.check_date,
         time: s.actual_scan_time ? s.actual_scan_time.split('T')[1]?.split('+')[0]?.substring(0, 8) : '09:00:00',
-        gps: s.gps_lat && s.gps_lng ? `q=${s.gps_lat},${s.gps_lng}` : null,
+        gps: s.gps_lat && s.gps_lng ? `https://www.google.com/maps?q=${s.gps_lat},${s.gps_lng}` : null,
+        lat: s.gps_lat || null,
+        lng: s.gps_lng || null,
+        gps_lat: s.gps_lat || null,
+        gps_lng: s.gps_lng || null,
         photo: s.photo_url || null,
         verificationStatus: 'ยืนยันสำเร็จ',
         note: '[สุ่มตรวจเฉพาะกิจ]',
@@ -105,6 +168,19 @@ export async function GET(request: Request) {
           lat = parseFloat(parts[0]) || null;
           lng = parseFloat(parts[1]) || null;
         }
+      } else if (l.gps && typeof l.gps === 'string' && l.gps.includes(',')) {
+        const parts = l.gps.split(',');
+        if (parts && parts.length === 2) {
+          lat = parseFloat(parts[0]) || null;
+          lng = parseFloat(parts[1]) || null;
+        }
+      }
+
+      if (lat === null && (l.lat != null || l.gps_lat != null || l.gpsLat != null)) {
+        lat = typeof l.gps_lat === 'number' ? l.gps_lat : (parseFloat(l.lat ?? l.gps_lat ?? l.gpsLat) || null);
+      }
+      if (lng === null && (l.lng != null || l.gps_lng != null || l.gpsLng != null)) {
+        lng = typeof l.gps_lng === 'number' ? l.gps_lng : (parseFloat(l.lng ?? l.gps_lng ?? l.gpsLng) || null);
       }
 
       const timeFormatted = l.time ? (l.time.length === 5 ? `${l.time}:00` : l.time) : '08:00:00';

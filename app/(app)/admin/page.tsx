@@ -929,9 +929,12 @@ export default function AdminPage() {
 
       {/* Tab 2: All Check-in & System Logs */}
       {activeTab === 'checkins' && (() => {
+        const isAttendanceType = (type?: string) =>
+          ['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน', 'สุ่มตรวจ', 'สุ่มตรวจเฉพาะกิจ'].includes(type || '');
+
         const filteredLogs = allCheckins.filter((l) => {
-          if (logFilter === 'attendance' && !['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน'].includes(l.log_type)) return false;
-          if (logFilter === 'system' && ['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน'].includes(l.log_type)) return false;
+          if (logFilter === 'attendance' && !isAttendanceType(l.log_type)) return false;
+          if (logFilter === 'system' && isAttendanceType(l.log_type)) return false;
 
           if (logSearch.trim()) {
             const q = logSearch.toLowerCase().trim();
@@ -983,7 +986,7 @@ export default function AdminPage() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  เฉพาะลงเวลา ({allCheckins.filter((l) => ['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน'].includes(l.log_type)).length})
+                  เฉพาะลงเวลา ({allCheckins.filter((l) => isAttendanceType(l.log_type)).length})
                 </button>
                 <button
                   type="button"
@@ -994,7 +997,7 @@ export default function AdminPage() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  กิจกรรมระบบ ({allCheckins.filter((l) => !['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน'].includes(l.log_type)).length})
+                  กิจกรรมระบบ ({allCheckins.filter((l) => !isAttendanceType(l.log_type)).length})
                 </button>
               </div>
             </div>
@@ -1094,9 +1097,23 @@ export default function AdminPage() {
                           <div className="text-[10px] text-slate-400 font-normal">{log.log_date}</div>
                         </td>
                         <td className="px-4 py-3.5">
-                          {['เข้างาน', 'ออกงาน', 'ยืนยันตัวตน'].includes(log.log_type) ? (
-                            <Badge variant={log.verification_status === 'ปฏิบัติงานที่ออฟฟิศ' ? 'success' : 'default'}>
-                              {log.verification_status}
+                          {isAttendanceType(log.log_type) ? (
+                            <Badge
+                              variant={
+                                log.verification_status === 'ปฏิบัติงานที่ออฟฟิศ' ||
+                                log.verification_status === 'ยืนยันสำเร็จ' ||
+                                log.verification_status === 'ผ่านการสุ่มตรวจ' ||
+                                log.verification_status?.includes('สำเร็จ') ||
+                                log.verification_status?.includes('ผ่าน')
+                                  ? 'success'
+                                  : log.verification_status?.includes('ไม่ผ่าน') || log.verification_status?.includes('ขาด')
+                                  ? 'destructive'
+                                  : log.verification_status?.includes('สาย')
+                                  ? 'warning'
+                                  : 'default'
+                              }
+                            >
+                              {log.verification_status || 'ยืนยันสำเร็จ'}
                             </Badge>
                           ) : (
                             <span className="text-slate-400 text-[11px]">-</span>

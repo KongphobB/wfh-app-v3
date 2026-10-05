@@ -35,6 +35,19 @@ export async function GET() {
           lat = parseFloat(parts[0]) || null;
           lng = parseFloat(parts[1]) || null;
         }
+      } else if (s.gps && typeof s.gps === 'string' && s.gps.includes(',')) {
+        const parts = s.gps.split(',');
+        if (parts && parts.length === 2) {
+          lat = parseFloat(parts[0]) || null;
+          lng = parseFloat(parts[1]) || null;
+        }
+      }
+
+      if (lat === null && (s.lat != null || s.gpsLat != null || s.gps_lat != null)) {
+        lat = typeof s.lat === 'number' ? s.lat : (parseFloat(s.lat ?? s.gpsLat ?? s.gps_lat) || null);
+      }
+      if (lng === null && (s.lng != null || s.gpsLng != null || s.gps_lng != null)) {
+        lng = typeof s.lng === 'number' ? s.lng : (parseFloat(s.lng ?? s.gpsLng ?? s.gps_lng) || null);
       }
 
       const scheduledTime = s.triggeredTime || s.scheduledTime || s.time || (s.round === 'เช้า' ? '09:30:00' : '14:30:00');
@@ -273,6 +286,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Try submitSpotCheck directly
+    const mapsGpsUrl = gps_lat && gps_lng ? `https://www.google.com/maps?q=${gps_lat},${gps_lng}` : '';
     let gasResult = await callGAS('submitSpotCheck', {
       employeeId: session.employee_id,
       spotUuid: spot_check_id,
@@ -281,6 +295,9 @@ export async function POST(request: Request) {
       uuid: spot_check_id,
       lat: gps_lat || null,
       lng: gps_lng || null,
+      gps: mapsGpsUrl,
+      gps_lat: gps_lat || null,
+      gps_lng: gps_lng || null,
       photo: photo_base64 || null,
     });
 
