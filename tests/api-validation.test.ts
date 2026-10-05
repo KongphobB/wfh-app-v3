@@ -84,12 +84,24 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
   });
 
   describe('3. Daily Task Submission Schema Validation', () => {
-    const createTaskSchema = z.object({
-      tasks_assigned: z.number().min(1, 'จำนวนงานต้องมากกว่า 0'),
-      tasks_completed: z.number().min(0, 'จำนวนงานสำเร็จต้องไม่ติดลบ'),
-      details: z.string().min(1, 'กรุณาระบุรายละเอียดงาน'),
-      submission_link: z.string().url('รูปแบบ URL ไม่ถูกต้อง').optional().or(z.literal('')),
-    });
+    const createTaskSchema = z
+      .object({
+        tasks_assigned: z.number().min(0).optional(),
+        tasks_completed: z.number().min(0, 'จำนวนงานสำเร็จต้องไม่ติดลบ'),
+        tasks_remaining: z.number().min(0, 'จำนวนงานคงค้างต้องไม่ติดลบ').optional().default(0),
+        details: z.string().min(1, 'กรุณาระบุรายละเอียดงาน'),
+        submission_link: z.string().url('รูปแบบ URL ไม่ถูกต้อง').optional().or(z.literal('')),
+      })
+      .refine(
+        (data) => {
+          const total =
+            data.tasks_assigned !== undefined
+              ? data.tasks_assigned
+              : data.tasks_completed + (data.tasks_remaining || 0);
+          return total > 0;
+        },
+        { message: 'จำนวนงานต้องมากกว่า 0', path: ['tasks_assigned'] }
+      );
 
     it('Validates properly formatted task report', () => {
       const res = createTaskSchema.safeParse({
@@ -101,7 +113,16 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
       expect(res.success).toBe(true);
     });
 
-    it('Rejects task with 0 assigned tasks', () => {
+    it('Validates report with completed and remaining tasks for tomorrow', () => {
+      const res = createTaskSchema.safeParse({
+        tasks_completed: 4,
+        tasks_remaining: 2,
+        details: 'ทำงานส่วนแรกเสร็จ 4 รายการ และเตรียมทำต่อพรุ่งนี้อีก 2 รายการ',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('Rejects task with 0 assigned and 0 completed tasks', () => {
       const res = createTaskSchema.safeParse({
         tasks_assigned: 0,
         tasks_completed: 0,

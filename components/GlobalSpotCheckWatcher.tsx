@@ -108,7 +108,10 @@ export default function GlobalSpotCheckWatcher() {
     return () => clearInterval(interval);
   }, []);
 
+  const lastWatcherChimeSecRef = useRef<number>(-1);
+
   // Countdown timer calculation for the active spot check
+  // and periodic background reminder chime every 60s
   useEffect(() => {
     if (!activeCheck) return;
 
@@ -139,13 +142,21 @@ export default function GlobalSpotCheckWatcher() {
         const m = Math.floor(secs / 60);
         const s = secs % 60;
         setTimeLeftStr(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+
+        // Periodic background chime every 60 seconds (and at 30 seconds) if modal is closed
+        if (!isModalOpen && (secs % 60 === 0 || secs === 30)) {
+          if (lastWatcherChimeSecRef.current !== secs) {
+            lastWatcherChimeSecRef.current = secs;
+            playSpotCheckAlert();
+          }
+        }
       }
     };
 
     calcTimer();
     const timerInterval = setInterval(calcTimer, 1000);
     return () => clearInterval(timerInterval);
-  }, [activeCheck]);
+  }, [activeCheck, isModalOpen]);
 
   const handleModalClose = () => {
     setIsModalOpen(false);

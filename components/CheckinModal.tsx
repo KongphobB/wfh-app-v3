@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, MapPin, X, AlertCircle, CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Camera, MapPin, X, AlertCircle, CheckCircle2, RefreshCw, ShieldCheck, FileText } from 'lucide-react';
 import { CheckinType, CheckinLog } from '@/types';
 import { Button } from '@/components/ui/button';
+import DailyTaskModal from '@/components/DailyTaskModal';
 import { calculateHaversineDistanceKm, isValidCoordinate, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 import { useLanguage } from '@/lib/i18n';
 import { playSuccessChime } from '@/lib/sound';
@@ -19,6 +20,8 @@ interface CheckinModalProps {
 export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType = 'เข้างาน' }: CheckinModalProps) {
   const { t, lang } = useLanguage();
   const [logType, setLogType] = useState<CheckinType>(defaultType);
+  const [todayTaskSubmitted, setTodayTaskSubmitted] = useState<boolean | null>(null);
+  const [isDailyTaskModalOpen, setIsDailyTaskModalOpen] = useState(false);
   const [note, setNote] = useState('');
   const [outOfBoundsReason, setOutOfBoundsReason] = useState('');
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
@@ -99,6 +102,18 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
     }
   };
 
+  const checkTodayTaskSubmission = async () => {
+    try {
+      const res = await fetch('/api/tasks');
+      if (res.ok) {
+        const data = await res.json();
+        const todayStr = getThaiDateStr();
+        const found = (data.tasks || []).some((t: any) => t.submit_date === todayStr);
+        setTodayTaskSubmitted(found);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     if (isOpen) {
       setLogType(defaultType);
@@ -108,6 +123,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       getGpsLocation();
       startCamera();
       fetchFirstCheckIn();
+      checkTodayTaskSubmission();
     } else {
       stopCamera();
       setPhotoDataUrl(null);
@@ -413,6 +429,44 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
               </div>
             </div>
 
+            {/* Daily Task Submission Status/Prompt for Evening Check-out */}
+            {logType === 'ออกงาน' && (
+              <div
+                className={`p-3 rounded-2xl border text-xs transition-all ${
+                  todayTaskSubmitted
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50/90 border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {todayTaskSubmitted ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-orange-500 shrink-0 animate-bounce" />
+                    )}
+                    <span className="font-medium truncate">
+                      {todayTaskSubmitted
+                        ? (lang === 'en' ? '✓ Daily report submitted for today' : '✓ บันทึกรายงานสรุปงานประจำวันของวันนี้แล้ว')
+                        : (lang === 'en' ? '💡 Please submit daily report before clocking out' : '💡 อย่าลืมส่งรายงานสรุปผลงานก่อนลงเวลาออกงาน')}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsDailyTaskModalOpen(true)}
+                    className={`h-7 px-2.5 rounded-xl font-bold text-[11px] shrink-0 cursor-pointer ${
+                      todayTaskSubmitted
+                        ? 'bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100/50'
+                        : 'bg-orange-500 hover:bg-orange-600 text-white shadow-xs'
+                    }`}
+                  >
+                    {todayTaskSubmitted ? t.tasks.editTodayReport : t.tasks.reportBtn}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* GPS Indicator */}
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
@@ -592,6 +646,16 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
           </form>
         </div>
       </div>
+
+      {/* Daily Task Submission Modal */}
+      <DailyTaskModal
+        isOpen={isDailyTaskModalOpen}
+        onClose={() => setIsDailyTaskModalOpen(false)}
+        onSuccess={() => {
+          setTodayTaskSubmitted(true);
+          checkTodayTaskSubmission();
+        }}
+      />
     </>
   );
 }

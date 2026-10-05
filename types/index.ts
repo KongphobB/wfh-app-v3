@@ -78,6 +78,7 @@ export interface TaskItem {
   employee_name?: string;
   tasks_assigned: number;
   tasks_completed: number;
+  tasks_remaining?: number;
   details?: string | null;
   submission_link?: string | null;
   star_rating?: number | null;

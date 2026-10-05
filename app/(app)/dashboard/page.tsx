@@ -11,12 +11,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import CheckinModal from '@/components/CheckinModal';
+import DailyTaskModal from '@/components/DailyTaskModal';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { SuggestionModal } from '@/components/SuggestionModal';
 import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { useLanguage } from '@/lib/i18n';
-import { getThaiTime } from '@/lib/timeSync';
+import { getThaiTime, getThaiDateStr } from '@/lib/timeSync';
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [nowMs, setNowMs] = useState<number>(0);
 
   useEffect(() => {
@@ -88,6 +90,8 @@ export default function DashboardPage() {
   const todayCheckin = checkinLogs.find((l) => l.log_type === 'เข้างาน');
   const todayCheckout = checkinLogs.find((l) => l.log_type === 'ออกงาน');
   const todayVerify = checkinLogs.find((l) => l.log_type === 'ยืนยันตัวตน');
+  const todayDateStr = getThaiDateStr();
+  const todayTask = tasks.find((t) => t.submit_date === todayDateStr);
 
   // Check if employee checked in for WFH today (Only WFH checked-in employees need afternoon verification)
   const isCheckedInWfhToday = Boolean(
@@ -375,33 +379,78 @@ export default function DashboardPage() {
       {/* Evening Check-out Alert Banner (After 17:00 PM) - ONLY WHEN CHECKED IN AND NOT YET CHECKED OUT */}
       {todayCheckin && !todayCheckout && isEveningCheckoutWindow && (
         <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                <LogOut className="w-6 h-6" />
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
+                  <LogOut className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
+                    <span>{t.dashboard.checkoutBannerTitle}</span>
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
+                      {t.dashboard.checkoutBannerBadge}
+                    </Badge>
+                  </h3>
+                  <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
+                    {t.dashboard.checkoutBannerDesc}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
-                  <span>{t.dashboard.checkoutBannerTitle}</span>
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
-                    {t.dashboard.checkoutBannerBadge}
-                  </Badge>
-                </h3>
-                <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
-                  {t.dashboard.checkoutBannerDesc}
-                </p>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  onClick={() => setIsCheckoutModalOpen(true)}
+                  variant="destructive"
+                  className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm cursor-pointer"
+                >
+                  <span>{t.dashboard.checkoutBannerBtn}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button
-                type="button"
-                onClick={() => setIsCheckoutModalOpen(true)}
-                variant="destructive"
-                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm cursor-pointer"
-              >
-                <span>{t.dashboard.checkoutBannerBtn}</span>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+
+            {/* Daily Task Submission prompt before checkout */}
+            <div className="pt-2.5 border-t border-rose-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              {todayTask ? (
+                <>
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      ✓ {lang === 'en' ? 'Submitted today: ' : 'ส่งรายงานวันนี้แล้ว: '}
+                      <strong className="text-emerald-700">เสร็จ {todayTask.tasks_completed} งาน</strong>
+                      {todayTask.tasks_remaining != null && todayTask.tasks_remaining > 0 && (
+                        <span className="text-amber-700 font-bold ml-1.5">
+                          • ต่อพรุ่งนี้ {todayTask.tasks_remaining} งาน
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskModalOpen(true)}
+                    className="text-[11px] text-orange-600 hover:underline font-bold text-left sm:text-right cursor-pointer"
+                  >
+                    {t.tasks.editTodayReport}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-rose-900 font-medium">
+                    <FileText className="w-4 h-4 text-orange-500 shrink-0" />
+                    <span>💡 {t.tasks.beforeCheckoutPrompt} (เสร็จกี่งาน / ยกยอดต่อพรุ่งนี้กี่งาน)</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsTaskModalOpen(true)}
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs h-7 px-3 rounded-xl shrink-0 cursor-pointer shadow-xs"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1" />
+                    <span>{t.tasks.reportBtn}</span>
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -566,23 +615,48 @@ export default function DashboardPage() {
 
         <Card className="border-orange-200/80 bg-orange-50/30">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-orange-700 font-bold">{t.dashboard.dailyTaskToday}</CardDescription>
-            <CardTitle className="text-xl text-slate-900">
+            <CardDescription className="text-orange-700 font-bold flex items-center justify-between">
+              <span>{t.dashboard.dailyTaskToday}</span>
+              {todayTask && (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                  ✓ ส่งแล้ว
+                </span>
+              )}
+            </CardDescription>
+            <CardTitle className="text-base sm:text-lg text-slate-900">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
                   <Loader2 className="w-4 h-4 animate-spin" /> {t.common.loading}
                 </span>
-              ) : tasks.length > 0 ? (
-                `${tasks.length} ${lang === 'en' ? 'tasks' : 'รายการ'}`
+              ) : todayTask ? (
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span className="text-emerald-700 font-black">
+                    เสร็จ {todayTask.tasks_completed} งาน
+                  </span>
+                  {todayTask.tasks_remaining != null && todayTask.tasks_remaining > 0 && (
+                    <span className="text-xs text-amber-700 font-bold">
+                      (ต่อพรุ่งนี้ {todayTask.tasks_remaining})
+                    </span>
+                  )}
+                </div>
               ) : (
-                t.dashboard.notSubmitted
+                <span className="text-rose-600 text-sm font-bold">
+                  {t.dashboard.notSubmitted}
+                </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <p className="text-[11px] text-slate-500 font-medium">
-              {t.dashboard.dailyTaskToday}
-            </p>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+              <span>{todayTask ? (lang === 'en' ? 'Report submitted before leaving' : 'รายงานก่อนเลิกงานเรียบร้อย') : (lang === 'en' ? 'Report before leaving' : 'ส่งรายงานสรุปก่อนเลิกงาน')}</span>
+              <button
+                type="button"
+                onClick={() => setIsTaskModalOpen(true)}
+                className="text-orange-600 font-bold hover:underline cursor-pointer"
+              >
+                {todayTask ? t.tasks.editTodayReport : t.tasks.reportBtn}
+              </button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -674,6 +748,14 @@ export default function DashboardPage() {
         onClose={() => setIsCheckoutModalOpen(false)}
         onSuccess={() => fetchData(false)}
         defaultType="ออกงาน"
+      />
+
+      {/* Daily Task Submission Modal (Before leaving work) */}
+      <DailyTaskModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onSuccess={() => fetchData(false)}
+        existingTask={todayTask}
       />
     </div>
   );

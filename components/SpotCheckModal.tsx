@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, MapPin, X, AlertCircle, CheckCircle2, BellRing, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Camera, MapPin, X, AlertCircle, CheckCircle2, BellRing, RefreshCw, ShieldCheck, Volume2 } from 'lucide-react';
 import { SpotCheck } from '@/types';
 import { Button } from '@/components/ui/button';
 import { getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
@@ -68,14 +68,23 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
     }
   }, [isCameraActive]);
 
+  const lastChimeSecRef = useRef<number>(-1);
+  const photoDataUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    photoDataUrlRef.current = photoDataUrl;
+  }, [photoDataUrl]);
+
   // Play alert chime when Spot Check modal opens
   useEffect(() => {
     if (spotCheck) {
-      playSpotCheckChime();
+      playSpotCheckChime(true);
+      lastChimeSecRef.current = -1;
     }
   }, [spotCheck?.id]);
 
   // Live 10-minute countdown timer calculation synced with Server Time
+  // and periodic reminder chime every 60s within the 10-minute window
   useEffect(() => {
     if (!spotCheck) return;
 
@@ -107,6 +116,14 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         const mins = Math.floor(diffSecs / 60);
         const secs = diffSecs % 60;
         setTimeLeftStr(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+
+        // Periodic reminder chime every 60 seconds (and final 30 seconds) while unsubmitted
+        if (!photoDataUrlRef.current && (diffSecs % 60 === 0 || diffSecs === 30)) {
+          if (lastChimeSecRef.current !== diffSecs) {
+            lastChimeSecRef.current = diffSecs;
+            playSpotCheckChime();
+          }
+        }
       }
     };
 
@@ -361,6 +378,28 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
                 : `⏳ ${timeLeftStr} ${lang === 'en' ? 'mins' : 'นาที'}`}
             </div>
           </div>
+
+          {/* Audio Alert Status & Test Sound */}
+          {!isExpired && (
+            <div className="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-2 mb-3">
+              <div className="flex items-center gap-1.5 font-medium min-w-0">
+                <Volume2 className="w-3.5 h-3.5 text-amber-600 shrink-0 animate-pulse" />
+                <span className="truncate">
+                  {lang === 'en'
+                    ? 'Alert chime repeats every 1 min (10-min window)'
+                    : 'ระบบส่งเสียงเตือนซ้ำทุก 1 นาที (ภายใน 10 นาที)'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => playSpotCheckChime(true)}
+                className="text-[11px] text-amber-700 hover:text-amber-900 underline font-bold shrink-0 ml-2 cursor-pointer"
+                title={lang === 'en' ? 'Test audio chime' : 'ทดสอบระดับเสียง'}
+              >
+                {lang === 'en' ? 'Test sound' : 'ทดสอบเสียง'}
+              </button>
+            </div>
+          )}
 
           {/* Exemption Notice */}
           {isPhotoExempt && (

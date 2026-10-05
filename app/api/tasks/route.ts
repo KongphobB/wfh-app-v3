@@ -5,12 +5,24 @@ import { callGAS, getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
 import { createNotification } from '@/lib/notifications';
 import { TaskItem } from '@/types';
 
-const createTaskSchema = z.object({
-  tasks_assigned: z.number().min(1, 'จำนวนงานต้องมากกว่า 0'),
-  tasks_completed: z.number().min(0, 'จำนวนงานสำเร็จต้องไม่ติดลบ'),
-  details: z.string().min(1, 'กรุณาระบุรายละเอียดงาน'),
-  submission_link: z.string().url('รูปแบบ URL ไม่ถูกต้อง').optional().or(z.literal('')),
-});
+export const createTaskSchema = z
+  .object({
+    tasks_assigned: z.number().min(0).optional(),
+    tasks_completed: z.number().min(0, 'จำนวนงานสำเร็จต้องไม่ติดลบ'),
+    tasks_remaining: z.number().min(0, 'จำนวนงานคงค้างต้องไม่ติดลบ').optional().default(0),
+    details: z.string().min(1, 'กรุณาระบุรายละเอียดงาน'),
+    submission_link: z.string().url('รูปแบบ URL ไม่ถูกต้อง').optional().or(z.literal('')),
+  })
+  .refine(
+    (data) => {
+      const total =
+        data.tasks_assigned !== undefined
+          ? data.tasks_assigned
+          : data.tasks_completed + (data.tasks_remaining || 0);
+      return total > 0;
+    },
+    { message: 'จำนวนงานต้องมากกว่า 0', path: ['tasks_assigned'] }
+  );
 
 const rateTaskSchema = z.object({
   task_id: z.string().min(1, 'ไม่ระบุรหัสงาน'),
@@ -51,13 +63,21 @@ export async function GET() {
           ? String(t.name).trim()
           : empInfo?.name || String(t.employeeId);
 
+      const assigned = parseInt(t.assignedTasks || t.tasksAssigned || t.assigned || 1, 10);
+      const completed = parseInt(t.completedTasks || t.tasksCompleted || t.completed || 0, 10);
+      const remaining =
+        t.remainingTasks != null || t.tasksRemaining != null
+          ? parseInt(t.remainingTasks || t.tasksRemaining, 10)
+          : Math.max(0, assigned - completed);
+
       return {
         id: t.uuid || `${t.employeeId}_${t.date}`,
         submit_date: t.date || t.submitDate,
         employee_id: String(t.employeeId),
         employee_name: rawName,
-        tasks_assigned: parseInt(t.assignedTasks || t.tasksAssigned || t.assigned || 1, 10),
-        tasks_completed: parseInt(t.completedTasks || t.tasksCompleted || t.completed || 0, 10),
+        tasks_assigned: assigned,
+        tasks_completed: completed,
+        tasks_remaining: remaining,
         details: t.details || t.taskDetails || '',
         submission_link: t.submissionLink || t.link || null,
         star_rating: starRating && !isNaN(starRating) ? starRating : null,
@@ -89,9 +109,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const { tasks_assigned, tasks_completed, details, submission_link } = validation.data;
+    const { tasks_assigned, tasks_completed, tasks_remaining, details, submission_link } = validation.data;
+    const remainingCount = Number(tasks_remaining || 0);
+    const computedAssigned = Math.max(1, tasks_assigned !== undefined ? tasks_assigned : tasks_completed + remainingCount);
+
     const employeesMap = await getLiveEmployeesMap();
     const empInfo = employeesMap[session.employee_id];
+
+    // Format details with clear full-day breakdown
+    const fullDetails =
+      remainingCount > 0
+        ? `${details.trim()}\n[สรุปผลงาน: สำเร็จ ${tasks_completed} งาน | ยกยอดต่อพรุ่งนี้ ${remainingCount} งาน]`
+        : details.trim();
 
     // Submit directly to Google Sheets via Google Apps Script
     const gasResult = await callGAS('submitEmployeeTask', {
@@ -99,11 +128,13 @@ export async function POST(request: Request) {
       name: session.name || empInfo?.name || '',
       employeeName: session.name || empInfo?.name || '',
       supervisorId: empInfo?.supervisorId || '8888',
-      assignedTasks: Number(tasks_assigned),
+      assignedTasks: Number(computedAssigned),
       completedTasks: Number(tasks_completed),
-      tasksAssigned: Number(tasks_assigned),
+      remainingTasks: remainingCount,
+      tasksAssigned: Number(computedAssigned),
       tasksCompleted: Number(tasks_completed),
-      details: details,
+      tasksRemaining: remainingCount,
+      details: fullDetails,
       submissionLink: submission_link || '',
       link: submission_link || '',
     });

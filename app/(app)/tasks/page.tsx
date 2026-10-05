@@ -119,10 +119,20 @@ export default function DailyTasksPage() {
 
                   <p className="text-slate-900 font-bold text-sm leading-relaxed">{task.details}</p>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-200 pt-2.5 font-medium">
-                    <span>
-                      {t.tasks.tasksCompleted}: <strong className="text-emerald-600 font-bold">{task.tasks_completed}</strong> / {task.tasks_assigned} {lang === 'en' ? 'items' : 'รายการ'}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 border-t border-slate-200 pt-2.5 font-medium">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                        ✓ {lang === 'en' ? 'Completed: ' : 'เสร็จแล้ว: '}{task.tasks_completed} {lang === 'en' ? 'tasks' : 'งาน'}
+                      </span>
+                      {task.tasks_remaining != null && task.tasks_remaining > 0 ? (
+                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                          ⏳ {lang === 'en' ? 'For Tomorrow: ' : 'ต่อพรุ่งนี้: '}{task.tasks_remaining} {lang === 'en' ? 'tasks' : 'งาน'}
+                        </span>
+                      ) : null}
+                      <span className="text-slate-400">
+                        ({lang === 'en' ? 'Total: ' : 'รวม '}{task.tasks_assigned} {lang === 'en' ? 'items' : 'รายการ'})
+                      </span>
+                    </div>
                     {task.submission_link && (
                       <a
                         href={task.submission_link}

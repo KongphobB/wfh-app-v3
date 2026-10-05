@@ -30,20 +30,35 @@ export function setSoundEnabled(enabled: boolean): void {
   }
 }
 
+let lastSpotCheckSoundPlayedAt = 0;
+
 /**
- * Play a crystal-clear dual bell chime for Spot Check alert
+ * Play a crystal-clear attention chime for Spot Check alert
+ * Repeats periodically during the 10-minute active window.
  */
-export function playSpotCheckChime(): void {
+export function playSpotCheckChime(force = false): void {
   if (!isSoundEnabled()) return;
+  const nowWall = Date.now();
+  // Debounce guard: avoid duplicate sounds playing within 12 seconds unless forced
+  if (!force && nowWall - lastSpotCheckSoundPlayedAt < 12000) {
+    return;
+  }
+  lastSpotCheckSoundPlayedAt = nowWall;
+
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     const now = ctx.currentTime;
+    // Distinctive 4-note chime with crisp presence: D5 -> A5 -> D6 -> F#6
     const notes = [
-      { freq: 587.33, time: now, dur: 0.3 },       // D5
-      { freq: 880.00, time: now + 0.15, dur: 0.5 }, // A5
-      { freq: 1174.66, time: now + 0.35, dur: 0.8 },// D6
+      { freq: 587.33, time: now, dur: 0.25 },        // D5
+      { freq: 880.00, time: now + 0.16, dur: 0.35 }, // A5
+      { freq: 1174.66, time: now + 0.34, dur: 0.5 },// D6
+      { freq: 1479.98, time: now + 0.55, dur: 0.8 },// F#6
     ];
 
     notes.forEach(({ freq, time, dur }) => {
@@ -53,7 +68,7 @@ export function playSpotCheckChime(): void {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, time);
 
-      gain.gain.setValueAtTime(0.2, time);
+      gain.gain.setValueAtTime(0.28, time);
       gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
 
       osc.connect(gain);

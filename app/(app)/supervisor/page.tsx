@@ -885,12 +885,20 @@ export default function SupervisorPage() {
                         {task.details}
                       </p>
 
-                      <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium flex-wrap">
-                        <span>
-                          งานสำเร็จ:{' '}
-                          <strong className="text-emerald-600 font-bold text-xs">{task.tasks_completed}</strong> /{' '}
-                          {task.tasks_assigned} งาน
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium flex-wrap">
+                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                          ✓ สำเร็จ: {task.tasks_completed} งาน
                         </span>
+                        {task.tasks_remaining != null && task.tasks_remaining > 0 ? (
+                          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                            ⏳ ต่อพรุ่งนี้: {task.tasks_remaining} งาน
+                          </span>
+                        ) : null}
+                        <span className="text-slate-400 font-medium">
+                          (รวม {task.tasks_assigned} งาน)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium flex-wrap">
                         {task.submission_link && (
                           <a
                             href={task.submission_link}
