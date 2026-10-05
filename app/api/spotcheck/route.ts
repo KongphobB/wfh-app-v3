@@ -208,7 +208,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { spot_check_id, gps_lat, gps_lng, photo_base64 } = body;
+    const { spot_check_id, gps_lat, gps_lng, photo_base64, out_of_bounds_reason, note, distance_km } = body;
+    const reasonText = (out_of_bounds_reason || note || '').trim();
 
     if (!spot_check_id) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสการสุ่มตรวจ' }, { status: 400 });
@@ -245,13 +246,19 @@ export async function POST(request: Request) {
 
       // Log to Google Apps Script
       try {
+        const spotNote = reasonText
+          ? `[สุ่มตรวจเฉพาะกิจ] ย้ายสถานที่ (${reasonText}) (${spot_check_id})`
+          : `[สุ่มตรวจเฉพาะกิจ] ยืนยันตัวตนสำเร็จ (${spot_check_id})`;
+
         await callGAS('checkin', {
           type: 'ยืนยันตัวตน',
           employeeId: session.employee_id,
           lat: gps_lat || null,
           lng: gps_lng || null,
           photo: photo_base64 || null,
-          note: `[สุ่มตรวจเฉพาะกิจ] ยืนยันตัวตนสำเร็จ (${spot_check_id})`,
+          note: spotNote,
+          reason: reasonText,
+          outOfBoundsReason: reasonText,
         });
       } catch (logErr) {
         console.warn('Manual spot check gas log error:', logErr);
@@ -265,11 +272,15 @@ export async function POST(request: Request) {
         const supervisorId = empsMap[session.employee_id]?.supervisorId || '8888';
         const empName = session.name || empsMap[session.employee_id]?.name || session.employee_id;
 
+        const supervisorMsg = reasonText
+          ? `คุณ ${empName} (${session.employee_id}) ยืนยันพิกัดและเซลฟี่แล้ว [ห่างจุดเช็คอิน ${distance_km || '>20'} กม. เหตุผล: ${reasonText}]`
+          : `คุณ ${empName} (${session.employee_id}) ได้เปิดกล้องถ่ายภาพ Selfie และยืนยันพิกัดเรียบร้อยแล้ว`;
+
         await createNotification({
           employee_id: supervisorId,
           type: 'spotcheck',
           title: `✅ ลูกทีมยืนยันตัวตนสุ่มตรวจสำเร็จแล้ว`,
-          message: `คุณ ${empName} (${session.employee_id}) ได้เปิดกล้องถ่ายภาพ Selfie และยืนยันพิกัดเรียบร้อยแล้ว`,
+          message: supervisorMsg,
           link: '/supervisor',
         });
       } catch (notifErr) {
@@ -287,6 +298,10 @@ export async function POST(request: Request) {
 
     // 1. Try submitSpotCheck directly
     const mapsGpsUrl = gps_lat && gps_lng ? `https://www.google.com/maps?q=${gps_lat},${gps_lng}` : '';
+    const spotNote = reasonText
+      ? `[สุ่มตรวจ] เคลื่อนย้ายสถานที่ (${reasonText})`
+      : '';
+
     let gasResult = await callGAS('submitSpotCheck', {
       employeeId: session.employee_id,
       spotUuid: spot_check_id,
@@ -299,6 +314,9 @@ export async function POST(request: Request) {
       gps_lat: gps_lat || null,
       gps_lng: gps_lng || null,
       photo: photo_base64 || null,
+      note: spotNote,
+      reason: reasonText,
+      outOfBoundsReason: reasonText,
     });
 
     // 2. If GAS submitSpotCheck returns false, fallback to checkin 'ยืนยันตัวตน'
@@ -310,7 +328,9 @@ export async function POST(request: Request) {
           lat: gps_lat || null,
           lng: gps_lng || null,
           photo: photo_base64 || null,
-          note: `[สุ่มตรวจ] ยืนยันตัวตนตามเวลาสุ่มตรวจ (${spot_check_id})`,
+          note: spotNote || `[สุ่มตรวจ] ยืนยันตัวตนตามเวลาสุ่มตรวจ (${spot_check_id})`,
+          reason: reasonText,
+          outOfBoundsReason: reasonText,
         });
 
         if (checkinFallback?.success || checkinFallback?.message?.includes('เรียบร้อยแล้ว')) {
@@ -339,6 +359,29 @@ export async function POST(request: Request) {
     }
 
     invalidateGasCache();
+
+    // Notify supervisor for regular spot check
+    try {
+      const { getLiveEmployeesMap } = await import('@/lib/gas');
+      const { createNotification } = await import('@/lib/notifications');
+      const empsMap = await getLiveEmployeesMap();
+      const supervisorId = empsMap[session.employee_id]?.supervisorId || '8888';
+      const empName = session.name || empsMap[session.employee_id]?.name || session.employee_id;
+
+      const supervisorMsg = reasonText
+        ? `คุณ ${empName} (${session.employee_id}) ยืนยันพิกัดและถ่ายภาพแล้ว [ห่างจุดเช็คอิน ${distance_km || '>20'} กม. เหตุผล: ${reasonText}]`
+        : `คุณ ${empName} (${session.employee_id}) ได้เปิดกล้องถ่ายภาพ Selfie และยืนยันพิกัดเรียบร้อยแล้ว`;
+
+      await createNotification({
+        employee_id: supervisorId,
+        type: 'spotcheck',
+        title: `✅ ลูกทีมยืนยันตัวตนสุ่มตรวจสำเร็จแล้ว`,
+        message: supervisorMsg,
+        link: '/supervisor',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to notify supervisor on regular spot check:', notifErr);
+    }
 
     return NextResponse.json({
       success: true,

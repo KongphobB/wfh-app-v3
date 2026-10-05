@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
 import { playSpotCheckChime } from '@/lib/sound';
+import { calculateHaversineDistanceKm, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
 
 interface SpotCheckModalProps {
   spotCheck: SpotCheck | null;
@@ -17,6 +18,8 @@ interface SpotCheckModalProps {
 export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCheckModalProps) {
   const { t, lang } = useLanguage();
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [firstCheckInGps, setFirstCheckInGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [outOfBoundsReason, setOutOfBoundsReason] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -27,6 +30,25 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   const [timeLeftStr, setTimeLeftStr] = useState<string>('10:00');
   const [isExpired, setIsExpired] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(600);
+
+  let distanceFromFirstCheckIn: number | null = null;
+  if (
+    gps?.lat != null &&
+    gps?.lng != null &&
+    firstCheckInGps?.lat != null &&
+    firstCheckInGps?.lng != null
+  ) {
+    distanceFromFirstCheckIn = calculateHaversineDistanceKm(
+      gps.lat,
+      gps.lng,
+      firstCheckInGps.lat,
+      firstCheckInGps.lng
+    );
+  }
+
+  const isOutOfBounds =
+    distanceFromFirstCheckIn !== null &&
+    distanceFromFirstCheckIn > MAX_MOVEMENT_DISTANCE_KM; // > 20.0 km
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -95,12 +117,44 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
     return () => clearInterval(interval);
   }, [spotCheck]);
 
+  const fetchFirstCheckIn = async () => {
+    try {
+      const res = await fetch('/api/checkin?scope=self');
+      if (res.ok) {
+        const data = await res.json();
+        const todayStr = getThaiDateStr(getSyncedNow());
+        const logs: any[] = data.logs || [];
+        const todayMorningLogs = logs.filter(
+          (l) => l.log_type === 'เข้างาน' && l.log_date === todayStr
+        );
+        if (todayMorningLogs.length > 0) {
+          todayMorningLogs.sort(
+            (a, b) => new Date(a.log_time).getTime() - new Date(b.log_time).getTime()
+          );
+          const firstLog = todayMorningLogs[0];
+          if (firstLog.gps_lat != null && firstLog.gps_lng != null) {
+            setFirstCheckInGps({ lat: firstLog.gps_lat, lng: firstLog.gps_lng });
+          } else {
+            setFirstCheckInGps(null);
+          }
+        } else {
+          setFirstCheckInGps(null);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch morning checkin GPS for spotcheck:', err);
+    }
+  };
+
   useEffect(() => {
     if (spotCheck) {
       setPhotoDataUrl(null);
       setPopupAlert(null);
+      setOutOfBoundsReason('');
+      setFirstCheckInGps(null);
       getGpsLocation();
       startCamera();
+      fetchFirstCheckIn();
       fetch('/api/spotcheck')
         .then((r) => r.json())
         .then((d) => {
@@ -112,6 +166,8 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       stopCamera();
       setPhotoDataUrl(null);
       setPopupAlert(null);
+      setFirstCheckInGps(null);
+      setOutOfBoundsReason('');
     }
 
     return () => {
@@ -184,6 +240,15 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       return;
     }
 
+    if (isOutOfBounds && !outOfBoundsReason.trim()) {
+      const distFormatted = distanceFromFirstCheckIn ? distanceFromFirstCheckIn.toFixed(2) : '0.00';
+      setPopupAlert({
+        title: 'บังคับระบุเหตุผลเคลื่อนย้ายสถานที่',
+        message: `ตำแหน่งพิกัดของคุณอยู่ห่างจากจุดเช็คอินเช้าถึง ${distFormatted} กม. (เกิน 20 กม.) กรุณากรอกเหตุผลการเคลื่อนย้ายสถานที่ก่อนบันทึกครับ`,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -195,6 +260,9 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
           gps_lat: gps?.lat || null,
           gps_lng: gps?.lng || null,
           photo_base64: photoDataUrl,
+          out_of_bounds_reason: outOfBoundsReason.trim() || null,
+          note: outOfBoundsReason.trim() || null,
+          distance_km: distanceFromFirstCheckIn ? parseFloat(distanceFromFirstCheckIn.toFixed(2)) : null,
         }),
       });
 
@@ -352,7 +420,34 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
             </div>
           </div>
 
-          {!photoDataUrl ? (
+          {/* Out of Bounds Warning & Required Reason Input */}
+          {isOutOfBounds && distanceFromFirstCheckIn !== null && (
+            <div className="space-y-2 mb-3 text-left animate-fade-in">
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span>
+                  {lang === 'en'
+                    ? `Your GPS position is ${distanceFromFirstCheckIn.toFixed(2)} km away from morning check-in (exceeds 20 km). Please specify the reason before submitting.`
+                    : `ตำแหน่งพิกัดของคุณอยู่ห่างจากจุดเช็คอินตอนเช้า ${distanceFromFirstCheckIn.toFixed(2)} กม. (เกินระยะ 20 กม.) กรุณาระบุเหตุผลก่อนกดยืนยันครับ`}
+                </span>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  {lang === 'en' ? 'Reason for Location Change' : 'เหตุผลการเคลื่อนย้ายสถานที่'} <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={outOfBoundsReason}
+                  onChange={(e) => setOutOfBoundsReason(e.target.value)}
+                  placeholder={lang === 'en' ? 'e.g. Travel to client site / Out of office meeting' : 'เช่น เดินทางไปไซต์งาน / พบคู่ค้า / พบลูกค้า'}
+                  className="w-full px-3 py-2 bg-slate-50 border border-rose-300 ring-1 ring-rose-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-rose-500 font-medium"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {!photoDataUrl && !isPhotoExempt ? (
             <Button
               type="button"
               onClick={capturePhoto}
