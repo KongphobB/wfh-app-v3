@@ -19,8 +19,8 @@ const createEmployeeSchema = z.object({
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: 'เฉพาะแอดมินเท่านั้น' }, { status: 403 });
+    if (!session || (session.role !== 'admin' && session.role !== 'supervisor')) {
+      return NextResponse.json({ error: 'เฉพาะแอดมินหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
     const { exemptKeywords, exemptEmployeeIds, autoExemptSupervisors } = await getExemptConfig();
@@ -70,7 +70,11 @@ export async function GET() {
           };
         });
 
-      return NextResponse.json({ employees: employeesList });
+      const finalEmployees = session.role === 'supervisor'
+        ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
+        : employeesList;
+
+      return NextResponse.json({ employees: finalEmployees });
     }
 
     // 2. Fallback to getSystemConfig
@@ -98,7 +102,11 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ employees: employeesList });
+    const finalEmployees = session.role === 'supervisor'
+      ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
+      : employeesList;
+
+    return NextResponse.json({ employees: finalEmployees });
   } catch (error: any) {
     console.error('GET admin employees error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลพนักงานจาก Google Sheet' }, { status: 500 });

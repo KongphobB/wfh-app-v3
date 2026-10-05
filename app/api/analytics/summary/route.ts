@@ -38,11 +38,6 @@ export async function GET(request: Request) {
         ([id, emp]) => String(emp.supervisorId) === String(session.employee_id) || id === String(session.employee_id)
       );
 
-      // Fallback subordinates if hierarchy is not fully populated in Sheets
-      const teamIds = new Set(teamEntries.map(([id]) => id));
-      if (!teamIds.has('1111') && employeesMap['1111']) teamEntries.push(['1111', employeesMap['1111']]);
-      if (!teamIds.has('1304') && employeesMap['1304']) teamEntries.push(['1304', employeesMap['1304']]);
-
       accessibleEmployees = teamEntries.map(([id, emp]) => ({
         id,
         name: emp.name || id,

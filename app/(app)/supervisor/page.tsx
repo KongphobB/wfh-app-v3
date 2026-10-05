@@ -82,9 +82,10 @@ export default function SupervisorPage() {
     else setRefreshing(true);
 
     try {
-      const [tasksRes, checkinsRes] = await Promise.all([
+      const [tasksRes, checkinsRes, empsRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/checkin?scope=team'),
+        fetch('/api/admin/employees'),
       ]);
 
       if (tasksRes.ok) {
@@ -92,13 +93,30 @@ export default function SupervisorPage() {
         setTasks(tData.tasks || []);
       }
 
+      // 1. Populate official subordinates directly from Google Sheets
+      const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string }>();
+      if (empsRes.ok) {
+        const eData = await empsRes.json();
+        const emps = eData.employees || [];
+        emps.forEach((e: any) => {
+          if (e.employee_id) {
+            memberMap.set(String(e.employee_id), {
+              id: String(e.employee_id),
+              name: e.name || e.employee_id,
+              dept: e.department || undefined,
+              position: e.position || undefined,
+            });
+          }
+        });
+      }
+
+      // 2. Merge attendance logs from checkins
       if (checkinsRes.ok) {
         const cData = await checkinsRes.json();
         const logs: (CheckinLog & { employee_name?: string })[] = cData.logs || [];
         setTeamCheckins(logs);
 
-        // Derive unique team members from logs & tasks
-        const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string }>();
+        // Supplement any team members from logs & tasks if not already populated
         logs.forEach((l) => {
           if (l.employee_id && !memberMap.has(l.employee_id)) {
             memberMap.set(l.employee_id, {
@@ -109,21 +127,9 @@ export default function SupervisorPage() {
             });
           }
         });
-        (tasks || []).forEach((t) => {
-          if (t.employee_id && !memberMap.has(t.employee_id)) {
-            memberMap.set(t.employee_id, {
-              id: t.employee_id,
-              name: t.employee_name || t.employee_id,
-            });
-          }
-        });
-
-        // Ensure 1111 and 1304 exist as fallback subordinates
-        if (!memberMap.has('1111')) memberMap.set('1111', { id: '1111', name: 'ก้องภพ', dept: 'IT', position: 'เทสระบบ WFH' });
-        if (!memberMap.has('1304')) memberMap.set('1304', { id: '1304', name: 'ก้องภพ บุญชู', dept: 'Project', position: 'พนักงาน' });
-
-        setTeamMembers(Array.from(memberMap.values()));
       }
+
+      setTeamMembers(Array.from(memberMap.values()));
     } catch (err) {
       console.error('Fetch supervisor data error:', err);
     } finally {
