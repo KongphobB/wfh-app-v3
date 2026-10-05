@@ -81,6 +81,53 @@ export default function SupervisorPage() {
     return `${year}-${month}-${day}`;
   }, []);
 
+  // Human-friendly date formatter
+  const formatDisplayDate = (dateInput?: string | null, isTodayCheck = true) => {
+    if (!dateInput) return '-';
+    let dateObj: Date | null = null;
+    if (dateInput.includes('-')) {
+      const parts = dateInput.split('-');
+      if (parts.length === 3) {
+        dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+    }
+    if (!dateObj || isNaN(dateObj.getTime())) {
+      dateObj = new Date(dateInput);
+    }
+    if (isNaN(dateObj.getTime())) return dateInput;
+
+    const dateFormatted = dateObj.toLocaleDateString(lang === 'en' ? 'en-US' : 'th-TH', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    if (isTodayCheck && dateInput === todayStr) {
+      return lang === 'en' ? `Today (${dateFormatted})` : `วันนี้ (${dateFormatted})`;
+    }
+    return dateFormatted;
+  };
+
+  // Human-friendly time formatter (HH:mm น.)
+  const formatDisplayTime = (timeInput?: string | null) => {
+    if (!timeInput) return '-';
+    try {
+      const d = new Date(timeInput);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch {}
+    if (timeInput.includes('T')) {
+      const t = timeInput.split('T')[1]?.split('+')[0];
+      if (t) return t.substring(0, 5);
+    }
+    if (timeInput.includes(':')) {
+      const parts = timeInput.split(':');
+      return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    }
+    return timeInput;
+  };
+
   const fetchSupervisorData = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     else setRefreshing(true);
@@ -196,7 +243,7 @@ export default function SupervisorPage() {
       let checkinDetails: string | null = null;
 
       if (morningLog) {
-        checkinTime = morningLog.log_time || null;
+        checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
         const isLate = morningLog.verification_status?.includes('สาย') || morningLog.note?.includes('สาย');
         status = isLate ? 'late' : 'on_time';
         checkinDetails = morningLog.note || morningLog.verification_status || (isLate ? 'เข้างานสาย' : 'ตรงเวลา');
@@ -828,9 +875,9 @@ export default function SupervisorPage() {
                         <span className="text-slate-500 font-mono text-[11px] bg-slate-200/70 px-2 py-0.5 rounded-md">
                           ID: {task.employee_id}
                         </span>
-                        <span className="text-slate-400 text-[11px] flex items-center gap-1">
+                        <span className="text-slate-600 font-medium text-[11px] flex items-center gap-1 bg-slate-200/50 px-2 py-0.5 rounded-md">
                           <Calendar className="w-3 h-3 text-slate-400" />
-                          {task.submit_date}
+                          {formatDisplayDate(task.submit_date, true)}
                         </span>
                       </div>
 
@@ -920,7 +967,7 @@ export default function SupervisorPage() {
                 <tr>
                   <th className="px-4 py-3.5">พนักงาน</th>
                   <th className="px-4 py-3.5">ประเภทการลงเวลา</th>
-                  <th className="px-4 py-3.5">เวลาลงบันทึก</th>
+                  <th className="px-4 py-3.5">วัน - เวลาลงบันทึก</th>
                   <th className="px-4 py-3.5">สถานะพิกัด</th>
                   <th className="px-4 py-3.5">หมายเหตุ</th>
                   <th className="px-4 py-3.5 text-right">รูปถ่าย Selfie สด</th>
@@ -962,14 +1009,17 @@ export default function SupervisorPage() {
                           {log.log_type}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3.5 font-mono text-slate-700 font-bold">
-                        {new Date(log.log_time).toLocaleTimeString('th-TH', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}{' '}
-                        น.
-                        <div className="text-[10px] text-slate-400 font-normal">{log.log_date}</div>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="font-mono text-slate-900 font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{formatDisplayTime(log.log_time)} น.</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{formatDisplayDate(log.log_date, true)}</span>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1000,8 +1050,8 @@ export default function SupervisorPage() {
                                 url: log.photo_url!,
                                 name: log.employee_name || log.employee_id,
                                 employee_id: log.employee_id,
-                                time: new Date(log.log_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-                                date: log.log_date,
+                                time: `${formatDisplayTime(log.log_time)} น.`,
+                                date: formatDisplayDate(log.log_date, false),
                                 type: log.log_type,
                                 status: log.verification_status,
                                 gps_lat: log.gps_lat,
@@ -1071,8 +1121,9 @@ export default function SupervisorPage() {
                       <div>แผนก: <strong className="text-slate-800">{member.dept || 'ทั่วไป'}</strong></div>
                       <div>ตำแหน่ง: <strong className="text-slate-800">{member.position || 'พนักงาน'}</strong></div>
                       {todayLog && (
-                        <div className="text-emerald-700 font-medium pt-0.5">
-                          เวลาเข้างาน: {new Date(todayLog.log_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น. ({todayLog.verification_status})
+                        <div className="text-emerald-700 font-medium pt-0.5 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>เวลาเข้างาน: <strong>{formatDisplayTime(todayLog.log_time)} น.</strong> ({todayLog.verification_status})</span>
                         </div>
                       )}
                     </div>
@@ -1271,8 +1322,9 @@ export default function SupervisorPage() {
                   <h3 className="text-base font-bold text-slate-900">
                     สถานะการลงเวลาของลูกทีมวันนี้
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    ประจำวันที่ {todayStr} • ทั้งหมด {stats.totalTeam} คน
+                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <span>ประจำ{formatDisplayDate(todayStr, true)} • ทั้งหมด {stats.totalTeam} คน</span>
                   </p>
                 </div>
               </div>
@@ -1389,7 +1441,7 @@ export default function SupervisorPage() {
                             ตรงเวลา
                           </span>
                           {emp.checkinTime && (
-                            <div className="text-[10px] text-slate-500 font-mono mt-0.5 font-semibold">
+                            <div className="text-xs text-slate-800 font-mono mt-0.5 font-bold">
                               {emp.checkinTime} น.
                             </div>
                           )}
@@ -1403,7 +1455,7 @@ export default function SupervisorPage() {
                             เข้างานสาย
                           </span>
                           {emp.checkinTime && (
-                            <div className="text-[10px] text-amber-700 font-mono mt-0.5 font-semibold">
+                            <div className="text-xs text-amber-700 font-mono mt-0.5 font-bold">
                               {emp.checkinTime} น.
                             </div>
                           )}
