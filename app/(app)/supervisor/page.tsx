@@ -61,6 +61,10 @@ export default function SupervisorPage() {
   const [triggerSuccess, setTriggerSuccess] = useState('');
   const [triggerError, setTriggerError] = useState('');
 
+  // Attendance Status Detail Modal State
+  const [statusModalFilter, setStatusModalFilter] = useState<'all' | 'on_time' | 'late' | 'missing' | null>(null);
+  const [statusModalSearch, setStatusModalSearch] = useState('');
+
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
@@ -182,6 +186,33 @@ export default function SupervisorPage() {
     // Subordinates missing check-in today
     const missingEmployees = teamMembers.filter((m) => !checkedInTodayEmps.has(m.id));
 
+    // Full detailed list for modal inspection
+    const memberStatusList = teamMembers.map((m) => {
+      const morningLog = todayLogs.find(
+        (l) => l.employee_id === m.id && l.log_type?.includes('เข้างาน')
+      );
+      let status: 'on_time' | 'late' | 'missing' = 'missing';
+      let checkinTime: string | null = null;
+      let checkinDetails: string | null = null;
+
+      if (morningLog) {
+        checkinTime = morningLog.log_time || null;
+        const isLate = morningLog.verification_status?.includes('สาย') || morningLog.note?.includes('สาย');
+        status = isLate ? 'late' : 'on_time';
+        checkinDetails = morningLog.note || morningLog.verification_status || (isLate ? 'เข้างานสาย' : 'ตรงเวลา');
+      }
+
+      return {
+        id: m.id,
+        name: m.name,
+        dept: m.dept,
+        position: m.position,
+        status,
+        checkinTime,
+        checkinDetails,
+      };
+    });
+
     // Pending tasks unrated
     const unratedCount = tasks.filter((t) => !t.star_rating).length;
 
@@ -198,6 +229,7 @@ export default function SupervisorPage() {
       lateCount,
       missingCount: missingEmployees.length,
       missingEmployees,
+      memberStatusList,
       unratedCount,
       totalTasks: tasks.length,
       avgRating,
@@ -205,6 +237,30 @@ export default function SupervisorPage() {
       totalTeam: teamMembers.length,
     };
   }, [attendanceLogs, tasks, teamMembers, todayStr]);
+
+  // Filtered members list for status inspection modal
+  const filteredModalMembers = useMemo(() => {
+    if (!statusModalFilter) return [];
+    let list = stats.memberStatusList;
+    if (statusModalFilter === 'on_time') {
+      list = list.filter((m) => m.status === 'on_time');
+    } else if (statusModalFilter === 'late') {
+      list = list.filter((m) => m.status === 'late');
+    } else if (statusModalFilter === 'missing') {
+      list = list.filter((m) => m.status === 'missing');
+    }
+    if (statusModalSearch.trim()) {
+      const q = statusModalSearch.toLowerCase();
+      list = list.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.id.toLowerCase().includes(q) ||
+          (m.dept && m.dept.toLowerCase().includes(q)) ||
+          (m.position && m.position.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [stats.memberStatusList, statusModalFilter, statusModalSearch]);
 
   // Available unique departments
   const availableDepartments = useMemo(() => {
@@ -427,40 +483,78 @@ export default function SupervisorPage() {
       {/* Feature 2: Team Attendance & Performance Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Checkin Today */}
-        <Card className="border-slate-200/80 shadow-xs hover:shadow-md transition-shadow bg-gradient-to-br from-white to-emerald-50/30">
+        <Card
+          onClick={() => {
+            setStatusModalFilter('all');
+            setStatusModalSearch('');
+          }}
+          className="border-slate-200/80 shadow-xs hover:shadow-md hover:border-emerald-300 transition-all bg-gradient-to-br from-white to-emerald-50/30 cursor-pointer group active:scale-[0.99]"
+        >
           <CardContent className="p-4.5 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                {t.supervisor.checkedInToday}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {t.supervisor.checkedInToday}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  ดูรายชื่อ ➔
+                </span>
+              </div>
               <div className="text-2xl font-black text-slate-900">
                 {stats.checkedInCount}{' '}
                 <span className="text-xs font-bold text-slate-500">/ {stats.totalTeam || stats.checkedInCount} {lang === 'en' ? 'members' : 'คน'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 pt-0.5">
-                <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStatusModalFilter('on_time');
+                    setStatusModalSearch('');
+                  }}
+                  className="inline-flex items-center gap-0.5 text-emerald-600 font-bold hover:underline cursor-pointer"
+                >
                   <CheckCircle className="w-3 h-3" /> {lang === 'en' ? 'On Time ' : 'ตรงเวลา '}{stats.onTimeCount}
-                </span>
+                </button>
                 {stats.lateCount > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-rose-600 font-bold ml-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusModalFilter('late');
+                      setStatusModalSearch('');
+                    }}
+                    className="inline-flex items-center gap-0.5 text-rose-600 font-bold ml-1 hover:underline cursor-pointer"
+                  >
                     <AlertCircle className="w-3 h-3" /> {lang === 'en' ? 'Late ' : 'สาย '}{stats.lateCount}
-                  </span>
+                  </button>
                 )}
               </div>
             </div>
-            <div className="p-3 bg-emerald-100/70 text-emerald-700 rounded-2xl">
+            <div className="p-3 bg-emerald-100/70 text-emerald-700 rounded-2xl group-hover:scale-105 transition-transform">
               <Clock className="w-6 h-6" />
             </div>
           </CardContent>
         </Card>
 
         {/* Card 2: Missing Check-in */}
-        <Card className="border-slate-200/80 shadow-xs hover:shadow-md transition-shadow bg-gradient-to-br from-white to-rose-50/30">
+        <Card
+          onClick={() => {
+            setStatusModalFilter('missing');
+            setStatusModalSearch('');
+          }}
+          className="border-slate-200/80 shadow-xs hover:shadow-md hover:border-rose-300 transition-all bg-gradient-to-br from-white to-rose-50/30 cursor-pointer group active:scale-[0.99]"
+        >
           <CardContent className="p-4.5 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                {t.supervisor.missingCheckin}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {t.supervisor.missingCheckin}
+                </span>
+                <span className="text-[10px] font-bold text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  ดูรายชื่อ ➔
+                </span>
+              </div>
               <div className="text-2xl font-black text-slate-900">
                 {stats.missingCount}{' '}
                 <span className="text-xs font-bold text-slate-500">{lang === 'en' ? 'members' : 'คน'}</span>
@@ -477,7 +571,7 @@ export default function SupervisorPage() {
                 )}
               </div>
             </div>
-            <div className={`p-3 rounded-2xl ${stats.missingCount === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+            <div className={`p-3 rounded-2xl group-hover:scale-105 transition-transform ${stats.missingCount === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
               <Users className="w-6 h-6" />
             </div>
           </CardContent>
@@ -1159,6 +1253,202 @@ export default function SupervisorPage() {
                 </Button>
               </div>
             </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Attendance Status Detail Modal */}
+      {statusModalFilter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <Card className="w-full max-w-xl max-h-[85vh] flex flex-col bg-white border-slate-200 shadow-2xl rounded-3xl overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100/80 text-emerald-700 rounded-xl">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    สถานะการลงเวลาของลูกทีมวันนี้
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    ประจำวันที่ {todayStr} • ทั้งหมด {stats.totalTeam} คน
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusModalFilter(null);
+                  setStatusModalSearch('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="p-4 pb-3 border-b border-slate-100 bg-white space-y-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStatusModalFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    statusModalFilter === 'all'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  ทั้งหมด ({stats.totalTeam})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusModalFilter('on_time')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusModalFilter === 'on_time'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                  }`}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  ตรงเวลา ({stats.onTimeCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusModalFilter('late')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusModalFilter === 'late'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  เข้างานสาย ({stats.lateCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusModalFilter('missing')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusModalFilter === 'missing'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  ยังไม่ลงเวลา ({stats.missingCount})
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={statusModalSearch}
+                  onChange={(e) => setStatusModalSearch(e.target.value)}
+                  placeholder="ค้นหาชื่อ หรือรหัสพนักงาน..."
+                  className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            {/* List Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-[180px] max-h-[50vh]">
+              {filteredModalMembers.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs font-medium">
+                  ไม่พบพนักงานในสถานะนี้
+                </div>
+              ) : (
+                filteredModalMembers.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700 shrink-0 shadow-2xs">
+                        {emp.id}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                          {emp.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                          {emp.dept && <span>{emp.dept}</span>}
+                          {emp.dept && emp.position && <span>•</span>}
+                          {emp.position && <span>{emp.position}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {emp.status === 'on_time' && (
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            ตรงเวลา
+                          </span>
+                          {emp.checkinTime && (
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5 font-semibold">
+                              {emp.checkinTime} น.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {emp.status === 'late' && (
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-bold">
+                            <AlertCircle className="w-3 h-3" />
+                            เข้างานสาย
+                          </span>
+                          {emp.checkinTime && (
+                            <div className="text-[10px] text-amber-700 font-mono mt-0.5 font-semibold">
+                              {emp.checkinTime} น.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {emp.status === 'missing' && (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-[11px] font-bold">
+                            <Clock className="w-3 h-3" />
+                            ยังไม่ลงเวลา
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatusModalFilter(null);
+                              setStatusModalSearch('');
+                              setTriggerTarget({ id: emp.id, name: emp.name });
+                            }}
+                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors"
+                          >
+                            สั่งสุ่มตรวจ
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3.5 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStatusModalFilter(null);
+                  setStatusModalSearch('');
+                }}
+                className="text-xs font-bold cursor-pointer"
+              >
+                ปิดหน้าต่าง
+              </Button>
+            </div>
           </Card>
         </div>
       )}
