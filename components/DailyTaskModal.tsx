@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileText, X, AlertCircle, Send, Edit3, Info } from 'lucide-react';
+import { FileText, X, AlertCircle, Send, Edit3, Info, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TaskItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';

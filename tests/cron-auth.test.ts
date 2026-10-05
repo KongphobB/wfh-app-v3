@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// 1. Mock Server Modules
 vi.mock('@/lib/gas', () => ({
-  callGAS: vi.fn().mockResolvedValue({ success: true }),
+  callGAS: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  getLiveEmployeesMap: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('@/lib/notifications', () => ({
   createNotification: vi.fn().mockResolvedValue(undefined),
+  createNotificationForSupervisor: vi.fn().mockResolvedValue(undefined),
+  createNotificationForAdmins: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { callGAS } from '@/lib/gas';

@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏠 SNU WFH Tracking System (ระบบติดตามการปฏิบัติงาน WFH)
 
-## Getting Started
+ระบบบันทึกเวลาปฏิบัติงาน, การสุ่มตรวจยืนยันตัวตนสด (Live Selfie), การประเมินผลงานประจำวัน, และการแจ้งเตือนสองช่องทาง (Dual Email & In-App Notification) สำหรับบุคลากร, หัวหน้างาน (Supervisor), และผู้ดูแลระบบ (Admin)
 
-First, run the development server:
+---
+
+## 📚 เอกสารคู่มือการใช้งานระบบ (User Manuals)
+
+สามารถอ่านคู่มือการใช้งานระบบฉบับละเอียดได้ตามบทบาทหน้าที่ ดังนี้:
+
+- 📱 **สำหรับพนักงาน:** [คู่มือการใช้งานระบบสำหรับพนักงาน (docs/USER_MANUAL_EMPLOYEE.md)](file:///docs/USER_MANUAL_EMPLOYEE.md)
+  - การลงเวลาเข้างาน (ก่อน 08:00 น.) และออกงาน (หลัง 17:00 น.)
+  - การถ่ายภาพ Selfie สดและการจับพิกัด GPS
+  - การยืนยันตัวตนสุ่มตรวจรอบละ 10 นาที (Spot Check)
+  - การส่งรายงานผลงานประจำวัน (Daily Tasks) และการขอลาหยุด / สลับวัน
+
+- 👥 **สำหรับหัวหน้างาน:** [คู่มือการใช้งานระบบสำหรับหัวหน้างาน (docs/USER_MANUAL_SUPERVISOR.md)](file:///docs/USER_MANUAL_SUPERVISOR.md)
+  - แผงควบคุมลูกทีมรายวันและการตรวจภาพ Selfie ขยายใหญ่ (Lightbox)
+  - การประเมินคะแนนดาวผลงานประจำวัน (1 - 5 ดาว)
+  - การส่งคำสั่งสุ่มตรวจเจาะจงบุคคลทันที (On-Demand Spot Check)
+  - การพิจารณาอนุมัติคำขอลา / วันหยุด
+  - **ระบบแจ้งเตือนสองช่องทาง (Email + กระดิ่ง):** เข้าสาย, ไม่ลงเวลา, ขาดงาน, และสุ่มตรวจเกิน 10 นาที
+
+- 🛡️ **สำหรับผู้ดูแลระบบ:** [คู่มือการใช้งานระบบสำหรับผู้ดูแลระบบ (docs/USER_MANUAL_ADMIN.md)](file:///docs/USER_MANUAL_ADMIN.md)
+  - การจัดการข้อมูลพนักงาน, ปลดระงับสิทธิ์ WFH, และรีเซ็ตรหัส PIN
+  - การตรวจสอบ Log ระบบทั้งหมดพร้อมระบบค้นหาและแบ่งหน้า (Pagination)
+  - การจัดการตั๋วปัญหา IT (Ticket Helpdesk) และกล่องข้อเสนอแนะ
+  - การตั้งค่าพิกัดสำนักงานและระบบสุ่มตรวจ
+  - **ระบบแจ้งเตือนคู่ขนาน (Dual Email Alert):** รับแจ้งเตือนสาย, ขาดลงเวลา, ขาดงาน, และหลุดสุ่มตรวจควบคู่กับหัวหน้างาน
+
+---
+
+## 🚀 การเริ่มต้นใช้งานในโหมด Development
+
+ติดตั้ง dependencies และรันเซิร์ฟเวอร์:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิดบราวเซอร์ไปที่ [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧪 การรันแบบทดสอบ (Testing)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -5,6 +5,8 @@ import { CheckinLog } from '@/types';
 import { isEmployeePhotoExempt } from '@/lib/photoExempt';
 import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+import { sendLateCheckinNotificationEmail } from '@/lib/email';
+import { createNotificationForSupervisor } from '@/lib/notifications';
 
 export async function GET(request: Request) {
   try {
@@ -262,6 +264,42 @@ export async function POST(request: Request) {
         `${session.employee_id}_${todayStr}`,
         String(session.employee_id),
       ]);
+    }
+
+    // If check-in is late (หลัง 08:00 น.), send email notification to BOTH supervisor and admin
+    const isLate = currentHour > 8 || (currentHour === 8 && currentMinute > 0);
+    if (log_type === 'เข้างาน' && isLate) {
+      try {
+        const supervisorId = currentEmp.supervisorId;
+        const supervisorEmail = supervisorId ? employeesMap[supervisorId]?.email : null;
+        const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
+        const checkinTimeFormatted = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
+
+        await sendLateCheckinNotificationEmail({
+          employeeName: session.name || currentEmp.name || session.employee_id,
+          employeeId: session.employee_id,
+          department: session.department || currentEmp.dept,
+          position: currentEmp.position,
+          checkinTime: checkinTimeFormatted,
+          reason: effectiveReason,
+          supervisorEmail,
+          adminEmail,
+          employeeEmail: currentEmp.email,
+        });
+
+        // In-app notification to supervisor
+        if (supervisorId) {
+          await createNotificationForSupervisor({
+            supervisor_id: supervisorId,
+            type: 'warning',
+            title: `⏰ พนักงานเข้างานสาย: ${session.name} (${session.employee_id})`,
+            message: `ลงเวลาเข้างานเวลา ${checkinTimeFormatted} น. เหตุผล: "${effectiveReason || 'ไม่ได้ระบุเหตุผล'}"`,
+            link: '/supervisor',
+          });
+        }
+      } catch (emailErr) {
+        console.warn('Failed to send late checkin email alert:', emailErr);
+      }
     }
 
     return NextResponse.json({

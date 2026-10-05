@@ -1,7 +1,8 @@
 import nodemailer from 'nodemailer';
 
 export interface EmailParams {
-  to: string;
+  to: string | string[];
+  cc?: string | string[];
   subject: string;
   bodyHtml: string;
   bodyText?: string;
@@ -25,10 +26,19 @@ const transporter = nodemailer.createTransport({
 /**
  * Send email notification or log to dev console if STUB_LOG=true
  */
-export async function sendEmailAlert({ to, subject, bodyHtml, bodyText }: EmailParams): Promise<boolean> {
+export async function sendEmailAlert({ to, cc, subject, bodyHtml, bodyText }: EmailParams): Promise<boolean> {
+  const toList = Array.isArray(to) ? to.filter((e) => e && e.includes('@')).join(', ') : to;
+  const ccList = cc ? (Array.isArray(cc) ? cc.filter((e) => e && e.includes('@')).join(', ') : cc) : undefined;
+
+  if (!toList || toList.length === 0) {
+    console.warn('sendEmailAlert skipped: No valid recipients');
+    return false;
+  }
+
   if (isStubLog) {
     console.log('\n================ [EMAIL NOTIFICATION STUB LOG] ================');
-    console.log(`TO: ${to}`);
+    console.log(`TO: ${toList}`);
+    if (ccList) console.log(`CC: ${ccList}`);
     console.log(`SUBJECT: ${subject}`);
     console.log(`BODY:\n${bodyText || bodyHtml.replace(/<[^>]+>/g, '')}`);
     console.log('=================================================================\n');
@@ -38,7 +48,8 @@ export async function sendEmailAlert({ to, subject, bodyHtml, bodyText }: EmailP
   try {
     await transporter.sendMail({
       from: `"WFH System Alert" <${process.env.SMTP_USER}>`,
-      to,
+      to: toList,
+      cc: ccList,
       subject,
       text: bodyText || bodyHtml.replace(/<[^>]+>/g, ''),
       html: bodyHtml,
@@ -72,4 +83,222 @@ export async function sendSuspensionAlertEmail(employeeName: string, employeeId:
   `;
 
   await sendEmailAlert({ to: targetEmail, subject, bodyHtml });
+}
+
+/**
+ * Send email when an employee checks in late (หลัง 08:00 น.) with their reason
+ * Sends to BOTH supervisor and admin (and CCs employee if available)
+ */
+export async function sendLateCheckinNotificationEmail(params: {
+  employeeName: string;
+  employeeId: string;
+  department?: string | null;
+  position?: string | null;
+  checkinTime: string;
+  reason: string;
+  supervisorEmail?: string | null;
+  adminEmail?: string | null;
+  employeeEmail?: string | null;
+}) {
+  const recipients: string[] = [];
+  if (params.supervisorEmail && params.supervisorEmail.includes('@')) {
+    recipients.push(params.supervisorEmail.trim());
+  }
+  if (params.adminEmail && params.adminEmail.includes('@') && !recipients.includes(params.adminEmail.trim())) {
+    recipients.push(params.adminEmail.trim());
+  }
+
+  // Fallback if no supervisor or admin email configured
+  if (recipients.length === 0) {
+    recipients.push('admin@company.com');
+  }
+
+  const subject = `[แจ้งเตือนเข้างานสาย] พนักงาน ${params.employeeName} (${params.employeeId}) ลงเวลา ${params.checkinTime} น.`;
+  const bodyHtml = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h3 style="color: #ea580c; margin-top: 0;">⏰ แจ้งเตือนการลงเวลาเข้างานสาย (Late Check-in)</h3>
+      <p>เรียน ท่านหัวหน้างาน และ ผู้ดูแลระบบ,</p>
+      <p>ระบบขอแจ้งให้ทราบว่า มีพนักงานลงเวลาเข้างานหลังเวลาที่กำหนด โดยมีรายละเอียดดังนี้:</p>
+      
+      <div style="background: #ffffff; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin: 15px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <p style="margin: 0 0 8px 0;"><strong>ชื่อ-สกุล:</strong> ${params.employeeName} (รหัส: ${params.employeeId})</p>
+        <p style="margin: 0 0 8px 0;"><strong>แผนก / ตำแหน่ง:</strong> ${params.department || '-'} / ${params.position || '-'}</p>
+        <p style="margin: 0 0 8px 0;"><strong>เวลาที่ลงเวลา:</strong> <span style="color: #dc2626; font-weight: bold;">${params.checkinTime} น.</span></p>
+        <p style="margin: 0 0 4px 0;"><strong>เหตุผลความจำเป็นที่ระบุ:</strong></p>
+        <div style="background: #fff7ed; padding: 10px; border-radius: 4px; color: #9a3412; font-style: italic;">
+          "${params.reason || 'ไม่ได้ระบุเหตุผล'}"
+        </div>
+      </div>
+      
+      <p style="font-size: 13px; color: #475569;">
+        ท่านสามารถตรวจสอบและติดตามผลการปฏิบัติงานได้ที่ระบบ <a href="https://wfh-system-v3.vercel.app/supervisor" style="color: #ea580c; font-weight: bold;">SNU WFH Portal</a>
+      </p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="font-size: 11px; color: #94a3b8; margin: 0;">อีเมลฉบับนี้ส่งถึงทั้งหัวหน้างานและผู้ดูแลระบบโดยอัตโนมัติจากระบบ SNU WFH</p>
+    </div>
+  `;
+
+  const cc = params.employeeEmail && params.employeeEmail.includes('@') ? params.employeeEmail.trim() : undefined;
+
+  await sendEmailAlert({
+    to: recipients,
+    cc,
+    subject,
+    bodyHtml,
+  });
+}
+
+/**
+ * Send email when an employee has NOT checked in past the deadline (หลัง 08:00 น.)
+ * Sends to BOTH supervisor and admin (and CCs the employee)
+ */
+export async function sendMissingCheckinAlertEmail(params: {
+  employeeName: string;
+  employeeId: string;
+  department?: string | null;
+  supervisorEmail?: string | null;
+  adminEmail?: string | null;
+  employeeEmail?: string | null;
+}) {
+  const recipients: string[] = [];
+  if (params.supervisorEmail && params.supervisorEmail.includes('@')) {
+    recipients.push(params.supervisorEmail.trim());
+  }
+  if (params.adminEmail && params.adminEmail.includes('@') && !recipients.includes(params.adminEmail.trim())) {
+    recipients.push(params.adminEmail.trim());
+  }
+
+  const subject = `[แจ้งเตือนด่วน] พนักงานยังไม่ได้ลงเวลาเข้างาน (หลัง 08:00 น.) - ${params.employeeName} (${params.employeeId})`;
+  const bodyHtml = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h3 style="color: #dc2626; margin-top: 0;">⚠️ แจ้งเตือน: ยังไม่พบการลงเวลาเข้างานช่วงเช้า</h3>
+      <p>เรียน ท่านหัวหน้างาน และ ผู้ดูแลระบบ,</p>
+      <p>ระบบตรวจพบว่า พนักงาน <strong>${params.employeeName}</strong> (รหัสพนักงาน: <strong>${params.employeeId}</strong>) แผนก ${params.department || '-'} <strong>ยังไม่ได้ลงเวลาเข้างานช่วงเช้า (เกินเวลา 08:00 น.)</strong></p>
+      
+      <div style="background: #fef2f2; padding: 12px 16px; border-left: 4px solid #dc2626; border-radius: 4px; margin: 15px 0;">
+        <p style="margin: 0; color: #991b1b; font-weight: bold;">สถานะ: ยังไม่ลงเวลาเข้างาน (เสี่ยงขาดการติดต่อ/เข้างานสาย)</p>
+      </div>
+
+      <p style="font-size: 13px; color: #475569;">
+        ระบบได้ส่งการแจ้งเตือนไปยังพนักงานแล้ว กรุณาตรวจสอบหรือติดตามผ่านระบบ <a href="https://wfh-system-v3.vercel.app" style="color: #dc2626; font-weight: bold;">SNU WFH Portal</a>
+      </p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="font-size: 11px; color: #94a3b8; margin: 0;">อีเมลฉบับนี้ส่งถึงทั้งหัวหน้างานและผู้ดูแลระบบโดยอัตโนมัติจากระบบ SNU WFH</p>
+    </div>
+  `;
+
+  const cc = params.employeeEmail && params.employeeEmail.includes('@') ? params.employeeEmail.trim() : undefined;
+  const finalTo = recipients.length > 0 ? recipients : (cc ? [cc] : ['admin@company.com']);
+
+  await sendEmailAlert({
+    to: finalTo,
+    cc: recipients.length > 0 ? cc : undefined,
+    subject,
+    bodyHtml,
+  });
+}
+
+/**
+ * Send email when an employee is absent (ขาดงาน) past 12:00 PM without approved leave
+ * Sends to BOTH supervisor and admin (and CCs the employee)
+ */
+export async function sendAbsentAlertEmail(params: {
+  employeeName: string;
+  employeeId: string;
+  department?: string | null;
+  supervisorEmail?: string | null;
+  adminEmail?: string | null;
+  employeeEmail?: string | null;
+}) {
+  const recipients: string[] = [];
+  if (params.supervisorEmail && params.supervisorEmail.includes('@')) {
+    recipients.push(params.supervisorEmail.trim());
+  }
+  if (params.adminEmail && params.adminEmail.includes('@') && !recipients.includes(params.adminEmail.trim())) {
+    recipients.push(params.adminEmail.trim());
+  }
+
+  const subject = `[แจ้งเตือนด่วน: ขาดงาน] พนักงาน ${params.employeeName} (${params.employeeId}) ยังไม่ลงเวลาเข้างาน (เกินเวลา 12:00 น.)`;
+  const bodyHtml = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h3 style="color: #b91c1c; margin-top: 0;">🚫 แจ้งเตือนสถานะขาดงาน (Absent Alert)</h3>
+      <p>เรียน ท่านหัวหน้างาน และ ผู้ดูแลระบบ,</p>
+      <p>ระบบตรวจพบว่า พนักงาน <strong>${params.employeeName}</strong> (รหัสพนักงาน: <strong>${params.employeeId}</strong>) แผนก ${params.department || '-'} <strong>ไม่มีการลงเวลาปฏิบัติงานตลอดช่วงเช้า (เลยเวลา 12:00 น. ช่วงพักเที่ยง)</strong> และไม่มีประวัติการยื่นลางานที่ได้รับการอนุมัติ</p>
+      
+      <div style="background: #fef2f2; padding: 15px; border-left: 4px solid #b91c1c; border-radius: 4px; margin: 15px 0;">
+        <p style="margin: 0; color: #991b1b; font-weight: bold; font-size: 15px;">สถานะ: ขาดงานช่วงเช้า / ขาดการติดต่อ</p>
+        <p style="margin: 6px 0 0 0; color: #4b5563; font-size: 13px;">หากพนักงานมีเหตุฉุกเฉินหรือลาป่วยกะทันหัน กรุณาให้พนักงานยื่นใบลาย้อนหลัง หรือติดต่อผู้ดูแลระบบเพื่อแก้ไขสถานะ</p>
+      </div>
+
+      <p style="font-size: 13px; color: #475569;">
+        ท่านสามารถตรวจสอบและจัดการได้ที่ระบบ <a href="https://wfh-system-v3.vercel.app/supervisor" style="color: #b91c1c; font-weight: bold;">SNU WFH Portal</a>
+      </p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="font-size: 11px; color: #94a3b8; margin: 0;">อีเมลฉบับนี้ส่งถึงทั้งหัวหน้างานและผู้ดูแลระบบโดยอัตโนมัติจากระบบ SNU WFH</p>
+    </div>
+  `;
+
+  const cc = params.employeeEmail && params.employeeEmail.includes('@') ? params.employeeEmail.trim() : undefined;
+  const finalTo = recipients.length > 0 ? recipients : (cc ? [cc] : ['admin@company.com']);
+
+  await sendEmailAlert({
+    to: finalTo,
+    cc: recipients.length > 0 ? cc : undefined,
+    subject,
+    bodyHtml,
+  });
+}
+
+/**
+ * Send email when an employee misses spot check (เกิน 10 นาที / ขาดการติดต่อ)
+ * Sends to BOTH supervisor and admin (and CCs the employee)
+ */
+export async function sendMissedSpotCheckAlertEmail(params: {
+  employeeName: string;
+  employeeId: string;
+  department?: string | null;
+  round: string;
+  scheduledTime: string;
+  supervisorEmail?: string | null;
+  adminEmail?: string | null;
+  employeeEmail?: string | null;
+}) {
+  const recipients: string[] = [];
+  if (params.supervisorEmail && params.supervisorEmail.includes('@')) {
+    recipients.push(params.supervisorEmail.trim());
+  }
+  if (params.adminEmail && params.adminEmail.includes('@') && !recipients.includes(params.adminEmail.trim())) {
+    recipients.push(params.adminEmail.trim());
+  }
+
+  const subject = `[แจ้งเตือนด่วน: พลาดการสุ่มตรวจ] พนักงาน ${params.employeeName} (${params.employeeId}) ไม่ยืนยันตัวตนใน 10 นาที (รอบ ${params.round})`;
+  const bodyHtml = `
+    <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <h3 style="color: #dc2626; margin-top: 0;">⚠️ แจ้งเตือน: พนักงานไม่ผ่านการสุ่มตรวจยืนยันตัวตน</h3>
+      <p>เรียน ท่านหัวหน้างาน และ ผู้ดูแลระบบ,</p>
+      <p>ระบบตรวจพบว่า พนักงาน <strong>${params.employeeName}</strong> (รหัสพนักงาน: <strong>${params.employeeId}</strong>) แผนก ${params.department || '-'} <strong>ไม่ทำการเปิดกล้องถ่ายภาพ Selfie ยืนยันตัวตนภายในเวลา 10 นาทีที่กำหนด</strong></p>
+      
+      <div style="background: #fff1f2; padding: 15px; border-left: 4px solid #e11d48; border-radius: 4px; margin: 15px 0;">
+        <p style="margin: 0 0 6px 0;"><strong>รอบการสุ่มตรวจ:</strong> รอบ ${params.round}</p>
+        <p style="margin: 0 0 6px 0;"><strong>เวลาที่เริ่มส่งสัญญาณ:</strong> ${params.scheduledTime} น.</p>
+        <p style="margin: 0; color: #be123c; font-weight: bold;">ผลการสุ่มตรวจ: ไม่ผ่าน (ขาดการติดต่อเกิน 10 นาที)</p>
+      </div>
+
+      <p style="font-size: 13px; color: #475569;">
+        ท่านสามารถตรวจสอบประวัติหรือสั่งสุ่มตรวจซ้ำได้ที่ระบบ <a href="https://wfh-system-v3.vercel.app/supervisor" style="color: #e11d48; font-weight: bold;">SNU WFH Supervisor Portal</a>
+      </p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="font-size: 11px; color: #94a3b8; margin: 0;">อีเมลฉบับนี้ส่งถึงทั้งหัวหน้างานและผู้ดูแลระบบโดยอัตโนมัติจากระบบ SNU WFH</p>
+    </div>
+  `;
+
+  const cc = params.employeeEmail && params.employeeEmail.includes('@') ? params.employeeEmail.trim() : undefined;
+  const finalTo = recipients.length > 0 ? recipients : (cc ? [cc] : ['admin@company.com']);
+
+  await sendEmailAlert({
+    to: finalTo,
+    cc: recipients.length > 0 ? cc : undefined,
+    subject,
+    bodyHtml,
+  });
 }

@@ -57,6 +57,23 @@ export async function createNotificationForAdmins(params: {
   });
 }
 
+export async function createNotificationForSupervisor(params: {
+  supervisor_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+}) {
+  if (!params.supervisor_id) return;
+  await createNotification({
+    employee_id: params.supervisor_id,
+    type: params.type,
+    title: params.title,
+    message: params.message,
+    link: params.link || '/supervisor',
+  });
+}
+
 export function getNotificationsForUser(employeeId: string, role?: string) {
   return memoryNotifications.filter((n) => {
     // 1. Direct notification to this specific employee

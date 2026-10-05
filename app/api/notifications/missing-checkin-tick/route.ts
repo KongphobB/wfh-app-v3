@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
-import { createNotification } from '@/lib/notifications';
-import { sendEmailAlert } from '@/lib/email';
+import { createNotification, createNotificationForSupervisor } from '@/lib/notifications';
+import { sendEmailAlert, sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
-import { getThaiDateStr } from '@/lib/timeSync';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +29,9 @@ export async function GET(request: Request) {
 
     const notifiedEmployees: { id: string; name: string; email?: string }[] = [];
 
+    const { hour: currentHour } = getThaiTime();
+    const isAfternoonAbsent = currentHour >= 12;
+
     for (const [empId, emp] of Object.entries(employeesMap)) {
       // Exclude admin, employees already checked in, and employees on approved leave today
       if (!checkedInEmpIds.has(empId) && empId !== '9999' && !isEmployeeOnApprovedLeave(empId, todayStr)) {
@@ -38,30 +41,68 @@ export async function GET(request: Request) {
           email: emp.email,
         });
 
-        // 1. In-app notification to employee
-        await createNotification({
-          employee_id: empId,
-          type: 'warning',
-          title: '⚠️ ยังไม่ได้ลงเวลาเข้างานช่วงเช้า (หลัง 08:00 น.)',
-          message: 'ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาเข้างานช่วงเช้า กรุณาลงเวลาและระบุเหตุผลความจำเป็นในช่องหมายเหตุ',
-          link: '/checkin',
-        });
+        const supervisorEmail = emp.supervisorId ? employeesMap[emp.supervisorId]?.email : null;
+        const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
 
-        // 2. Email alert to employee if email is available
-        if (emp.email && emp.email.includes('@')) {
-          await sendEmailAlert({
-            to: emp.email,
-            subject: `[SNU WFH] แจ้งเตือน: ยังไม่ได้ลงเวลาเข้างานช่วงเช้า (หลัง 08:00 น.)`,
-            bodyHtml: `
-              <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; color: #1e293b; border-radius: 8px;">
-                <h3 style="color: #ea580c;">⚠️ แจ้งเตือนการลงเวลาเข้างานช่วงเช้า (SNU WFH)</h3>
-                <p>เรียน คุณ <strong>${emp.name}</strong> (รหัสพนักงาน: ${empId}),</p>
-                <p>ขณะนี้เลยเวลา <strong>08:00 น.</strong> แล้ว ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาปฏิบัติงานช่วงเช้า</p>
-                <p>กรุณาเข้าสู่ระบบ <a href="https://wfh-system-v3.vercel.app/checkin" style="color: #ea580c; font-weight: bold;">คลิกที่นี่เพื่อลงเวลาเข้างาน</a> พร้อมระบุเหตุผลการเข้างานสายในช่องหมายเหตุ</p>
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
-                <p style="font-size: 12px; color: #64748b;">ข้อความนี้เป็นระบบอัตโนมัติจาก SNU Supply & Service WFH System</p>
-              </div>
-            `,
+        if (isAfternoonAbsent) {
+          // 1. In-app notification to employee (Absent status)
+          await createNotification({
+            employee_id: empId,
+            type: 'warning',
+            title: '🚫 ยังไม่พบการลงเวลาเข้างาน (เลยเวลา 12:00 น. ถือเป็นขาดงาน)',
+            message: 'ระบบไม่พบการลงเวลาปฏิบัติงานตลอดช่วงเช้าของคุณ กรุณาติดต่อหัวหน้างานหรือยื่นคำขอลาย้อนหลัง',
+            link: '/checkin',
+          });
+
+          // 2. In-app notification to supervisor
+          if (emp.supervisorId) {
+            await createNotificationForSupervisor({
+              supervisor_id: emp.supervisorId,
+              type: 'warning',
+              title: `🚫 พนักงานขาดงาน: ${emp.name} (${empId})`,
+              message: `พนักงานยังไม่ลงเวลาปฏิบัติงานตลอดช่วงเช้า (เกินเวลา 12:00 น. ช่วงพักเที่ยง)`,
+              link: '/supervisor',
+            });
+          }
+
+          // 3. Email alert to BOTH supervisor and admin (and CC employee)
+          await sendAbsentAlertEmail({
+            employeeName: emp.name || empId,
+            employeeId: empId,
+            department: emp.dept,
+            supervisorEmail,
+            adminEmail,
+            employeeEmail: emp.email,
+          });
+        } else {
+          // 1. In-app notification to employee (Morning late reminder)
+          await createNotification({
+            employee_id: empId,
+            type: 'warning',
+            title: '⚠️ ยังไม่ได้ลงเวลาเข้างานช่วงเช้า (หลัง 08:00 น.)',
+            message: 'ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาเข้างานช่วงเช้า กรุณาลงเวลาและระบุเหตุผลความจำเป็นในช่องหมายเหตุ',
+            link: '/checkin',
+          });
+
+          // 2. In-app notification to supervisor
+          if (emp.supervisorId) {
+            await createNotificationForSupervisor({
+              supervisor_id: emp.supervisorId,
+              type: 'warning',
+              title: `⚠️ พนักงานยังไม่ลงเวลาเข้างาน: ${emp.name} (${empId})`,
+              message: `พนักงานยังไม่ได้ลงเวลาเข้างานช่วงเช้า (เกินกำหนด 08:00 น.)`,
+              link: '/supervisor',
+            });
+          }
+
+          // 3. Email alert to BOTH supervisor and admin (and CC employee)
+          await sendMissingCheckinAlertEmail({
+            employeeName: emp.name || empId,
+            employeeId: empId,
+            department: emp.dept,
+            supervisorEmail,
+            adminEmail,
+            employeeEmail: emp.email,
           });
         }
       }

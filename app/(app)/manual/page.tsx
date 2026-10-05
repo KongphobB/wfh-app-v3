@@ -164,7 +164,7 @@ export default function ManualPage() {
                     <li>ไปที่เมนู <strong>"📍 ลงเวลาปฏิบัติงาน"</strong> แล้วกดปุ่ม <strong>"ลงเวลาเข้างาน"</strong> หรือ <strong>"ลงเวลาออกงาน"</strong></li>
                     <li>ระบบจะตรวจจับพิกัด <strong>GPS ละติจูด/ลองจิจูด</strong> อัตโนมัติ (กรุณากด Allow/อนุญาต ตำแหน่งบนบราวเซอร์)</li>
                     <li>ส่องกล้องใบหน้าให้อยู่ในกรอบ แล้วกดปุ่ม <strong>"📸 ถ่ายภาพ Selfie สด (Live Camera)"</strong> *(ระบบป้องกันการเลือกรูปเก่าเพื่อความโปร่งใส)*</li>
-                    <li>หากลงเวลาเข้างานหลัง 08:00 น. (สาย) หรือออกก่อน 17:00 น. ระบบจะให้ระบุ <strong>"เหตุผลความจำเป็น"</strong></li>
+                    <li>หากลงเวลาเข้างานหลัง 08:00 น. (สาย) หรือออกก่อน 17:00 น. ระบบจะให้ระบุ <strong>"เหตุผลความจำเป็น"</strong> ซึ่งระบบจะส่งอีเมลแจ้งเตือนพร้อมเหตุผลไปยังหัวหน้างานและ Admin ทันที</li>
                     <li>กดปุ่ม <strong>"💾 ยืนยันการลงเวลา"</strong> เพื่อบันทึกข้อมูลเข้าสู่ระบบทันที</li>
                   </ol>
                 </div>
@@ -199,7 +199,7 @@ export default function ManualPage() {
                     <li>ส่องกล้องถ่ายภาพ Selfie สดและกด <strong>"💾 ยืนยันผลการสุ่มตรวจ"</strong></li>
                   </ul>
                   <div className="mt-2 p-2.5 rounded-xl bg-rose-100/70 border border-rose-200 text-rose-800 text-[11px] font-semibold">
-                    ⚠️ กฎระเบียบ WFH: หากไม่สแกนภายใน 10 นาที ระบบจะบันทึกสถานะเป็น <strong>"ไม่ผ่าน (ขาดการติดต่อ)"</strong> หากสะสมครบ 3 ครั้ง สิทธิ์การทำงาน WFH จะถูกระงับอัตโนมัติ
+                    ⚠️ กฎระเบียบ WFH: หากไม่สแกนภายใน 10 นาที ระบบจะบันทึกสถานะเป็น <strong>"ไม่ผ่าน (ขาดการติดต่อ)"</strong> และส่งอีเมลแจ้งเตือนด่วนไปยังหัวหน้างานและ Admin ทันที หากสะสมครบ 3 ครั้ง สิทธิ์การทำงาน WFH จะถูกระงับอัตโนมัติ
                   </div>
                 </div>
               </CardContent>
@@ -661,6 +661,41 @@ export default function ManualPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Section 8: Supervisor Notifications */}
+          {matchesSearch('แจ้งเตือน อีเมล กระดิ่ง สาย ขาดงาน สุ่มตรวจ supervisor notifications email') && (
+            <Card>
+              <CardHeader className="p-4 sm:p-5 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                    <BellRing className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
+                      8. ระบบการแจ้งเตือนสำหรับหัวหน้างาน (Email & In-App Notification Alerts)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      แจ้งเตือนควบคู่กับ Admin ทางอีเมลและกระดิ่งในระบบสำหรับ 4 เหตุการณ์สำคัญ
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <p className="font-bold text-slate-900">4 เหตุการณ์ที่หัวหน้างานจะได้รับแจ้งเตือน (Email + กระดิ่ง 🔔):</p>
+                  <ul className="list-disc list-inside space-y-1.5 pl-1 text-slate-800">
+                    <li><strong>เข้างานสาย (หลัง 08:00 น.):</strong> ได้รับอีเมลทันทีพร้อมเหตุผลที่พนักงานระบุ + แจ้งเตือนกระดิ่ง (CC พนักงาน)</li>
+                    <li><strong>ไม่ลงเวลาเข้างานช่วงเช้า (หลัง 08:00 น.):</strong> ได้รับอีเมลแจ้งเตือนช่วงเช้ากรณีพนักงานยังไม่ลงเวลาและไม่มีใบลา + แจ้งเตือนกระดิ่ง</li>
+                    <li><strong>ขาดงาน (หลัง 12:00 น.):</strong> หากพ้นเที่ยงวันยังไม่มีการลงเวลาเช้าและไม่มีใบลา ได้รับอีเมลแจ้งเตือนขาดงานด่วน + แจ้งเตือนกระดิ่ง</li>
+                    <li><strong>ไม่ผ่านการสุ่มตรวจ (เกิน 10 นาที):</strong> หากพนักงานไม่สแกนยืนยันตัวตนใน 10 นาที ได้รับอีเมลแจ้งเตือนด่วน + แจ้งเตือนกระดิ่ง</li>
+                  </ul>
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                    🛡️ การกรองข้อความรบกวน: การเปลี่ยนแปลงข้อมูลพนักงานโดย Admin (เช่น เปลี่ยนแผนก, ปรับตำแหน่ง, หรือรีเซ็ต PIN) จะแจ้งเตือนเฉพาะตัวพนักงานเท่านั้น และ<strong>จะไม่ส่งแจ้งเตือนมารบกวนหัวหน้างาน</strong>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -712,6 +747,10 @@ export default function ManualPage() {
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                     <p className="font-bold text-slate-900">⭐ ล้างประวัติ 1 ดาว</p>
                     <p className="text-[11px] text-slate-500 mt-0.5">ล้างประวัติการสะสม 1 ดาวกลับเป็น 0 ครั้งเมื่อได้รับการอนุมัติผ่อนผัน</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/80 sm:col-span-2">
+                    <p className="font-bold text-blue-900">🛡️ การแจ้งเตือนเฉพาะบุคคล (Privacy Isolation)</p>
+                    <p className="text-[11px] text-blue-700 mt-0.5">การแก้ไขข้อมูลพนักงานหรือรีเซ็ต PIN จะส่งแจ้งเตือนเฉพาะพนักงานที่ถูกแก้ไขเท่านั้น และ<strong>จะไม่ส่งแจ้งเตือนไปรบกวนหัวหน้างาน</strong></p>
                   </div>
                 </div>
               </CardContent>
@@ -790,8 +829,8 @@ export default function ManualPage() {
             </Card>
           )}
 
-          {/* Section 6: Missing Check-in Alert & Exemption Rule */}
-          {matchesSearch('แจ้งเตือน ขาดลงเวลา 08:00 อีเมล ยกเว้น อัตโนมัติ email alert cron') && (
+          {/* Section 6: Attendance Alerts & Dual Email */}
+          {matchesSearch('แจ้งเตือน ขาดลงเวลา 08:00 ขาดงาน 12:00 สาย สุ่มตรวจ อีเมล alert dual email cron') && (
             <Card>
               <CardHeader className="p-4 sm:p-5 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -800,19 +839,26 @@ export default function ManualPage() {
                   </div>
                   <div>
                     <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
-                      6. กฎการแจ้งเตือนขาดลงเวลา 08:00 น. และระบบยกเว้นอัตโนมัติ (Alert & Exemption Rules)
+                      6. ระบบแจ้งเตือนการเข้างานอัตโนมัติ (Dual Email & Exemption Rules)
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      การตรวจจับและส่งอีเมลแจ้งเตือนอัตโนมัติ พร้อมการยกเว้นเมื่อพนักงานลา/เข้าออฟฟิศ
+                      ส่งอีเมลแจ้งเตือนพร้อมกันทั้ง Admin และหัวหน้างาน สำหรับ 4 เหตุการณ์สำคัญ
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-5 pt-0 space-y-2.5 text-xs text-slate-700 leading-relaxed">
-                <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-1.5 text-orange-950">
-                  <p>• <strong>เวลาตรวจจับ:</strong> ระบบจะตรวจเช็คพนักงานที่ยังไม่ได้ลงเวลาเข้างานทุกเช้าเวลา <strong>08:05 น.</strong></p>
-                  <p>• <strong>การแจ้งเตือน:</strong> ส่ง In-App Notification และ Email Alert ไปยังอีเมลของพนักงานทันที</p>
-                  <p>• <strong>การยกเว้นอัตโนมัติ (Auto Suppression):</strong> หากพนักงานได้รับการอนุมัติการลา หรือเลือก <strong>"ปฏิบัติงานที่ออฟฟิศ"</strong> ระบบจะข้ามและไม่ส่งการแจ้งเตือนให้โดยอัตโนมัติ</p>
+                <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-2 text-orange-950">
+                  <p className="font-bold">4 เหตุการณ์ที่ระบบส่งอีเมลแจ้งเตือนถึง Admin และหัวหน้างาน:</p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-[11px]">
+                    <li><strong>เข้างานสาย (หลัง 08:00 น.):</strong> ส่งอีเมลแจ้งเตือนทันทีพร้อมเหตุผลความจำเป็นที่พนักงานกรอก (CC พนักงาน)</li>
+                    <li><strong>ยังไม่ลงเวลาช่วงเช้า (หลัง 08:00 น.):</strong> ตรวจจับอัตโนมัติทุกเช้า 08:05 น. และส่งอีเมลแจ้งเตือนติดตามตัว</li>
+                    <li><strong>ขาดงาน (หลัง 12:00 น.):</strong> หากพ้น 12:00 น. ยังไม่มีการลงเวลาเช้าและไม่มีใบลา ระบบปรับสถานะเป็นขาดงานและส่งแจ้งเตือนด่วน</li>
+                    <li><strong>ไม่ผ่านการสุ่มตรวจ (เกิน 10 นาที):</strong> ไม่ยืนยันตัวตนใน 10 นาที ระบบปรับสถานะและส่งอีเมลแจ้งเตือนด่วนทันที</li>
+                  </ul>
+                  <p className="pt-1 text-[11px] text-orange-900">
+                    • <strong>การยกเว้นอัตโนมัติ (Auto Suppression):</strong> หากพนักงานได้รับการอนุมัติการลา หรือเลือก <strong>"ปฏิบัติงานที่ออฟฟิศ (Onsite)"</strong> ระบบจะข้ามและไม่ส่งการแจ้งเตือนขาดลงเวลาให้
+                  </p>
                 </div>
               </CardContent>
             </Card>
