@@ -24,6 +24,7 @@ import {
   Sparkles,
   BellRing,
   Send,
+  Building2,
 } from 'lucide-react';
 import { TaskItem, CheckinLog } from '@/types';
 import { useLanguage } from '@/lib/i18n';
@@ -62,7 +63,7 @@ export default function SupervisorPage() {
   const [triggerError, setTriggerError] = useState('');
 
   // Attendance Status Detail Modal State
-  const [statusModalFilter, setStatusModalFilter] = useState<'all' | 'on_time' | 'late' | 'missing' | null>(null);
+  const [statusModalFilter, setStatusModalFilter] = useState<'all' | 'on_time' | 'onsite' | 'late' | 'missing' | null>(null);
   const [statusModalSearch, setStatusModalSearch] = useState('');
 
   // Search & Filter States
@@ -237,36 +238,34 @@ export default function SupervisorPage() {
       todayLogs.filter((l) => l.log_type?.includes('เข้างาน')).map((l) => l.employee_id)
     );
 
-    // On-time vs Late
-    let onTimeCount = 0;
-    let lateCount = 0;
-    todayLogs
-      .filter((l) => l.log_type?.includes('เข้างาน'))
-      .forEach((l) => {
-        if (l.verification_status?.includes('สาย') || l.note?.includes('สาย')) {
-          lateCount++;
-        } else {
-          onTimeCount++;
-        }
-      });
-
-    // Subordinates missing check-in today
-    const missingEmployees = teamMembers.filter((m) => !checkedInTodayEmps.has(m.id));
-
     // Full detailed list for modal inspection
     const memberStatusList = teamMembers.map((m) => {
       const morningLog = todayLogs.find(
         (l) => l.employee_id === m.id && l.log_type?.includes('เข้างาน')
       );
-      let status: 'on_time' | 'late' | 'missing' = 'missing';
+      let status: 'on_time' | 'onsite' | 'late' | 'missing' = 'missing';
       let checkinTime: string | null = null;
       let checkinDetails: string | null = null;
 
       if (morningLog) {
         checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
-        const isLate = morningLog.verification_status?.includes('สาย') || morningLog.note?.includes('สาย');
-        status = isLate ? 'late' : 'on_time';
-        checkinDetails = morningLog.note || morningLog.verification_status || (isLate ? 'เข้างานสาย' : 'ตรงเวลา');
+        const isOnsite =
+          morningLog.verification_status?.includes('ออฟฟิศ') ||
+          morningLog.note?.includes('ออฟฟิศ');
+        const isLate =
+          morningLog.verification_status?.includes('สาย') ||
+          morningLog.note?.includes('สาย');
+
+        if (isOnsite) {
+          status = 'onsite';
+          checkinDetails = 'ปฏิบัติงานที่ออฟฟิศ';
+        } else if (isLate) {
+          status = 'late';
+          checkinDetails = morningLog.note || morningLog.verification_status || 'เข้างานสาย';
+        } else {
+          status = 'on_time';
+          checkinDetails = morningLog.note || morningLog.verification_status || 'ตรงเวลา';
+        }
       }
 
       return {
@@ -280,6 +279,12 @@ export default function SupervisorPage() {
       };
     });
 
+    // Subordinates counts derived directly from memberStatusList
+    const onTimeCount = memberStatusList.filter((m) => m.status === 'on_time').length;
+    const onsiteCount = memberStatusList.filter((m) => m.status === 'onsite').length;
+    const lateCount = memberStatusList.filter((m) => m.status === 'late').length;
+    const missingEmployees = memberStatusList.filter((m) => m.status === 'missing');
+
     // Pending tasks unrated
     const unratedCount = tasks.filter((t) => !t.star_rating).length;
 
@@ -291,8 +296,9 @@ export default function SupervisorPage() {
         : '5.0';
 
     return {
-      checkedInCount: checkedInTodayEmps.size,
+      checkedInCount: memberStatusList.filter((m) => m.status !== 'missing').length,
       onTimeCount,
+      onsiteCount,
       lateCount,
       missingCount: missingEmployees.length,
       missingEmployees,
@@ -311,6 +317,8 @@ export default function SupervisorPage() {
     let list = stats.memberStatusList;
     if (statusModalFilter === 'on_time') {
       list = list.filter((m) => m.status === 'on_time');
+    } else if (statusModalFilter === 'onsite') {
+      list = list.filter((m) => m.status === 'onsite');
     } else if (statusModalFilter === 'late') {
       list = list.filter((m) => m.status === 'late');
     } else if (statusModalFilter === 'missing') {
@@ -590,6 +598,19 @@ export default function SupervisorPage() {
                 >
                   <CheckCircle className="w-3 h-3" /> {lang === 'en' ? 'On Time ' : 'ตรง '}{stats.onTimeCount}
                 </button>
+                {stats.onsiteCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusModalFilter('onsite');
+                      setStatusModalSearch('');
+                    }}
+                    className="inline-flex items-center gap-0.5 text-blue-600 font-bold ml-1 hover:underline cursor-pointer"
+                  >
+                    <Building2 className="w-3 h-3" /> {lang === 'en' ? 'Office ' : 'ออฟฟิศ '}{stats.onsiteCount}
+                  </button>
+                )}
                 {stats.lateCount > 0 && (
                   <button
                     type="button"
@@ -1415,6 +1436,18 @@ export default function SupervisorPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setStatusModalFilter('onsite')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusModalFilter === 'onsite'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  ปฏิบัติงานที่ออฟฟิศ ({stats.onsiteCount})
+                </button>
+                <button
+                  type="button"
                   onClick={() => setStatusModalFilter('late')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                     statusModalFilter === 'late'
@@ -1490,6 +1523,35 @@ export default function SupervisorPage() {
                             </span>
                             {emp.checkinTime && (
                               <div className="text-xs text-slate-800 font-mono mt-0.5 font-bold">
+                                {emp.checkinTime} น.
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatusModalFilter(null);
+                              setStatusModalSearch('');
+                              openTriggerSpotCheckModal({ id: emp.id, name: emp.name });
+                            }}
+                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1 shrink-0"
+                            title="สั่งสุ่มตรวจพนักงานคนนี้"
+                          >
+                            <BellRing className="w-3 h-3" />
+                            <span>สั่งสุ่มตรวจ</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {emp.status === 'onsite' && (
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 text-[11px] font-bold border border-blue-200">
+                              <Building2 className="w-3 h-3 text-blue-600" />
+                              ปฏิบัติงานที่ออฟฟิศ
+                            </span>
+                            {emp.checkinTime && (
+                              <div className="text-xs text-blue-900 font-mono mt-0.5 font-bold">
                                 {emp.checkinTime} น.
                               </div>
                             )}
