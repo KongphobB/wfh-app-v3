@@ -1,19 +1,32 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { LanguageProvider } from '@/lib/i18n';
+import PwaRegister from '@/components/PwaRegister';
 
 const inter = Inter({ subsets: ['latin'] });
+
+export const viewport: Viewport = {
+  themeColor: '#ea580c',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: 'SNU WFH — ระบบบันทึกและติดตามการทำงานนอกสถานที่',
   description: 'ระบบลงเวลาการทำงาน GPS, สุ่มตรวจยืนยันตัวตน, และส่งรายงานประเมินผลงาน SNU Supply & Service',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SNU WFH',
+  },
   icons: {
-    icon: '/snu-logo.png',
-    apple: '/snu-logo.png',
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png',
   },
 };
-
-import { LanguageProvider } from '@/lib/i18n';
 
 export default function RootLayout({
   children,
@@ -48,6 +61,7 @@ export default function RootLayout({
           <div className="min-h-screen flex flex-col bg-slate-50">
             {children}
           </div>
+          <PwaRegister />
         </LanguageProvider>
       </body>
     </html>
