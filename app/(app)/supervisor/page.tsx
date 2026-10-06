@@ -141,7 +141,11 @@ export default function SupervisorPage() {
 
       if (tasksRes.ok) {
         const tData = await tasksRes.json();
-        setTasks(tData.tasks || []);
+        const list = tData.tasks || [];
+        // Only update if data returned or if initial load
+        if (list.length > 0 || tasks.length === 0) {
+          setTasks(list);
+        }
       }
 
       // 1. Populate official subordinates directly from Google Sheets
@@ -165,7 +169,9 @@ export default function SupervisorPage() {
       if (checkinsRes.ok) {
         const cData = await checkinsRes.json();
         const logs: (CheckinLog & { employee_name?: string })[] = cData.logs || [];
-        setTeamCheckins(logs);
+        if (logs.length > 0 || teamCheckins.length === 0) {
+          setTeamCheckins(logs);
+        }
 
         // Supplement any team members from logs & tasks if not already populated
         logs.forEach((l) => {
@@ -180,7 +186,10 @@ export default function SupervisorPage() {
         });
       }
 
-      setTeamMembers(Array.from(memberMap.values()));
+      // Guard: Never wipe out subordinates with an empty array on temporary background refresh glitches
+      if (memberMap.size > 0) {
+        setTeamMembers(Array.from(memberMap.values()));
+      }
     } catch (err) {
       console.error('Fetch supervisor data error:', err);
     } finally {

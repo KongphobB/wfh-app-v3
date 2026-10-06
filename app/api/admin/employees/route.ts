@@ -77,9 +77,9 @@ export async function GET() {
       return NextResponse.json({ employees: finalEmployees });
     }
 
-    // 2. Fallback to getSystemConfig
-    const configRes = await callGAS('getSystemConfig');
-    const employeesMap = configRes?.config?.employeesMap || {};
+    // 2. Fallback to getLiveEmployeesMap / getSystemConfig
+    const { getLiveEmployeesMap } = await import('@/lib/gas');
+    const employeesMap = await getLiveEmployeesMap();
 
     const employeesList: Employee[] = Object.keys(employeesMap).map((empId) => {
       const e = employeesMap[empId];
@@ -93,8 +93,8 @@ export async function GET() {
         position: e.position || null,
         supervisor_id: e.supervisorId ? String(e.supervisorId) : null,
         role: role,
-        wfh_status: e.wfhStatus || 'เปิดสิทธิ์',
-        one_star_count: e.oneStarCount || 0,
+        wfh_status: (e as any).wfhStatus || 'เปิดสิทธิ์',
+        one_star_count: (e as any).oneStarCount || 0,
         is_photo_exempt: checkExempt(String(empId), e.position, role),
         force_pin_change: false,
         created_at: new Date().toISOString(),

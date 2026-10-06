@@ -8,10 +8,10 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-// Global cache across module reloads in development/serverless warm instances
 declare global {
   var __gasApiCache: Map<string, CacheEntry> | undefined;
   var __gasInFlight: Map<string, Promise<any>> | undefined;
+  var __lastKnownEmployeesMap: Record<string, any> | undefined;
 }
 
 if (!global.__gasApiCache) {
@@ -20,6 +20,9 @@ if (!global.__gasApiCache) {
 if (!global.__gasInFlight) {
   global.__gasInFlight = new Map<string, Promise<any>>();
 }
+if (!global.__lastKnownEmployeesMap) {
+  global.__lastKnownEmployeesMap = {};
+}
 
 const apiCache = global.__gasApiCache;
 const inFlightRequests = global.__gasInFlight;
@@ -27,10 +30,10 @@ const inFlightRequests = global.__gasInFlight;
 // Cache TTL configurations (in milliseconds)
 // Longer TTLs drastically reduce Google Apps Script quota and latency spikes
 const CACHE_RULES: Record<string, number> = {
-  getSystemConfig: 300000,     // 5 minutes (was 60s)
-  getLogs: 45000,             // 45 seconds (was 15s)
-  getDashboardSummary: 45000, // 45 seconds (was 15s)
-  inspectTab: 180000,         // 3 minutes (was 20s)
+  getSystemConfig: 300000,     // 5 minutes
+  getLogs: 45000,             // 45 seconds
+  getDashboardSummary: 45000, // 45 seconds
+  inspectTab: 180000,         // 3 minutes
   adminGetLogPhoto: 3600000,  // 1 hour
 };
 
@@ -83,13 +86,28 @@ export async function getLiveEmployeesMap(): Promise<Record<string, { name: stri
           pin: row[6] ? String(row[6]).trim() : '',
         };
       }
-      return map;
+      if (Object.keys(map).length > 0) {
+        global.__lastKnownEmployeesMap = map;
+        return map;
+      }
     }
   } catch (err) {
     console.warn('Fallback getting live employees map:', err);
   }
-  const configRes = await callGAS('getSystemConfig');
-  return configRes?.config?.employeesMap || {};
+
+  try {
+    const configRes = await callGAS('getSystemConfig');
+    const cfgMap = configRes?.config?.employeesMap || {};
+    if (Object.keys(cfgMap).length > 0) {
+      global.__lastKnownEmployeesMap = cfgMap;
+      return cfgMap;
+    }
+  } catch (err) {
+    console.warn('Fallback to config failed:', err);
+  }
+
+  // Safety net: always return last known map so subordinates are never wiped!
+  return global.__lastKnownEmployeesMap || {};
 }
 
 async function fetchFromGAS(action: string, payload: Record<string, any>): Promise<any> {
@@ -112,6 +130,20 @@ async function fetchFromGAS(action: string, payload: Record<string, any>): Promi
   }
 }
 
+function isResponseContentValid(action: string, parsed: any): boolean {
+  if (!parsed || parsed.success === false) return false;
+  if (action === 'inspectTab') {
+    return Array.isArray(parsed.targetRows) && parsed.targetRows.length > 1;
+  }
+  if (action === 'getLogs') {
+    return Array.isArray(parsed.data);
+  }
+  if (action === 'getSystemConfig') {
+    return Boolean(parsed.config && typeof parsed.config === 'object');
+  }
+  return true;
+}
+
 export function callGAS<T = any>(action: string, rawPayload: Record<string, any> = {}): Promise<T> {
   const isMutation = MUTATION_ACTIONS.has(action);
 
@@ -125,9 +157,9 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
     } else if (rawPayload.logType === 'checkin') {
       payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 100, 200) };
       cacheKeySuffix = `logType_checkin`;
-    } else if (rawPayload.logType === 'tasks') {
+    } else if (rawPayload.logType === 'tasks' || rawPayload.logType === 'task') {
       payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 100, 200) };
-      cacheKeySuffix = `logType_tasks`;
+      cacheKeySuffix = `logType_task`;
     }
   }
 
@@ -154,8 +186,17 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
   const executionPromise = (async () => {
     try {
       const parsed = await fetchFromGAS(action, payload);
-      if (cacheTtl && parsed?.success) {
+      const isValid = isResponseContentValid(action, parsed);
+
+      if (cacheTtl && isValid) {
         apiCache.set(cacheKey, { data: parsed, expiresAt: Date.now() + cacheTtl });
+      } else if (!isValid && !isMutation) {
+        // If GAS returned empty/corrupted payload, fallback to existing stale cache
+        const staleCached = apiCache.get(cacheKey);
+        if (staleCached?.data) {
+          console.warn(`GAS returned empty/invalid content for ${action}, preserving cached data`);
+          return staleCached.data as T;
+        }
       }
       return parsed as T;
     } catch (err: any) {
@@ -170,7 +211,8 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
       if (!isMutation) {
         try {
           const retryParsed = await fetchFromGAS(action, payload);
-          if (cacheTtl && retryParsed?.success) {
+          const isRetryValid = isResponseContentValid(action, retryParsed);
+          if (cacheTtl && isRetryValid) {
             apiCache.set(cacheKey, { data: retryParsed, expiresAt: Date.now() + cacheTtl });
           }
           return retryParsed as T;
