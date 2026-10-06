@@ -205,10 +205,18 @@ export async function showNativeNotification(options: ShowNativeNotificationOpti
  * Trigger a test notification with sound, vibration, and banner
  */
 export async function testDeviceNotification(): Promise<{ success: boolean; message: string }> {
+  // 1. ALWAYS play chime sound and trigger vibration immediately (Synchronous User Gesture)
+  playSpotCheckChime(true);
+  if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([300, 150, 300, 150, 400]);
+    } catch {}
+  }
+
   if (!isNotificationSupported()) {
     return {
-      success: false,
-      message: 'อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับระบบ Notification',
+      success: true,
+      message: '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (อุปกรณ์นี้ไม่รองรับ Notification Banner)',
     };
   }
 
@@ -217,8 +225,8 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
     const granted = await requestNotificationPermission();
     if (!granted) {
       return {
-        success: false,
-        message: 'คุณยังไม่ได้อนุญาตการแจ้งเตือน (กรุณากดเปิดอนุญาตในแถบตั้งค่าของเบราว์เซอร์)',
+        success: true,
+        message: '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (แต่สิทธิ์แจ้งเตือนถูกบล็อก กรุณาเปิดในการตั้งค่าเบราว์เซอร์)',
       };
     }
   }
@@ -234,7 +242,7 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
       if (data.success) {
         return {
           success: true,
-          message: 'ส่งการแจ้งเตือน Web Push (VAPID) สำเร็จ! แถบแจ้งเตือนจะแสดงบนอุปกรณ์ของคุณ',
+          message: '🔔 ทดสอบเสียง, ระบบสั่น และส่ง Web Push สำเร็จ!',
         };
       }
     }
@@ -244,13 +252,14 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
     title: '🔔 ทดสอบการแจ้งเตือน SNU WFH',
     body: 'ระบบแจ้งเตือนทำงานได้สมบูรณ์แบบ! คุณจะไม่พลาดการสุ่มตรวจและงานสำคัญ',
     url: '/dashboard',
-    sound: 'spotcheck',
+    sound: 'none',
+    vibrate: [300, 150, 300],
     tag: 'test_notification',
     requireInteraction: false,
   });
 
   return {
     success: true,
-    message: 'ส่งการแจ้งเตือนทดสอบสำเร็จ! โปรดดูแถบแจ้งเตือนบนหน้าจอของคุณ',
+    message: '🔔 ทดสอบเสียง, ระบบสั่น และการแจ้งเตือนสำเร็จ!',
   };
 }

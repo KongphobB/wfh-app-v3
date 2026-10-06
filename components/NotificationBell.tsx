@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, CheckCheck, BellRing, Sparkles, Smartphone, Volume2 } from 'lucide-react';
 import { AppNotification } from '@/types';
 import { useLanguage } from '@/lib/i18n';
-import { playTicketAlertSound, playNotificationChime } from '@/lib/sound';
+import { playTicketAlertSound, playNotificationChime, playSpotCheckChime } from '@/lib/sound';
 import {
   showNativeNotification,
   getNotificationPermission,
@@ -128,6 +128,13 @@ export default function NotificationBell() {
 
   const handleTestNotification = async () => {
     setIsTestingNotif(true);
+    // Synchronously play chime and vibrate immediately on user tap
+    playSpotCheckChime(true);
+    if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([300, 150, 300, 150, 400]);
+      } catch {}
+    }
     try {
       const result = await testDeviceNotification();
       setPermissionState(getNotificationPermission());

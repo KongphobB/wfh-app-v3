@@ -18,6 +18,7 @@ import LanguageToggle from '@/components/LanguageToggle';
 import SoundToggle from '@/components/SoundToggle';
 import ThemeToggle from '@/components/ThemeToggle';
 import { testDeviceNotification } from '@/lib/clientNotification';
+import { playSpotCheckChime } from '@/lib/sound';
 import { toast } from 'sonner';
 
 interface MobileNavigationProps {
@@ -255,6 +256,14 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
                 <button
                   type="button"
                   onClick={async () => {
+                    // Synchronously play chime and vibrate immediately on user tap
+                    playSpotCheckChime(true);
+                    if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+                      try {
+                        navigator.vibrate([300, 150, 300, 150, 400]);
+                      } catch {}
+                    }
+                    toast.info(lang === 'en' ? 'Triggering alert test...' : 'กำลังทดสอบเสียงและส่งสัญญาณแจ้งเตือน...');
                     const res = await testDeviceNotification();
                     if (res.success) {
                       toast.success(res.message);

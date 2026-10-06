@@ -54,35 +54,41 @@ export function playSpotCheckChime(force = false): void {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
+
+    const playNotes = () => {
+      const now = ctx.currentTime;
+      // Distinctive 4-note chime with crisp presence: D5 -> A5 -> D6 -> F#6
+      const notes = [
+        { freq: 587.33, time: now, dur: 0.25 },        // D5
+        { freq: 880.00, time: now + 0.16, dur: 0.35 }, // A5
+        { freq: 1174.66, time: now + 0.34, dur: 0.5 },// D6
+        { freq: 1479.98, time: now + 0.55, dur: 0.8 },// F#6
+      ];
+
+      notes.forEach(({ freq, time, dur }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+
+        // Louder and clearer for phone speakers
+        gain.gain.setValueAtTime(0.55, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(time);
+        osc.stop(time + dur);
+      });
+    };
+
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      ctx.resume().then(playNotes).catch(playNotes);
+    } else {
+      playNotes();
     }
-
-    const now = ctx.currentTime;
-    // Distinctive 4-note chime with crisp presence: D5 -> A5 -> D6 -> F#6
-    const notes = [
-      { freq: 587.33, time: now, dur: 0.25 },        // D5
-      { freq: 880.00, time: now + 0.16, dur: 0.35 }, // A5
-      { freq: 1174.66, time: now + 0.34, dur: 0.5 },// D6
-      { freq: 1479.98, time: now + 0.55, dur: 0.8 },// F#6
-    ];
-
-    notes.forEach(({ freq, time, dur }) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, time);
-
-      gain.gain.setValueAtTime(0.28, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(time);
-      osc.stop(time + dur);
-    });
   } catch (e) {
     console.warn('Audio playback error:', e);
   }
