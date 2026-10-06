@@ -400,3 +400,9 @@ button, a, input, select, textarea {
   }
 }
 
+/* Mirror camera preview for natural selfie reflection */
+.mirror {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
+

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, MapPin, X, AlertCircle, CheckCircle2, BellRing, RefreshCw, ShieldCheck, Volume2 } from 'lucide-react';
+import { Camera, MapPin, X, AlertCircle, CheckCircle2, BellRing, RefreshCw, ShieldCheck, Volume2, SwitchCamera } from 'lucide-react';
 import { SpotCheck } from '@/types';
 import { Button } from '@/components/ui/button';
 import { getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
@@ -22,6 +22,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   const [outOfBoundsReason, setOutOfBoundsReason] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [cameraError, setCameraError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isPhotoExempt, setIsPhotoExempt] = useState(false);
@@ -161,8 +162,9 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       setPopupAlert(null);
       setOutOfBoundsReason('');
       setFirstCheckInGps(null);
+      setFacingMode('user');
       getGpsLocation();
-      startCamera();
+      startCamera('user');
       fetchFirstCheckIn();
       fetch('/api/spotcheck')
         .then((r) => r.json())
@@ -196,11 +198,19 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
     try {
       setCameraError('');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        video: {
+          facingMode: { ideal: mode },
+          width: { ideal: 720 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -211,9 +221,15 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       setIsCameraActive(true);
     } catch (err: any) {
       console.warn('Camera error in SpotCheck:', err);
-      setCameraError('ไม่สามารถเข้าถึงกล้องเว็บแคมได้ (กรุณาอนุญาตการเข้าถึงกล้องเพื่อสุ่มตรวจ)');
+      setCameraError('ไม่สามารถเข้าถึงกล้องได้ (กรุณาอนุญาตการเข้าถึงกล้องเพื่อสุ่มตรวจ)');
       setIsCameraActive(false);
     }
+  };
+
+  const toggleFacingMode = () => {
+    const nextMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
   };
 
   const stopCamera = () => {
@@ -226,13 +242,34 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
 
   const capturePhoto = () => {
     if (!videoRef.current) return;
+    const video = videoRef.current;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+
+    // Viewfinder is a 1:1 square with object-cover.
+    // Calculate square crop from center of video stream.
+    const cropSize = Math.min(vw, vh);
+    const sx = (vw - cropSize) / 2;
+    const sy = (vh - cropSize) / 2;
+
+    const targetSize = Math.min(cropSize, 720);
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // If user facing (selfie camera), mirror horizontally so photo matches preview WYSIWYG
+      if (facingMode === 'user') {
+        ctx.translate(targetSize, 0);
+        ctx.scale(-1, 1);
+      }
+
+      ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotoDataUrl(dataUrl);
       stopCamera();
     }
@@ -405,24 +442,51 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
 
           {/* Camera Viewfinder */}
           <div className="mb-4">
-            <div className="relative w-full aspect-video max-h-52 sm:max-h-64 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner">
+            <div className="relative w-full max-w-[260px] sm:max-w-[300px] aspect-square mx-auto rounded-3xl bg-slate-900 border-2 border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shadow-lg">
               {photoDataUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={photoDataUrl} alt="Spotcheck preview" className="w-full h-full object-cover" />
               ) : isCameraActive ? (
-                <video ref={setVideoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
+                <>
+                  <video
+                    ref={setVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${facingMode === 'user' ? 'mirror' : ''}`}
+                  />
+
+                  {/* Face framing guide overlay */}
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="w-[72%] h-[80%] rounded-[50%] border-2 border-dashed border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] flex items-end justify-center pb-3 transition-all">
+                      <span className="text-[10px] font-medium text-white/95 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
+                        {lang === 'en' ? 'Position face here' : 'จัดใบหน้าให้อยู่ในกรอบ'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Flip camera button */}
+                  <button
+                    type="button"
+                    onClick={toggleFacingMode}
+                    className="absolute top-2.5 right-2.5 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-sm transition-all cursor-pointer shadow-md active:scale-95 z-10"
+                    title={lang === 'en' ? 'Switch camera (Front/Back)' : 'สลับกล้องหน้า/หลัง'}
+                  >
+                    <SwitchCamera className="w-4 h-4" />
+                  </button>
+                </>
               ) : (
-                <div className="text-center p-4 text-slate-500">
+                <div className="text-center p-4 text-slate-300">
                   <Camera className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                  <p className="text-xs font-bold text-slate-600 mb-3 px-4 leading-relaxed">
-                    {cameraError || (lang === 'en' ? 'Activating webcam...' : 'กำลังเปิดกล้องเว็บแคม...')}
+                  <p className="text-xs font-bold text-slate-200 mb-3 px-2 leading-relaxed">
+                    {cameraError || (lang === 'en' ? 'Activating camera...' : 'กำลังเปิดกล้อง...')}
                   </p>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={startCamera}
-                    className="text-xs font-bold gap-1 text-slate-700 bg-white cursor-pointer"
+                    onClick={() => startCamera(facingMode)}
+                    className="text-xs font-bold gap-1 text-slate-800 bg-white hover:bg-slate-100 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>{lang === 'en' ? 'Retry Camera' : 'ลองเปิดกล้องใหม่'}</span>
@@ -441,7 +505,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
                   type="button"
                   onClick={() => {
                     setPhotoDataUrl(null);
-                    startCamera();
+                    startCamera(facingMode);
                   }}
                   className="text-orange-600 hover:underline flex items-center gap-1 font-bold cursor-pointer"
                 >
