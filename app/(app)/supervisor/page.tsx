@@ -1462,30 +1462,60 @@ export default function SupervisorPage() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {emp.status === 'on_time' && (
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">
-                            <CheckCircle2 className="w-3 h-3" />
-                            ตรงเวลา
-                          </span>
-                          {emp.checkinTime && (
-                            <div className="text-xs text-slate-800 font-mono mt-0.5 font-bold">
-                              {emp.checkinTime} น.
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">
+                              <CheckCircle2 className="w-3 h-3" />
+                              ตรงเวลา
+                            </span>
+                            {emp.checkinTime && (
+                              <div className="text-xs text-slate-800 font-mono mt-0.5 font-bold">
+                                {emp.checkinTime} น.
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatusModalFilter(null);
+                              setStatusModalSearch('');
+                              openTriggerSpotCheckModal({ id: emp.id, name: emp.name });
+                            }}
+                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1 shrink-0"
+                            title="สั่งสุ่มตรวจพนักงานคนนี้"
+                          >
+                            <BellRing className="w-3 h-3" />
+                            <span>สั่งสุ่มตรวจ</span>
+                          </button>
                         </div>
                       )}
 
                       {emp.status === 'late' && (
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-bold">
-                            <AlertCircle className="w-3 h-3" />
-                            เข้างานสาย
-                          </span>
-                          {emp.checkinTime && (
-                            <div className="text-xs text-amber-700 font-mono mt-0.5 font-bold">
-                              {emp.checkinTime} น.
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-bold">
+                              <AlertCircle className="w-3 h-3" />
+                              เข้างานสาย
+                            </span>
+                            {emp.checkinTime && (
+                              <div className="text-xs text-amber-700 font-mono mt-0.5 font-bold">
+                                {emp.checkinTime} น.
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatusModalFilter(null);
+                              setStatusModalSearch('');
+                              openTriggerSpotCheckModal({ id: emp.id, name: emp.name });
+                            }}
+                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1 shrink-0"
+                            title="สั่งสุ่มตรวจพนักงานคนนี้"
+                          >
+                            <BellRing className="w-3 h-3" />
+                            <span>สั่งสุ่มตรวจ</span>
+                          </button>
                         </div>
                       )}
 
@@ -1497,14 +1527,11 @@ export default function SupervisorPage() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => {
-                              setStatusModalFilter(null);
-                              setStatusModalSearch('');
-                              setTriggerTarget({ id: emp.id, name: emp.name });
-                            }}
-                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors"
+                            disabled
+                            className="px-2.5 py-1 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-[10px] font-bold cursor-not-allowed opacity-70"
+                            title="พนักงานยังไม่ได้ลงเวลาเข้างาน ไม่สามารถสั่งสุ่มตรวจได้"
                           >
-                            สั่งสุ่มตรวจ
+                            ไม่สามารถสุ่มตรวจได้
                           </button>
                         </div>
                       )}
