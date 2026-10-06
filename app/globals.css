@@ -353,3 +353,50 @@ html.dark ::-webkit-scrollbar-thumb {
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* ==========================================================================
+   📱 MOBILE & IPAD / TABLET OPTIMIZATIONS (Native-feel Touch & Viewport)
+   ========================================================================== */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* iOS Safe Area Insets (iPhone Home bar, Dynamic Island, Notch & iPad) */
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+
+.safe-area-bottom {
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-area-left {
+  padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+}
+
+.safe-area-right {
+  padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+}
+
+/* iOS Momentum Smooth Scrolling */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Active touch states for mobile buttons (smooth subtle press feedback) */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  a:active {
+    opacity: 0.85;
+    transform: scale(0.985);
+    transition: transform 0.08s ease, opacity 0.08s ease;
+  }
+}
+

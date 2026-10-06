@@ -535,7 +535,7 @@ export default function SupervisorPage() {
       </div>
 
       {/* Feature 2: Team Attendance & Performance Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Checkin Today */}
         <Card
           onClick={() => {
@@ -544,21 +544,21 @@ export default function SupervisorPage() {
           }}
           className="border-slate-200/80 shadow-xs hover:shadow-md hover:border-emerald-300 transition-all bg-gradient-to-br from-white to-emerald-50/30 cursor-pointer group active:scale-[0.99]"
         >
-          <CardContent className="p-4.5 flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <CardContent className="p-3 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                   {t.supervisor.checkedInToday}
                 </span>
-                <span className="text-[10px] font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="hidden sm:inline text-[10px] font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
                   ดูรายชื่อ ➔
                 </span>
               </div>
-              <div className="text-2xl font-black text-slate-900">
+              <div className="text-xl sm:text-2xl font-black text-slate-900">
                 {stats.checkedInCount}{' '}
-                <span className="text-xs font-bold text-slate-500">/ {stats.totalTeam || stats.checkedInCount} {lang === 'en' ? 'members' : 'คน'}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500">/ {stats.totalTeam || stats.checkedInCount} {lang === 'en' ? 'm.' : 'คน'}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 pt-0.5">
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-600 pt-0.5 flex-wrap">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -568,7 +568,7 @@ export default function SupervisorPage() {
                   }}
                   className="inline-flex items-center gap-0.5 text-emerald-600 font-bold hover:underline cursor-pointer"
                 >
-                  <CheckCircle className="w-3 h-3" /> {lang === 'en' ? 'On Time ' : 'ตรงเวลา '}{stats.onTimeCount}
+                  <CheckCircle className="w-3 h-3" /> {lang === 'en' ? 'On Time ' : 'ตรง '}{stats.onTimeCount}
                 </button>
                 {stats.lateCount > 0 && (
                   <button
@@ -585,8 +585,8 @@ export default function SupervisorPage() {
                 )}
               </div>
             </div>
-            <div className="p-3 bg-emerald-100/70 text-emerald-700 rounded-2xl group-hover:scale-105 transition-transform">
-              <Clock className="w-6 h-6" />
+            <div className="hidden sm:flex p-2 sm:p-3 bg-emerald-100/70 text-emerald-700 rounded-2xl group-hover:scale-105 transition-transform shrink-0">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </CardContent>
         </Card>
@@ -599,24 +599,24 @@ export default function SupervisorPage() {
           }}
           className="border-slate-200/80 shadow-xs hover:shadow-md hover:border-rose-300 transition-all bg-gradient-to-br from-white to-rose-50/30 cursor-pointer group active:scale-[0.99]"
         >
-          <CardContent className="p-4.5 flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <CardContent className="p-3 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
                   {t.supervisor.missingCheckin}
                 </span>
-                <span className="text-[10px] font-bold text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="hidden sm:inline text-[10px] font-bold text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity">
                   ดูรายชื่อ ➔
                 </span>
               </div>
-              <div className="text-2xl font-black text-slate-900">
+              <div className="text-xl sm:text-2xl font-black text-slate-900">
                 {stats.missingCount}{' '}
-                <span className="text-xs font-bold text-slate-500">{lang === 'en' ? 'members' : 'คน'}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500">{lang === 'en' ? 'm.' : 'คน'}</span>
               </div>
-              <div className="text-[11px] font-semibold text-slate-600 truncate max-w-[170px] pt-0.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold text-slate-600 truncate max-w-full pt-0.5">
                 {stats.missingCount === 0 ? (
                   <span className="text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {lang === 'en' ? 'All members checked in 🎉' : 'ทุกคนลงเวลาครบแล้ว 🎉'}
+                    <CheckCircle2 className="w-3 h-3" /> {lang === 'en' ? 'All in 🎉' : 'ครบแล้ว 🎉'}
                   </span>
                 ) : (
                   <span className="text-rose-600 font-bold">
@@ -625,8 +625,8 @@ export default function SupervisorPage() {
                 )}
               </div>
             </div>
-            <div className={`p-3 rounded-2xl group-hover:scale-105 transition-transform ${stats.missingCount === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-              <Users className="w-6 h-6" />
+            <div className={`hidden sm:flex p-2 sm:p-3 rounded-2xl group-hover:scale-105 transition-transform shrink-0 ${stats.missingCount === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </CardContent>
         </Card>
@@ -639,46 +639,46 @@ export default function SupervisorPage() {
           }}
           className="border-slate-200/80 shadow-xs hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-white to-orange-50/30 hover:border-orange-300"
         >
-          <CardContent className="p-4.5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <CardContent className="p-3 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">
                 {t.supervisor.pendingRating}
               </span>
-              <div className="text-2xl font-black text-orange-600">
+              <div className="text-xl sm:text-2xl font-black text-orange-600">
                 {stats.unratedCount}{' '}
-                <span className="text-xs font-bold text-slate-500">/ {stats.totalTasks} {lang === 'en' ? 'tasks' : 'งาน'}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500">/ {stats.totalTasks} {lang === 'en' ? 't.' : 'งาน'}</span>
               </div>
-              <div className="text-[11px] font-semibold text-slate-500 pt-0.5">
+              <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 pt-0.5 truncate">
                 {stats.unratedCount > 0 ? (
-                  <span className="text-orange-600 font-bold hover:underline">{lang === 'en' ? 'Click to review tasks ↗' : 'คลิกเพื่อเริ่มตรวจงาน ↗'}</span>
+                  <span className="text-orange-600 font-bold hover:underline">{lang === 'en' ? 'Review tasks ↗' : 'คลิกเพื่อตรวจ ↗'}</span>
                 ) : (
-                  <span className="text-emerald-600 font-bold">{lang === 'en' ? 'All tasks reviewed ✨' : 'ตรวจครบทุกใบงานแล้ว ✨'}</span>
+                  <span className="text-emerald-600 font-bold">{lang === 'en' ? 'Reviewed ✨' : 'ตรวจครบแล้ว ✨'}</span>
                 )}
               </div>
             </div>
-            <div className="p-3 bg-orange-100/80 text-orange-600 rounded-2xl">
-              <Sparkles className="w-6 h-6" />
+            <div className="hidden sm:flex p-2 sm:p-3 bg-orange-100/80 text-orange-600 rounded-2xl shrink-0">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
           </CardContent>
         </Card>
 
         {/* Card 4: Team Average Rating */}
         <Card className="border-slate-200/80 shadow-xs hover:shadow-md transition-shadow bg-gradient-to-br from-white to-amber-50/30">
-          <CardContent className="p-4.5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <CardContent className="p-3 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">
                 {t.supervisor.avgTeamRating}
               </span>
-              <div className="text-2xl font-black text-amber-500 flex items-center gap-1.5">
+              <div className="text-xl sm:text-2xl font-black text-amber-500 flex items-center gap-1">
                 {stats.avgRating}{' '}
-                <span className="text-xs font-bold text-slate-500">/ 5.0</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500">/ 5.0</span>
               </div>
-              <div className="text-[11px] font-semibold text-slate-500 pt-0.5">
-                {lang === 'en' ? `Evaluated ${stats.ratedCount} items` : `ประเมินแล้ว ${stats.ratedCount} รายการ`}
+              <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 pt-0.5 truncate">
+                {lang === 'en' ? `${stats.ratedCount} items` : `ประเมินแล้ว ${stats.ratedCount}`}
               </div>
             </div>
-            <div className="p-3 bg-amber-100/80 text-amber-600 rounded-2xl">
-              <Star className="w-6 h-6 fill-amber-500 text-amber-500" />
+            <div className="hidden sm:flex p-2 sm:p-3 bg-amber-100/80 text-amber-600 rounded-2xl shrink-0">
+              <Star className="w-5 h-5 sm:w-6 sm:h-6 fill-amber-500 text-amber-500" />
             </div>
           </CardContent>
         </Card>

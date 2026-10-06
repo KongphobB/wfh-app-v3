@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { isEmployeePhotoExempt, getExemptConfig, getLocalExemptIds, saveLocalExemptIds } from '@/lib/photoExempt';
 
+vi.mock('@/lib/gas', () => ({
+  callGAS: vi.fn().mockResolvedValue({
+    config: {
+      photo_exempt_positions: 'Senior, Manager, ซีเนียร์, ผู้จัดการ, ผจก, ผจก., หัวหน้า, Leader, Supervisor, Admin, Executive',
+      auto_exempt_supervisors: 'true',
+    },
+  }),
+}));
+
 describe('Photo Exemption Logic QA Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -517,16 +517,16 @@ export default function DashboardPage() {
 
             {/* Time Counter Display */}
             <div className="mt-4 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-              <div className="flex items-baseline font-mono tracking-tight text-slate-900 dark:text-slate-100">
-                <span className="text-3xl sm:text-4xl font-extrabold">{workDurationData.hours}</span>
-                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-3">{t.dashboard.hoursUnit}</span>
+              <div className="flex items-baseline font-mono tracking-tight text-slate-900 dark:text-slate-100 flex-wrap">
+                <span className="text-2xl sm:text-4xl font-extrabold">{workDurationData.hours}</span>
+                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-2 sm:mr-3">{t.dashboard.hoursUnit}</span>
 
-                <span className="text-3xl sm:text-4xl font-extrabold">{String(workDurationData.minutes).padStart(2, '0')}</span>
-                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-3">{t.dashboard.minutesUnit}</span>
+                <span className="text-2xl sm:text-4xl font-extrabold">{String(workDurationData.minutes).padStart(2, '0')}</span>
+                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-2 sm:mr-3">{t.dashboard.minutesUnit}</span>
 
                 {!workDurationData.isCompleted && (
                   <>
-                    <span className="text-3xl sm:text-4xl font-extrabold text-orange-600 dark:text-orange-400">
+                    <span className="text-2xl sm:text-4xl font-extrabold text-orange-600 dark:text-orange-400">
                       {String(workDurationData.seconds).padStart(2, '0')}
                     </span>
                     <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1">{t.dashboard.secondsUnit}</span>
@@ -662,44 +662,44 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Action Navigation Buttons */}
-      <div className={`grid gap-4 ${userRole === 'supervisor' || userRole === 'admin' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+      <div className={`grid gap-3 sm:gap-4 ${userRole === 'supervisor' || userRole === 'admin' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
         <Link href="/checkin" className="block group">
-          <Card className="h-full border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all">
-            <CardContent className="p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+          <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:shadow-md transition-all">
+            <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">{t.dashboard.checkinBtn}</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">{t.checkin.pageSubtitle}</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{t.dashboard.checkinBtn}</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{t.checkin.pageSubtitle}</p>
               </div>
             </CardContent>
           </Card>
         </Link>
 
         <Link href="/spotcheck" className="block group">
-          <Card className="h-full border-slate-200 hover:border-orange-500 hover:shadow-md transition-all">
-            <CardContent className="p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+          <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-orange-500 hover:shadow-md transition-all">
+            <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <BellRing className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">{t.dashboard.spotcheckBtn}</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">{t.spotcheck.subtitle}</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{t.dashboard.spotcheckBtn}</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{t.spotcheck.subtitle}</p>
               </div>
             </CardContent>
           </Card>
         </Link>
 
-        <Link href="/tasks" className="block group">
-          <Card className="h-full border-slate-200 hover:border-amber-500 hover:shadow-md transition-all">
-            <CardContent className="p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+        <Link href="/tasks" className={`block group ${userRole === 'supervisor' || userRole === 'admin' ? '' : 'col-span-2 sm:col-span-1'}`}>
+          <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-amber-500 hover:shadow-md transition-all">
+            <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">{t.dashboard.tasksBtn}</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">{t.tasks.subtitle}</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{t.dashboard.tasksBtn}</h4>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{t.tasks.subtitle}</p>
               </div>
             </CardContent>
           </Card>

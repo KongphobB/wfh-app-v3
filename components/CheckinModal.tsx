@@ -383,11 +383,11 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       )}
 
       {/* Main Checkin Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-        <div className="glass-card w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 bg-white relative max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in safe-area-bottom safe-area-top">
+        <div className="glass-card w-full max-w-lg rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 bg-white relative max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 transition-colors"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -512,7 +512,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
                   <span>{lang === 'en' ? 'Your position is exempt from live selfie requirement. You may proceed directly or take a photo optionally.' : 'ตำแหน่งของคุณได้รับการยกเว้นไม่ต้องถ่ายภาพ Selfie สด (สามารถกดบันทึกได้ทันที หรือถ่ายภาพตามสะดวก)'}</span>
                 </div>
               )}
-              <div className="relative w-full aspect-video rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner">
+              <div className="relative w-full aspect-video max-h-56 sm:max-h-72 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner">
                 {photoDataUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={photoDataUrl} alt="Selfie preview" className="w-full h-full object-cover" />
