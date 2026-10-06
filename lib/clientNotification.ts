@@ -36,6 +36,64 @@ export function getNotificationPermission(): NotificationPermissionState {
   return Notification.permission as NotificationPermissionState;
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/**
+ * Register PushSubscription with service worker and server
+ */
+export async function subscribeToWebPush(): Promise<boolean> {
+  if (
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window)
+  ) {
+    return false;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg || !reg.pushManager) return false;
+
+    // Fetch VAPID public key
+    const res = await fetch('/api/push/public-key');
+    if (!res.ok) return false;
+    const { publicKey } = await res.json();
+    if (!publicKey) return false;
+
+    let subscription = await reg.pushManager.getSubscription();
+    if (!subscription) {
+      const appServerKey = urlBase64ToUint8Array(publicKey);
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey as any,
+      });
+    }
+
+    if (!subscription) return false;
+
+    const subJson = subscription.toJSON();
+    const saveRes = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: subJson }),
+    });
+
+    return saveRes.ok;
+  } catch (err) {
+    console.warn('subscribeToWebPush error:', err);
+    return false;
+  }
+}
+
 /**
  * Request notification permission from the user (Must be triggered by a user gesture / tap)
  */
@@ -46,7 +104,11 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
   try {
     const perm = await Notification.requestPermission();
-    return perm === 'granted';
+    if (perm === 'granted') {
+      subscribeToWebPush().catch(() => {});
+      return true;
+    }
+    return false;
   } catch (err) {
     console.warn('requestNotificationPermission error:', err);
     return false;
@@ -160,6 +222,23 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
       };
     }
   }
+
+  // Ensure push subscription is active
+  await subscribeToWebPush().catch(() => {});
+
+  // Try Server-side Web Push first to test real background push delivery
+  try {
+    const pushRes = await fetch('/api/push/test', { method: 'POST' });
+    if (pushRes.ok) {
+      const data = await pushRes.json();
+      if (data.success) {
+        return {
+          success: true,
+          message: 'ส่งการแจ้งเตือน Web Push (VAPID) สำเร็จ! แถบแจ้งเตือนจะแสดงบนอุปกรณ์ของคุณ',
+        };
+      }
+    }
+  } catch {}
 
   await showNativeNotification({
     title: '🔔 ทดสอบการแจ้งเตือน SNU WFH',

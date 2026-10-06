@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SpotCheckModal from '@/components/SpotCheckModal';
 import { SpotCheck } from '@/types';
 import { playSpotCheckAlert } from '@/lib/sound';
-import { showNativeNotification } from '@/lib/clientNotification';
+import { showNativeNotification, subscribeToWebPush } from '@/lib/clientNotification';
 import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { BellRing, Clock, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -117,10 +117,20 @@ export default function GlobalSpotCheckWatcher() {
     }
   };
 
-  // Smart visibility-aware polling (25s when active tab, pauses when hidden, instant check on focus)
+  // Smart visibility-aware polling & Web Push subscription setup
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        subscribeToWebPush().catch(() => {});
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission()
+          .then((perm) => {
+            if (perm === 'granted') {
+              subscribeToWebPush().catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     checkPendingSpotCheck();

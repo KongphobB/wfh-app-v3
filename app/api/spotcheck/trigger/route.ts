@@ -114,6 +114,23 @@ export async function POST(request: Request) {
       });
     }
 
+    // Full Web Push Notification to wake up mobile device / lock screen (PWA Background Push)
+    try {
+      const { sendPushToEmployee } = await import('@/lib/webPush');
+      sendPushToEmployee(String(employee_id), {
+        title: '🔔 คำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ!',
+        body: `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${timeStr} น.)${note ? ` หมายเหตุ: "${note}"` : ''}`,
+        url: '/spotcheck',
+        tag: `spotcheck_${employee_id}_${Date.now()}`,
+        vibrate: [300, 150, 300, 150, 400],
+        requireInteraction: true,
+      }).catch((pushErr) => {
+        console.warn('Failed to dispatch web push alert:', pushErr);
+      });
+    } catch (pushImportErr) {
+      console.warn('Failed to import webPush:', pushImportErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: `ส่งคำสั่งสุ่มตรวจไปยังคุณ ${empName} (${employee_id}) เรียบร้อยแล้ว (ระบบเริ่มนับถอยหลัง 10 นาที พร้อมส่งเมลเตือนตรงเข้ากล่องข้อความ)`,
