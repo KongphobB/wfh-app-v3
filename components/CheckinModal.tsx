@@ -563,15 +563,6 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
                       className={`w-full h-full object-cover ${facingMode === 'user' ? 'mirror' : ''}`}
                     />
 
-                    {/* Face framing guide overlay */}
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="w-[72%] h-[80%] rounded-[50%] border-2 border-dashed border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] flex items-end justify-center pb-3 transition-all">
-                        <span className="text-[10px] font-medium text-white/95 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
-                          {lang === 'en' ? 'Position face here' : 'จัดใบหน้าให้อยู่ในกรอบ'}
-                        </span>
-                      </div>
-                    </div>
-
                     {/* Flip camera button */}
                     <button
                       type="button"
