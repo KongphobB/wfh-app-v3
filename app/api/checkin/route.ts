@@ -191,10 +191,9 @@ export async function GET(request: Request) {
         l.photo,
         l.photoUrl,
         l.uuid,
-        `${l.employeeId}_${l.date}`,
         `${l.employeeId}_${l.date}_${l.time}`,
-        `spot_${l.employeeId}_${l.date}`,
-        String(l.employeeId),
+        `${l.employeeId}_${l.date}_${l.type}`,
+        `spot_${l.employeeId}_${l.date}_${l.uuid}`,
       ]);
 
       // If photo was saved in Google Drive (hasPhoto is true or photo exists)
@@ -305,10 +304,9 @@ export async function POST(request: Request) {
     const todayStr = getThaiDateStr();
 
     // Store in memory cache & disk for persistent preview
+    const typeKey = `${session.employee_id}_${todayStr}_${log_type}`;
     if (photo_base64 && typeof photo_base64 === 'string') {
-      saveSelfiePhoto(`${session.employee_id}_${todayStr}`, photo_base64, [
-        String(session.employee_id),
-      ]);
+      saveSelfiePhoto(typeKey, photo_base64);
     }
 
     const effectiveReason = out_of_bounds_reason || note || body.reason || '';
@@ -336,10 +334,7 @@ export async function POST(request: Request) {
     }
 
     if (gasResult?.data?.uuid && photo_base64) {
-      saveSelfiePhoto(gasResult.data.uuid, photo_base64, [
-        `${session.employee_id}_${todayStr}`,
-        String(session.employee_id),
-      ]);
+      saveSelfiePhoto(gasResult.data.uuid, photo_base64, [typeKey]);
     }
 
     // If check-in is late (หลัง 08:00 น.), send email notification to BOTH supervisor and admin

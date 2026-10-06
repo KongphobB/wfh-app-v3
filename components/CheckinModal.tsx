@@ -345,7 +345,6 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         try {
           const today = getThaiDateStr();
           localStorage.setItem(`wfh_selfie_${today}_${logType}`, photoDataUrl);
-          localStorage.setItem(`wfh_selfie_${today}`, photoDataUrl);
           if (data?.data?.uuid) {
             localStorage.setItem(`wfh_selfie_${data.data.uuid}`, photoDataUrl);
           }

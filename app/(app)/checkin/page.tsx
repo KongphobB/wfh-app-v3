@@ -95,7 +95,6 @@ export default function CheckinPage() {
       return (
         localStorage.getItem(`wfh_selfie_${log.id}`) ||
         localStorage.getItem(`wfh_selfie_${log.log_date}_${log.log_type}`) ||
-        localStorage.getItem(`wfh_selfie_${log.log_date}`) ||
         localStorage.getItem(`wfh_selfie_spot_${log.id}`) ||
         null
       );

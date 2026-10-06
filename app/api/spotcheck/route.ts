@@ -219,10 +219,7 @@ export async function POST(request: Request) {
 
     if (photo_base64 && typeof photo_base64 === 'string') {
       saveSelfiePhoto(spot_check_id, photo_base64, [
-        session.employee_id,
-        `${session.employee_id}_${todayStr}`,
-        `${session.employee_id}_${todayStr}_${spot_check_id}`,
-        `spot_${session.employee_id}_${todayStr}`,
+        `spot_${session.employee_id}_${todayStr}_${spot_check_id}`,
       ]);
     }
 
