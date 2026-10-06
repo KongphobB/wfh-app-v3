@@ -91,7 +91,12 @@ export async function GET() {
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
-    const activeSpotCheck = formattedSpots.find((s) => s.result_status === 'Pending') || null;
+    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
+    const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
+    const activeManual = manualChecks.find(
+      (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
+    );
+    const activeSpotCheck = activeManual || formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled') || null;
 
     return NextResponse.json({
       success: true,

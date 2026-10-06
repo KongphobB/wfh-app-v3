@@ -11,12 +11,16 @@ import { SpotCheck } from '@/types';
 import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
 
+const SPOTCHECK_STORAGE_KEY = 'wfh_active_spotcheck';
+
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
 
   const todayStr = getThaiDateStr(getSyncedNow());
   if (s.check_date !== todayStr) return false;
+
+  const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
 
   let triggerTimeMs = 0;
   if (s.created_at) {
@@ -27,11 +31,13 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   }
 
   const nowMs = getSyncedNow();
-  if (nowMs < triggerTimeMs) {
+  // สำหรับการสุ่มตรวจเฉพาะกิจ: ถือว่าเริ่มทันที ไม่ต้องรอนาฬิกาเครื่องตรงกัน
+  if (!isManual && nowMs < triggerTimeMs - 5000) {
     return false;
   }
 
-  const deadlineMs = triggerTimeMs + 10 * 60 * 1000;
+  // เกินเวลา 10 นาที (เผื่อ tolerance 1 นาที) -> หมดเวลา
+  const deadlineMs = triggerTimeMs + 11 * 60 * 1000;
   if (nowMs > deadlineMs) {
     return false;
   }
@@ -46,6 +52,22 @@ export default function SpotCheckPage() {
   const [activeCheck, setActiveCheck] = useState<SpotCheck | null>(null);
   const [modalCheck, setModalCheck] = useState<SpotCheck | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
+
+  // Restore active spot check from localStorage immediately on mount
+  useEffect(() => {
+    try {
+      const cachedRaw = localStorage.getItem(SPOTCHECK_STORAGE_KEY);
+      if (cachedRaw) {
+        const cachedCheck: SpotCheck = JSON.parse(cachedRaw);
+        if (isSpotCheckCurrentlyActive(cachedCheck)) {
+          setActiveCheck(cachedCheck);
+          setModalCheck(cachedCheck); // Automatically open modal on page visit
+        } else {
+          localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+        }
+      }
+    } catch {}
+  }, []);
 
   const fetchSpotChecks = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -87,7 +109,32 @@ export default function SpotCheckPage() {
 
   useEffect(() => {
     const pending = spotChecks.find((s: SpotCheck) => isSpotCheckCurrentlyActive(s));
-    setActiveCheck(pending || null);
+    if (pending) {
+      setActiveCheck(pending);
+      try {
+        localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(pending));
+      } catch {}
+    } else if (activeCheck) {
+      const isManual = Boolean(activeCheck.id?.startsWith('SPOT-MANUAL') || activeCheck.round?.includes('เฉพาะกิจ'));
+      const createdMs = activeCheck.created_at ? new Date(activeCheck.created_at).getTime() : 0;
+      const nowMs = getSyncedNow();
+      const isStillValid = isManual && createdMs > 0 && nowMs <= createdMs + 11 * 60 * 1000;
+
+      const serverCheck = spotChecks.find((s) => s.id === activeCheck.id);
+      const isFinishedOnServer = serverCheck && (
+        serverCheck.result_status === 'Pass' ||
+        serverCheck.result_status === 'Fail' ||
+        Boolean(serverCheck.actual_scan_time)
+      );
+
+      if (!isStillValid || isFinishedOnServer) {
+        setActiveCheck(null);
+        setModalCheck(null);
+        try {
+          localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+        } catch {}
+      }
+    }
   }, [spotChecks]);
 
   return (
@@ -319,7 +366,11 @@ export default function SpotCheckPage() {
         spotCheck={modalCheck}
         onClose={() => setModalCheck(null)}
         onSuccess={() => {
+          try {
+            localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+          } catch {}
           setModalCheck(null);
+          setActiveCheck(null);
           fetchSpotChecks();
         }}
       />

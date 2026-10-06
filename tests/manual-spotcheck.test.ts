@@ -59,4 +59,28 @@ describe('Manual Spot Check Store & Delivery Tests', () => {
     expect(updated?.result_status).toBe('Pass');
     expect(updated?.actual_scan_time).toBeDefined();
   });
+
+  it('3. Filters out expired pending manual spot checks older than 11 minutes', () => {
+    const expiredCheckId = `SPOT-MANUAL-${Date.now()}-1304-expired`;
+    const twelveMinsAgo = new Date(Date.now() - 12 * 60 * 1000).toISOString();
+    const expiredCheck: SpotCheck = {
+      id: expiredCheckId,
+      employee_id: '1304',
+      check_date: todayStr,
+      round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
+      scheduled_time: '15:00:00',
+      actual_scan_time: null,
+      gps_lat: null,
+      gps_lng: null,
+      photo_url: null,
+      result_status: 'Scheduled',
+      created_at: twelveMinsAgo,
+    };
+
+    addManualSpotCheck(expiredCheck);
+
+    const activeChecks = getActiveManualSpotChecks('1304');
+    const foundExpired = activeChecks.find((c) => c.id === expiredCheckId);
+    expect(foundExpired).toBeUndefined();
+  });
 });

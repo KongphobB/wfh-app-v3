@@ -127,6 +127,9 @@ export async function POST(request: Request) {
         tag: `spotcheck_${employee_id}_${Date.now()}`,
         vibrate: [300, 150, 300, 150, 400],
         requireInteraction: true,
+        data: {
+          spotCheck: newSpotCheck,
+        },
       }).catch((pushErr) => {
         console.warn('Failed to dispatch web push alert:', pushErr);
       });

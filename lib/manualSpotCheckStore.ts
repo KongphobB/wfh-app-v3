@@ -54,10 +54,18 @@ function saveChecksToDisk(checks: SpotCheck[]) {
 }
 
 function getMemoryStore(): SpotCheck[] {
-  if (!global.__manualSpotChecks || global.__manualSpotChecks.length === 0) {
-    global.__manualSpotChecks = loadChecksFromDisk();
-  }
-  return global.__manualSpotChecks;
+  const diskChecks = loadChecksFromDisk();
+  const memChecks = global.__manualSpotChecks || [];
+
+  const map = new Map<string, SpotCheck>();
+  diskChecks.forEach((c) => map.set(c.id, c));
+  memChecks.forEach((c) => {
+    map.set(c.id, c);
+  });
+
+  const merged = Array.from(map.values());
+  global.__manualSpotChecks = merged;
+  return merged;
 }
 
 export function addManualSpotCheck(check: SpotCheck): SpotCheck {

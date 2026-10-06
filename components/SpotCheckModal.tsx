@@ -181,7 +181,17 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       setOutOfBoundsReason('');
     }
 
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current && spotCheck) {
+        if (!streamRef.current || streamRef.current.getVideoTracks().some((t) => t.readyState === 'ended')) {
+          startCamera(facingMode);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       stopCamera();
     };
   }, [spotCheck]);

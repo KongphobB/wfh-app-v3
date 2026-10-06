@@ -10,6 +10,22 @@ import { BellRing, Clock, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
+const SPOTCHECK_STORAGE_KEY = 'wfh_active_spotcheck';
+
+function getValidCachedSpotCheck(): SpotCheck | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SPOTCHECK_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: SpotCheck = JSON.parse(raw);
+    if (isSpotCheckCurrentlyActive(parsed)) {
+      return parsed;
+    }
+    localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+  } catch {}
+  return null;
+}
+
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
@@ -51,6 +67,16 @@ export default function GlobalSpotCheckWatcher() {
 
   const playedAlertForId = useRef<string | null>(null);
 
+  // 1. Instant recovery on mount / cold start on mobile device
+  useEffect(() => {
+    const cached = getValidCachedSpotCheck();
+    if (cached) {
+      setActiveCheck(cached);
+      setIsModalOpen(true);
+      playedAlertForId.current = cached.id;
+    }
+  }, []);
+
   // Flashing tab title to catch user's attention when in other tabs
   useEffect(() => {
     if (!activeCheck) {
@@ -91,6 +117,9 @@ export default function GlobalSpotCheckWatcher() {
 
       if (pending) {
         setActiveCheck(pending);
+        try {
+          localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(pending));
+        } catch {}
 
         // First time detecting this spot check -> play sound and spawn notification
         if (playedAlertForId.current !== pending.id) {
@@ -111,8 +140,27 @@ export default function GlobalSpotCheckWatcher() {
           }).catch(() => {});
         }
       } else if (!pending && activeCheck) {
-        setActiveCheck(null);
-        setIsModalOpen(false);
+        // If activeCheck is still within its 11-minute window, do NOT wipe it prematurely
+        // unless server explicitly returned that this check was completed (Pass / Fail)
+        const isManual = Boolean(activeCheck.id?.startsWith('SPOT-MANUAL') || activeCheck.round?.includes('เฉพาะกิจ'));
+        const createdMs = activeCheck.created_at ? new Date(activeCheck.created_at).getTime() : 0;
+        const nowMs = getSyncedNow();
+        const isStillValid = isManual && createdMs > 0 && nowMs <= createdMs + 11 * 60 * 1000;
+
+        const serverCheck = list.find((s) => s.id === activeCheck.id);
+        const isFinishedOnServer = serverCheck && (
+          serverCheck.result_status === 'Pass' ||
+          serverCheck.result_status === 'Fail' ||
+          Boolean(serverCheck.actual_scan_time)
+        );
+
+        if (!isStillValid || isFinishedOnServer) {
+          setActiveCheck(null);
+          setIsModalOpen(false);
+          try {
+            localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+          } catch {}
+        }
       }
     } catch {
       // Ignore background fetch error
@@ -143,20 +191,71 @@ export default function GlobalSpotCheckWatcher() {
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
+        // App resumed from background / sleep / mobile reopen -> restore modal immediately
+        const cached = getValidCachedSpotCheck();
+        if (cached) {
+          setActiveCheck(cached);
+          setIsModalOpen(true);
+        }
         checkPendingSpotCheck();
       }
     };
     const handleFocus = () => {
+      const cached = getValidCachedSpotCheck();
+      if (cached) {
+        setActiveCheck(cached);
+        setIsModalOpen(true);
+      }
       checkPendingSpotCheck();
+    };
+
+    // Listen for background Web Push message from Service Worker
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'SPOTCHECK_TRIGGERED' && event.data.spotCheck) {
+        const spot = event.data.spotCheck;
+        if (isSpotCheckCurrentlyActive(spot)) {
+          setActiveCheck(spot);
+          setIsModalOpen(true);
+          try {
+            localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(spot));
+          } catch {}
+        }
+      }
+    };
+
+    // Listen for multi-tab localStorage updates
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === SPOTCHECK_STORAGE_KEY) {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (isSpotCheckCurrentlyActive(parsed)) {
+              setActiveCheck(parsed);
+              setIsModalOpen(true);
+            }
+          } catch {}
+        } else {
+          setActiveCheck(null);
+          setIsModalOpen(false);
+        }
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('storage', handleStorageChange);
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
 
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorageChange);
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
     };
   }, []);
 
@@ -198,6 +297,9 @@ export default function GlobalSpotCheckWatcher() {
         setTimeLeftStr('00:00');
         setActiveCheck(null);
         setIsModalOpen(false);
+        try {
+          localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+        } catch {}
       } else {
         const m = Math.floor(secs / 60);
         const s = secs % 60;
@@ -228,6 +330,9 @@ export default function GlobalSpotCheckWatcher() {
   const handleSuccess = () => {
     setIsModalOpen(false);
     setActiveCheck(null);
+    try {
+      localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+    } catch {}
     checkPendingSpotCheck();
   };
 

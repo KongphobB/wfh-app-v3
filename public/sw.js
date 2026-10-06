@@ -92,6 +92,16 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  // If push contains spotCheck data, broadcast to active window clients immediately
+  const spotData = data.data?.spotCheck || data.spotCheck;
+  if (spotData) {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        client.postMessage({ type: 'SPOTCHECK_TRIGGERED', spotCheck: spotData });
+      }
+    }).catch(() => {});
+  }
+
   const options = {
     body: data.body,
     icon: data.icon || '/icons/icon-192.png',
@@ -99,6 +109,7 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200, 100, 200],
     data: {
       url: data.url || '/dashboard',
+      spotCheck: spotData || null,
     },
     actions: [
       { action: 'open', title: 'เปิดดูทันที' },
