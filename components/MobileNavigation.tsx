@@ -17,6 +17,8 @@ import { useLanguage } from '@/lib/i18n';
 import LanguageToggle from '@/components/LanguageToggle';
 import SoundToggle from '@/components/SoundToggle';
 import ThemeToggle from '@/components/ThemeToggle';
+import { testDeviceNotification } from '@/lib/clientNotification';
+import { toast } from 'sonner';
 
 interface MobileNavigationProps {
   user: SessionPayload | null;
@@ -244,6 +246,26 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
                   {lang === 'en' ? 'Dark Mode' : 'ธีมหน้าจอ'}
                 </span>
                 <ThemeToggle />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5">
+                  <BellRing className="w-3.5 h-3.5 text-orange-500" />
+                  <span>{lang === 'en' ? 'Notifications' : 'การแจ้งเตือน'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await testDeviceNotification();
+                    if (res.success) {
+                      toast.success(res.message);
+                    } else {
+                      toast.warning(res.message);
+                    }
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 dark:hover:bg-orange-900 cursor-pointer transition-all active:scale-95"
+                >
+                  {lang === 'en' ? 'Test Alert' : 'ทดสอบเสียง/สั่น'}
+                </button>
               </div>
             </div>
 

@@ -17,16 +17,22 @@ function getAudioContext(): AudioContext | null {
 }
 
 export function isSoundEnabled(): boolean {
-  if (typeof window === 'undefined') return true;
-  const val = localStorage.getItem('wfh_sound_enabled');
-  return val === null ? true : val === 'true';
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return true;
+  try {
+    const val = localStorage.getItem('wfh_sound_enabled');
+    return val === null ? true : val === 'true';
+  } catch {
+    return true;
+  }
 }
 
 export function setSoundEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('wfh_sound_enabled', enabled ? 'true' : 'false');
-  if (typeof window !== 'undefined') {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem('wfh_sound_enabled', enabled ? 'true' : 'false');
     window.dispatchEvent(new Event('wfh_sound_toggle'));
+  } catch {
+    // Ignore storage write error
   }
 }
 

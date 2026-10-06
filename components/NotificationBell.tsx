@@ -2,10 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, CheckCheck, BellRing, Sparkles } from 'lucide-react';
+import { Bell, CheckCheck, BellRing, Sparkles, Smartphone, Volume2 } from 'lucide-react';
 import { AppNotification } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 import { playTicketAlertSound, playNotificationChime } from '@/lib/sound';
+import {
+  showNativeNotification,
+  getNotificationPermission,
+  requestNotificationPermission,
+  testDeviceNotification,
+  NotificationPermissionState,
+} from '@/lib/clientNotification';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 function formatRelativeTime(dateString: string, lang: 'th' | 'en'): string {
   const date = new Date(dateString);
@@ -28,9 +37,16 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [permissionState, setPermissionState] = useState<NotificationPermissionState>('default');
+  const [isTestingNotif, setIsTestingNotif] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
+
+  // Sync notification permission status
+  useEffect(() => {
+    setPermissionState(getNotificationPermission());
+  }, [isOpen]);
 
   const getLocalReadIds = (): Set<string> => {
     try {
@@ -68,29 +84,21 @@ export default function NotificationBell() {
         const unreadList = mergedList.filter((n) => !n.is_read);
         setUnreadCount(unreadList.length);
 
-        // Check for brand new notifications to trigger sound
+        // Check for brand new notifications to trigger sound & native notification
         if (!isFirstLoadRef.current) {
           const brandNewUnread = unreadList.filter((n) => !seenNotifIdsRef.current.has(n.id));
           if (brandNewUnread.length > 0) {
             const hasTicket = brandNewUnread.some((n) => n.type === 'ticket');
-            if (hasTicket) {
-              playTicketAlertSound();
-            } else {
-              playNotificationChime();
-            }
+            const latest = brandNewUnread[0];
 
-            // Desktop notification
-            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-              try {
-                const latest = brandNewUnread[0];
-                new Notification(latest.title, {
-                  body: latest.message,
-                  icon: '/favicon.ico',
-                });
-              } catch {
-                // Ignore notification error
-              }
-            }
+            // Trigger sound & native push notification via clientNotification
+            showNativeNotification({
+              title: latest.title,
+              body: latest.message,
+              url: latest.link || '/dashboard',
+              sound: hasTicket ? 'ticket' : 'chime',
+              tag: latest.id,
+            }).catch(() => {});
           }
         }
 
@@ -100,6 +108,36 @@ export default function NotificationBell() {
       }
     } catch (err) {
       console.error('Error loading initial notifications:', err);
+    }
+  };
+
+  const handleRequestPermission = async () => {
+    const granted = await requestNotificationPermission();
+    setPermissionState(getNotificationPermission());
+    if (granted) {
+      toast.success(lang === 'en' ? 'Notifications enabled successfully!' : 'เปิดรับการแจ้งเตือนสำเร็จแล้ว!');
+      await testDeviceNotification();
+    } else {
+      toast.error(
+        lang === 'en'
+          ? 'Notifications were denied. Please enable them in browser settings.'
+          : 'การแจ้งเตือนถูกปิดกั้น กรุณาเปิดอนุญาตในการตั้งค่าเบราว์เซอร์'
+      );
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setIsTestingNotif(true);
+    try {
+      const result = await testDeviceNotification();
+      setPermissionState(getNotificationPermission());
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.warning(result.message);
+      }
+    } finally {
+      setIsTestingNotif(false);
     }
   };
 
@@ -203,6 +241,31 @@ export default function NotificationBell() {
             )}
           </div>
 
+          {/* Device Notification Permission Banner */}
+          {permissionState !== 'granted' && permissionState !== 'unsupported' && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200/80 dark:border-amber-800/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Smartphone className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 animate-bounce" />
+                <div className="truncate">
+                  <p className="text-[11px] font-bold text-amber-900 dark:text-amber-200 truncate">
+                    {lang === 'en' ? 'Device Notifications' : 'การแจ้งเตือนบนอุปกรณ์'}
+                  </p>
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 truncate">
+                    {lang === 'en' ? 'Tap to enable push alerts' : 'กดเปิดเพื่อรับแจ้งเตือนสุ่มตรวจ'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRequestPermission}
+                className="h-7 px-2.5 text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl cursor-pointer shrink-0 shadow-xs"
+              >
+                {lang === 'en' ? 'Enable' : 'เปิดใช้งาน'}
+              </Button>
+            </div>
+          )}
+
           {/* List */}
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
             {notifications.length === 0 ? (
@@ -230,6 +293,28 @@ export default function NotificationBell() {
                 </div>
               ))
             )}
+          </div>
+
+          {/* Footer Bar */}
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Volume2 className="w-3.5 h-3.5 text-slate-400" />
+              <span>
+                {permissionState === 'granted'
+                  ? (lang === 'en' ? 'Push active' : 'เปิดแจ้งเตือนแล้ว')
+                  : (lang === 'en' ? 'Push inactive' : 'ยังไม่เปิดแจ้งเตือน')}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={handleTestNotification}
+              disabled={isTestingNotif}
+              className="text-orange-600 dark:text-orange-400 hover:text-orange-700 font-bold flex items-center gap-1 hover:underline cursor-pointer disabled:opacity-50"
+              title={lang === 'en' ? 'Test sound, vibration, and push banner' : 'ทดสอบเสียง สั่น และป้ายแจ้งเตือน'}
+            >
+              <BellRing className="w-3 h-3" />
+              <span>{isTestingNotif ? (lang === 'en' ? 'Testing...' : 'กำลังทดสอบ...') : (lang === 'en' ? 'Test Alert' : 'ทดสอบแจ้งเตือน')}</span>
+            </button>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import SpotCheckModal from '@/components/SpotCheckModal';
 import { SpotCheck } from '@/types';
 import { playSpotCheckAlert } from '@/lib/sound';
+import { showNativeNotification } from '@/lib/clientNotification';
 import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { BellRing, Clock, Camera, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,31 @@ export default function GlobalSpotCheckWatcher() {
 
   const playedAlertForId = useRef<string | null>(null);
 
+  // Flashing tab title to catch user's attention when in other tabs
+  useEffect(() => {
+    if (!activeCheck) {
+      if (typeof document !== 'undefined' && document.title.includes('🔔')) {
+        document.title = 'SNU WFH — ระบบบันทึกเวลาปฏิบัติงานนอกสถานที่';
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined') {
+        document.title = document.title.includes('🔔')
+          ? '⚠️ กรุณายืนยันตัวตนด่วน! (Spot Check)'
+          : '🔔 สุ่มตรวจ! SNU WFH';
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.title = 'SNU WFH — ระบบบันทึกเวลาปฏิบัติงานนอกสถานที่';
+      }
+    };
+  }, [activeCheck]);
+
   const checkPendingSpotCheck = async () => {
     try {
       const res = await fetch('/api/spotcheck');
@@ -71,22 +97,16 @@ export default function GlobalSpotCheckWatcher() {
           setIsModalOpen(true); // Open modal by default on first trigger
           playSpotCheckAlert(); // Play crisp "ปิ๊ง! 🔔" chime
 
-          // Show Native Browser Desktop Notification
-          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            try {
-              const notif = new Notification('🔔 คำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ (Spot Check)', {
-                body: `รอบ ${pending.round} — กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที`,
-                icon: '/favicon.ico',
-                tag: pending.id,
-              });
-              notif.onclick = () => {
-                window.focus();
-                setIsModalOpen(true);
-              };
-            } catch {
-              // Ignore notification errors
-            }
-          }
+          // Show Native Mobile & Desktop Notification via ServiceWorker / Notification API
+          showNativeNotification({
+            title: '🔔 คำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ (Spot Check)',
+            body: `รอบ ${pending.round} — กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที`,
+            url: '/spotcheck',
+            tag: pending.id,
+            sound: 'spotcheck',
+            vibrate: [300, 150, 300, 150, 400],
+            requireInteraction: true,
+          }).catch(() => {});
         }
       } else if (!pending && activeCheck) {
         setActiveCheck(null);

@@ -3,6 +3,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import MobileNavigation from '@/components/MobileNavigation';
 import HeaderActions from '@/components/HeaderActions';
 import GlobalSpotCheckWatcher from '@/components/GlobalSpotCheckWatcher';
+import RoutineReminderWatcher from '@/components/RoutineReminderWatcher';
 import { Toaster } from '@/components/ui/sonner';
 
 export default async function AppGroupLayout({
@@ -39,6 +40,7 @@ export default async function AppGroupLayout({
       </div>
 
       {session && <GlobalSpotCheckWatcher />}
+      {session && <RoutineReminderWatcher />}
       <Toaster />
     </div>
   );
