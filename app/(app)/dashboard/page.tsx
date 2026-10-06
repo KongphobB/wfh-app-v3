@@ -180,23 +180,26 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Title Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>{t.dashboard.title}</span>
-            <Badge variant={wfhStatus === 'เปิดสิทธิ์' ? 'success' : 'destructive'}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {t.dashboard.title}
+            </h1>
+            <Badge variant={wfhStatus === 'เปิดสิทธิ์' ? 'success' : 'destructive'} className="text-[10px] px-2 py-0.5 font-bold">
               {wfhStatus === 'เปิดสิทธิ์' ? t.dashboard.wfhActive : t.dashboard.wfhSuspended}
             </Badge>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">{t.dashboard.subtitle}</p>
+          </div>
+          <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 mt-1">{t.dashboard.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Action Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsHolidayOpen(true)}
-            className="text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/40 font-bold"
+            className="h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs gap-1.5 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950/40 font-bold rounded-xl shrink-0 cursor-pointer shadow-2xs"
           >
             <Calendar className="w-3.5 h-3.5 text-orange-600" />
             <span>{t.holiday.openBtn}</span>
@@ -206,7 +209,7 @@ export default function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={() => setIsSuggestionOpen(true)}
-            className="text-xs gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/40 font-bold"
+            className="h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:hover:bg-teal-950/40 font-bold rounded-xl shrink-0 cursor-pointer shadow-2xs"
           >
             <MessageSquarePlus className="w-3.5 h-3.5 text-teal-600" />
             <span>{t.suggestion.openBtn}</span>
@@ -216,7 +219,7 @@ export default function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={() => setIsOnboardingOpen(true)}
-            className="text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900 font-bold"
+            className="h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900 font-bold rounded-xl shrink-0 cursor-pointer shadow-2xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-orange-500" />
             <span>{t.onboarding.quickGuideBtn}</span>
@@ -268,27 +271,29 @@ export default function DashboardPage() {
       {/* Morning Missing Check-in Alert Banner (After 08:00 AM) */}
       {!todayCheckin && isMorningMissingCheckin && (
         <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                <Clock className="w-6 h-6" />
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse mt-0.5">
+                <Clock className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
-                  <span>{lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างานช่วงเช้า'}</span>
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm leading-tight">
+                    {lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างานช่วงเช้า'}
+                  </h3>
+                  <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 shrink-0 font-bold">
                     {lang === 'en' ? 'Overdue > 08:00 AM' : 'เกินเวลา 08:00 น.'}
                   </Badge>
-                </h3>
-                <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
+                </div>
+                <p className="text-xs text-rose-800 dark:text-slate-300 font-medium leading-relaxed">
                   {lang === 'en'
                     ? 'You have not checked in this morning. Please submit your attendance with late reason.'
                     : 'ระบบตรวจพบว่าคุณยังไม่ได้ลงเวลาเข้างาน กรุณาลงเวลาและระบุเหตุผลความจำเป็นในช่องหมายเหตุ'}
                 </p>
               </div>
             </div>
-            <Link href="/checkin">
-              <Button variant="destructive" className="bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm">
+            <Link href="/checkin" className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button variant="destructive" className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer">
                 <span>{lang === 'en' ? 'Check-in Now' : 'ลงเวลาเข้างานทันที'}</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -300,23 +305,27 @@ export default function DashboardPage() {
       {/* 1. Normal Afternoon Verification Alert Banner (13:00 - 13:20) - ONLY FOR WFH WHO CHECKED IN */}
       {!todayVerify && isCheckedInWfhToday && isAfternoonVerifyWindow && (
         <Card className="border-blue-300 bg-blue-50/90 dark:bg-blue-950/30 dark:border-blue-800/40 shadow-sm animate-fade-in">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold animate-bounce">
-                <MapPin className="w-6 h-6" />
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold animate-bounce mt-0.5">
+                <MapPin className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-blue-900 dark:text-slate-100 text-sm flex items-center gap-2">
-                  <span>{t.dashboard.verifyWindowBannerTitle}</span>
-                  <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-blue-600">{t.dashboard.verifyWindowBannerBadge}</Badge>
-                </h3>
-                <p className="text-xs text-blue-700 dark:text-slate-300 font-medium mt-0.5">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-blue-900 dark:text-slate-100 text-sm leading-tight">
+                    {t.dashboard.verifyWindowBannerTitle}
+                  </h3>
+                  <Badge variant="default" className="text-[10px] px-2 py-0.5 bg-blue-600 shrink-0 font-bold">
+                    {t.dashboard.verifyWindowBannerBadge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-blue-700 dark:text-slate-300 font-medium leading-relaxed">
                   {t.dashboard.verifyWindowBannerDesc}
                 </p>
               </div>
             </div>
-            <Link href="/checkin">
-              <Button variant="default" className="bg-blue-600 hover:bg-blue-500 text-white font-bold gap-1 text-xs shadow-sm">
+            <Link href="/checkin" className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button variant="default" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer">
                 <span>{t.dashboard.verifyWindowBannerBtn}</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -328,23 +337,27 @@ export default function DashboardPage() {
       {/* 2. Overdue Afternoon Verification Alert Banner (After 13:20) - ONLY FOR WFH WHO CHECKED IN */}
       {!todayVerify && isCheckedInWfhToday && isLateAfternoonVerifyWindow && (
         <Card className="border-amber-300 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-800/40 shadow-sm animate-fade-in">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                <AlertTriangle className="w-6 h-6" />
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold animate-pulse mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-amber-950 dark:text-slate-100 text-sm flex items-center gap-2">
-                  <span>{t.dashboard.overdueBannerTitle}</span>
-                  <Badge variant="warning" className="text-[10px] px-1.5 py-0 bg-amber-500 text-white border-amber-600">{t.dashboard.overdueBannerBadge}</Badge>
-                </h3>
-                <p className="text-xs text-amber-800 dark:text-slate-300 font-medium mt-0.5">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-amber-950 dark:text-slate-100 text-sm leading-tight">
+                    {t.dashboard.overdueBannerTitle}
+                  </h3>
+                  <Badge variant="warning" className="text-[10px] px-2 py-0.5 bg-amber-500 text-white border-amber-600 shrink-0 font-bold">
+                    {t.dashboard.overdueBannerBadge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-slate-300 font-medium leading-relaxed">
                   {t.dashboard.overdueBannerDesc}
                 </p>
               </div>
             </div>
-            <Link href="/checkin">
-              <Button variant="default" className="bg-amber-600 hover:bg-amber-500 text-white font-bold gap-1 text-xs shadow-sm">
+            <Link href="/checkin" className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button variant="default" className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer">
                 <span>{t.dashboard.overdueBannerBtn}</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -356,18 +369,18 @@ export default function DashboardPage() {
       {/* Pending Spot Check Alert Banner */}
       {activeSpotCheck && (
         <Card className="border-orange-200 bg-orange-50/80 dark:bg-orange-950/30 dark:border-orange-800/40">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 animate-bounce font-bold">
-                <AlertTriangle className="w-6 h-6" />
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 animate-bounce font-bold mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t.dashboard.spotcheckPendingBannerTitle}</h3>
-                <p className="text-xs text-orange-700 dark:text-slate-300 font-medium">{t.dashboard.spotcheckPendingBannerDesc}</p>
+              <div className="space-y-1 min-w-0 flex-1">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">{t.dashboard.spotcheckPendingBannerTitle}</h3>
+                <p className="text-xs text-orange-700 dark:text-slate-300 font-medium leading-relaxed">{t.dashboard.spotcheckPendingBannerDesc}</p>
               </div>
             </div>
-            <Link href="/spotcheck">
-              <Button variant="default" className="bg-orange-500 hover:bg-orange-600 text-white font-bold gap-1 text-xs">
+            <Link href="/spotcheck" className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button variant="default" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer">
                 <span>{t.dashboard.spotcheckPendingBannerBtn}</span>
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -379,30 +392,32 @@ export default function DashboardPage() {
       {/* Evening Check-out Alert Banner (After 17:00 PM) - ONLY WHEN CHECKED IN AND NOT YET CHECKED OUT */}
       {todayCheckin && !todayCheckout && isEveningCheckoutWindow && (
         <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse">
-                  <LogOut className="w-6 h-6" />
+          <CardContent className="p-3.5 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold animate-pulse mt-0.5">
+                  <LogOut className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm flex items-center gap-2">
-                    <span>{t.dashboard.checkoutBannerTitle}</span>
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 bg-rose-600">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm leading-tight">
+                      {t.dashboard.checkoutBannerTitle}
+                    </h3>
+                    <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 shrink-0 font-bold">
                       {t.dashboard.checkoutBannerBadge}
                     </Badge>
-                  </h3>
-                  <p className="text-xs text-rose-800 dark:text-slate-300 font-medium mt-0.5">
+                  </div>
+                  <p className="text-xs text-rose-800 dark:text-slate-300 font-medium leading-relaxed">
                     {t.dashboard.checkoutBannerDesc}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
                 <Button
                   type="button"
                   onClick={() => setIsCheckoutModalOpen(true)}
                   variant="destructive"
-                  className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs shadow-sm cursor-pointer"
+                  className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer"
                 >
                   <span>{t.dashboard.checkoutBannerBtn}</span>
                   <ChevronRight className="w-4 h-4" />

@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button';
 
 import { useLanguage } from '@/lib/i18n';
 import LanguageToggle from '@/components/LanguageToggle';
+import SoundToggle from '@/components/SoundToggle';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface MobileNavigationProps {
   user: SessionPayload | null;
@@ -23,7 +25,7 @@ interface MobileNavigationProps {
 export default function MobileNavigation({ user }: MobileNavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -103,15 +105,15 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
     (item) => !user || item.roles.includes(user.role)
   );
 
-  // Quick bottom bar items for mobile & iPad (role-aware)
+  // Quick bottom bar items for mobile & iPad (role-aware, concise native mobile labels)
   const isSupervisorOrAdmin = user && (user.role === 'supervisor' || user.role === 'admin');
   const bottomBarItems = [
-    { title: t.nav.dashboard, href: '/dashboard', icon: LayoutDashboard },
-    { title: t.nav.checkin, href: '/checkin', icon: MapPin },
-    { title: t.nav.spotcheck, href: '/spotcheck', icon: BellRing },
+    { title: lang === 'en' ? 'Home' : 'หน้าหลัก', href: '/dashboard', icon: LayoutDashboard },
+    { title: lang === 'en' ? 'Clock In' : 'ลงเวลา', href: '/checkin', icon: MapPin },
+    { title: lang === 'en' ? 'Spot Check' : 'สุ่มตรวจ', href: '/spotcheck', icon: BellRing },
     isSupervisorOrAdmin
-      ? { title: t.nav.supervisor, href: '/supervisor', icon: UserCheck }
-      : { title: t.nav.tasks, href: '/tasks', icon: FileText },
+      ? { title: lang === 'en' ? 'Team' : 'ลูกทีม', href: '/supervisor', icon: UserCheck }
+      : { title: lang === 'en' ? 'Tasks' : 'ส่งงาน', href: '/tasks', icon: FileText },
   ];
 
   return (
@@ -220,6 +222,31 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
               </nav>
             </div>
 
+            {/* Drawer Settings & Quick Preferences */}
+            <div className="p-3 mx-3 my-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                {lang === 'en' ? 'Settings & Preferences' : 'การตั้งค่าและภาษา'}
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  {lang === 'en' ? 'Language' : 'ภาษา'}
+                </span>
+                <LanguageToggle />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  {lang === 'en' ? 'Sound Alert' : 'เสียงแจ้งเตือน'}
+                </span>
+                <SoundToggle />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  {lang === 'en' ? 'Dark Mode' : 'ธีมหน้าจอ'}
+                </span>
+                <ThemeToggle />
+              </div>
+            </div>
+
             {/* Drawer Footer */}
             <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-1 bg-white dark:bg-slate-900">
               <Link
@@ -246,7 +273,7 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
 
       {/* 3. Mobile Bottom Navigation Bar with Portal */}
       {mounted && createPortal(
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-xl px-2 py-1.5 flex items-center justify-around safe-area-bottom overflow-hidden w-full max-w-full">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 shadow-xl px-1.5 py-1.5 flex items-center justify-around safe-area-bottom overflow-hidden w-full max-w-full">
           {bottomBarItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -256,19 +283,19 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all min-w-0 select-none active:scale-95',
+                  'flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all min-w-0 select-none active:scale-95',
                   isActive
                     ? 'text-orange-600 dark:text-orange-400 font-bold'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 )}
               >
                 <div className={cn(
-                  'p-1.5 rounded-xl transition-all',
+                  'p-1 sm:p-1.5 rounded-xl transition-all',
                   isActive ? 'bg-orange-100 dark:bg-orange-950/70 text-orange-600 dark:text-orange-400 shadow-2xs' : ''
                 )}>
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] sm:text-[11px] mt-0.5 leading-tight truncate">{item.title}</span>
+                <span className="text-[11px] mt-0.5 font-medium leading-tight truncate">{item.title}</span>
               </Link>
             );
           })}
@@ -278,14 +305,14 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
             type="button"
             onClick={() => setIsDrawerOpen(true)}
             className={cn(
-              'flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer min-w-0 select-none active:scale-95',
+              'flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer min-w-0 select-none active:scale-95',
               isDrawerOpen ? 'text-orange-600 dark:text-orange-400 font-bold' : ''
             )}
           >
-            <div className="p-1.5 rounded-xl">
-              <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="p-1 sm:p-1.5 rounded-xl">
+              <Menu className="w-5 h-5" />
             </div>
-            <span className="text-[10px] sm:text-[11px] mt-0.5 leading-tight truncate">{t.common.actions}</span>
+            <span className="text-[11px] mt-0.5 font-medium leading-tight truncate">{lang === 'en' ? 'Menu' : 'เมนู'}</span>
           </button>
         </div>,
         document.body
