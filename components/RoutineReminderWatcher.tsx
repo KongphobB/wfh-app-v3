@@ -131,9 +131,9 @@ export default function RoutineReminderWatcher() {
       }
     };
 
-    // Check on startup and interval every 20 seconds
+    // Check on startup and interval every 60 seconds
     checkRoutineReminders();
-    const interval = setInterval(checkRoutineReminders, 20000);
+    const interval = setInterval(checkRoutineReminders, 60000);
     return () => clearInterval(interval);
   }, []);
 

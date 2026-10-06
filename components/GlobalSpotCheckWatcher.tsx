@@ -117,15 +117,31 @@ export default function GlobalSpotCheckWatcher() {
     }
   };
 
-  // Fast polling every 8 seconds for instant spot check detection
+  // Smart visibility-aware polling (25s when active tab, pauses when hidden, instant check on focus)
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
 
     checkPendingSpotCheck();
-    const interval = setInterval(checkPendingSpotCheck, 8000);
-    return () => clearInterval(interval);
+
+    const interval = setInterval(() => {
+      // Avoid burning quotas and network if tab is minimized or hidden
+      if (typeof document !== 'undefined' && document.hidden) return;
+      checkPendingSpotCheck();
+    }, 25000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        checkPendingSpotCheck();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const triggeredMilestonesRef = useRef<Set<number>>(new Set());

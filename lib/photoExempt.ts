@@ -38,11 +38,24 @@ export function saveLocalExemptIds(ids: Set<string>): void {
   }
 }
 
+let cachedExemptConfig: {
+  config: {
+    exemptKeywords: string[];
+    exemptEmployeeIds: Set<string>;
+    autoExemptSupervisors: boolean;
+  };
+  expiresAt: number;
+} | null = null;
+
 export async function getExemptConfig(): Promise<{
   exemptKeywords: string[];
   exemptEmployeeIds: Set<string>;
   autoExemptSupervisors: boolean;
 }> {
+  if (cachedExemptConfig && Date.now() < cachedExemptConfig.expiresAt) {
+    return cachedExemptConfig.config;
+  }
+
   const localExemptIds = getLocalExemptIds();
 
   try {
@@ -73,13 +86,17 @@ export async function getExemptConfig(): Promise<{
         ? String(cfg.auto_exempt_supervisors).toLowerCase() !== 'false'
         : true;
 
-    return { exemptKeywords, exemptEmployeeIds: mergedExemptIds, autoExemptSupervisors };
+    const result = { exemptKeywords, exemptEmployeeIds: mergedExemptIds, autoExemptSupervisors };
+    cachedExemptConfig = { config: result, expiresAt: Date.now() + 300000 };
+    return result;
   } catch {
-    return {
+    const fallback = {
       exemptKeywords: ['senior', 'manager', 'หัวหน้า', 'supervisor', 'admin', 'executive'],
       exemptEmployeeIds: localExemptIds,
       autoExemptSupervisors: true,
     };
+    cachedExemptConfig = { config: fallback, expiresAt: Date.now() + 60000 };
+    return fallback;
   }
 }
 

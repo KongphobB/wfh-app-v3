@@ -144,8 +144,18 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchInitialNotifications();
 
-    // Fast polling every 10 seconds for real-time notifications & sound alerts
-    const interval = setInterval(fetchInitialNotifications, 10000);
+    // Visibility-aware polling every 35 seconds (skips when tab is hidden, immediate check on focus)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchInitialNotifications();
+    }, 35000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchInitialNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Close click outside
     const handleClickOutside = (e: MouseEvent) => {
@@ -157,6 +167,7 @@ export default function NotificationBell() {
 
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);

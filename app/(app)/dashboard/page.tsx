@@ -79,12 +79,23 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData(true);
 
-    // Smooth background auto-sync without blocking user interactions
+    // Visibility-aware background auto-sync (45s when tab active, instant on focus)
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchData(false);
-    }, 15000);
+    }, 45000);
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchData(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const todayCheckin = checkinLogs.find((l) => l.log_type === 'เข้างาน');

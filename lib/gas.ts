@@ -7,16 +7,31 @@ interface CacheEntry {
   data: any;
   expiresAt: number;
 }
-const apiCache = new Map<string, CacheEntry>();
-const inFlightRequests = new Map<string, Promise<any>>();
+
+// Global cache across module reloads in development/serverless warm instances
+declare global {
+  var __gasApiCache: Map<string, CacheEntry> | undefined;
+  var __gasInFlight: Map<string, Promise<any>> | undefined;
+}
+
+if (!global.__gasApiCache) {
+  global.__gasApiCache = new Map<string, CacheEntry>();
+}
+if (!global.__gasInFlight) {
+  global.__gasInFlight = new Map<string, Promise<any>>();
+}
+
+const apiCache = global.__gasApiCache;
+const inFlightRequests = global.__gasInFlight;
 
 // Cache TTL configurations (in milliseconds)
+// Longer TTLs drastically reduce Google Apps Script quota and latency spikes
 const CACHE_RULES: Record<string, number> = {
-  getSystemConfig: 60000,      // 60 seconds
-  getLogs: 15000,              // 15 seconds
-  getDashboardSummary: 15000,  // 15 seconds
-  inspectTab: 20000,           // 20 seconds
-  adminGetLogPhoto: 3600000,   // 1 hour
+  getSystemConfig: 300000,     // 5 minutes (was 60s)
+  getLogs: 45000,             // 45 seconds (was 15s)
+  getDashboardSummary: 45000, // 45 seconds (was 15s)
+  inspectTab: 180000,         // 3 minutes (was 20s)
+  adminGetLogPhoto: 3600000,  // 1 hour
 };
 
 // Mutating actions that should immediately invalidate cache
@@ -97,8 +112,24 @@ async function fetchFromGAS(action: string, payload: Record<string, any>): Promi
   }
 }
 
-export function callGAS<T = any>(action: string, payload: Record<string, any> = {}): Promise<T> {
+export function callGAS<T = any>(action: string, rawPayload: Record<string, any> = {}): Promise<T> {
   const isMutation = MUTATION_ACTIONS.has(action);
+
+  // Normalize payloads for identical read queries to maximize cache hits
+  let payload = rawPayload;
+  let cacheKeySuffix = JSON.stringify(payload);
+  if (!isMutation && action === 'getLogs' && rawPayload.logType) {
+    if (rawPayload.logType === 'spotcheck') {
+      payload = { ...rawPayload, limit: 300 };
+      cacheKeySuffix = `logType_spotcheck`;
+    } else if (rawPayload.logType === 'checkin') {
+      payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 100, 200) };
+      cacheKeySuffix = `logType_checkin`;
+    } else if (rawPayload.logType === 'tasks') {
+      payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 100, 200) };
+      cacheKeySuffix = `logType_tasks`;
+    }
+  }
 
   // Invalidate cache if this is a mutating write action
   if (isMutation) {
@@ -107,7 +138,7 @@ export function callGAS<T = any>(action: string, payload: Record<string, any> = 
 
   // Check cache for read actions
   const cacheTtl = CACHE_RULES[action];
-  const cacheKey = `${action}_${JSON.stringify(payload)}`;
+  const cacheKey = `${action}_${cacheKeySuffix}`;
   if (!isMutation && cacheTtl) {
     const cached = apiCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
@@ -128,6 +159,13 @@ export function callGAS<T = any>(action: string, payload: Record<string, any> = 
       }
       return parsed as T;
     } catch (err: any) {
+      // If we have an existing cached entry (even if expired), return it rather than failing the UI
+      const staleCached = apiCache.get(cacheKey);
+      if (!isMutation && staleCached?.data) {
+        console.warn(`GAS call ${action} failed/timed out, serving stale cache:`, err?.message);
+        return staleCached.data as T;
+      }
+
       // Retry once for read operations on failure
       if (!isMutation) {
         try {

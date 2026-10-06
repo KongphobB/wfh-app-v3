@@ -279,10 +279,21 @@ export default function AdminPage() {
     fetchAdminData(true);
 
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchAdminData(false);
-    }, 20000);
+    }, 60000);
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchAdminData(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const handleCreateEmployee = async (e: React.FormEvent) => {

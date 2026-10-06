@@ -40,10 +40,21 @@ export default function CheckinPage() {
     fetchCheckinLogs(true);
 
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchCheckinLogs(false);
-    }, 15000);
+    }, 45000);
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchCheckinLogs(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const openCheckinModal = (type: CheckinType) => {

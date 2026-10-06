@@ -35,19 +35,17 @@ export async function POST(request: Request) {
     }
 
     // 2. Authenticate directly with Google Apps Script (Google Sheets)
-    let gasResult = await callGAS('employeeLogin', {
-      employeeId: cleanEmpId,
-      pin,
-    });
-
-    if (!gasResult || !gasResult.success) {
-      // Check admin login fallback only when employeeId is 9999 and PIN is 9999
-      if (cleanEmpId === '9999' && pin === '9999') {
-        gasResult = await callGAS('adminLogin', {
-          employeeId: cleanEmpId,
-          pin,
-        });
-      }
+    let gasResult: any = null;
+    if (cleanEmpId === '9999' && pin === '9999') {
+      gasResult = await callGAS('adminLogin', {
+        employeeId: cleanEmpId,
+        pin,
+      });
+    } else {
+      gasResult = await callGAS('employeeLogin', {
+        employeeId: cleanEmpId,
+        pin,
+      });
     }
 
     if (!gasResult || !gasResult.success) {

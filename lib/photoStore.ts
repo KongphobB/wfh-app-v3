@@ -13,12 +13,16 @@ export const photoStore = global.__wfhPhotoStore;
 
 export const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'selfies');
 
-try {
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+const isReadOnlyFs = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+if (!isReadOnlyFs) {
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  } catch (e) {
+    // Silently fallback to memory-only store on read-only environments
   }
-} catch (e) {
-  console.error('Error creating uploads directory:', e);
 }
 
 /**
