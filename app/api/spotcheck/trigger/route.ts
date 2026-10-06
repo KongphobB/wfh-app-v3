@@ -72,6 +72,9 @@ export async function POST(request: Request) {
       created_at: now.toISOString(),
     };
 
+    const { addManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
+    addManualSpotCheck(newSpotCheck);
+
     if (!global.__activeTestSpotChecks) {
       global.__activeTestSpotChecks = [];
     }

@@ -125,19 +125,27 @@ export async function GET() {
       // Ignore checkin check error
     }
 
-    const testChecks = (global.__activeTestSpotChecks || []).filter(
-      (t) => String(t.employee_id) === String(session.employee_id)
-    );
+    // Fetch manual spot checks from persistent store
+    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
+    const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
 
+    const testChecks = [
+      ...manualChecks,
+      ...((global.__activeTestSpotChecks || []).filter(
+        (t) => String(t.employee_id) === String(session.employee_id) && !manualChecks.some((m) => m.id === t.id)
+      )),
+    ];
+
+    let finalSpotChecks = dedupedFormatted;
     if (isWorkingAtOfficeToday) {
-      return NextResponse.json({
-        spotChecks: testChecks,
-        server_time: new Date().toISOString(),
-        server_timestamp: Date.now(),
-      });
+      // If working at office, exempt from routine scheduled checks (เช้า / บ่าย),
+      // but STILL include supervisor ad-hoc manual spot checks!
+      finalSpotChecks = dedupedFormatted.filter(
+        (s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL')
+      );
     }
 
-    const combined = [...testChecks, ...dedupedFormatted];
+    const combined = [...testChecks, ...finalSpotChecks];
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
     const employeesMap = await getLiveEmployeesMap();
@@ -225,6 +233,15 @@ export async function POST(request: Request) {
 
     if (String(spot_check_id).startsWith('TEST-') || String(spot_check_id).startsWith('SPOT-MANUAL-')) {
       const nowIso = new Date().toISOString();
+      const { updateManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
+      updateManualSpotCheck(spot_check_id, {
+        result_status: 'Pass',
+        actual_scan_time: nowIso,
+        gps_lat: gps_lat || null,
+        gps_lng: gps_lng || null,
+        photo_url: photo_base64 || null,
+      });
+
       if (global.__activeTestSpotChecks) {
         global.__activeTestSpotChecks = global.__activeTestSpotChecks.map((t) => {
           if (t.id === spot_check_id) {

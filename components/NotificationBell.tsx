@@ -151,18 +151,22 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchInitialNotifications();
 
-    // Visibility-aware polling every 35 seconds (skips when tab is hidden, immediate check on focus)
+    // Faster polling every 10 seconds and immediate check on window focus
     const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
       fetchInitialNotifications();
-    }, 35000);
+    }, 10000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
         fetchInitialNotifications();
       }
     };
+    const handleFocus = () => {
+      fetchInitialNotifications();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     // Close click outside
     const handleClickOutside = (e: MouseEvent) => {
@@ -175,6 +179,7 @@ export default function NotificationBell() {
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);

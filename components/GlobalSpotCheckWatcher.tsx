@@ -17,6 +17,8 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const todayStr = getThaiDateStr(getSyncedNow());
   if (s.check_date !== todayStr) return false;
 
+  const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
+
   let triggerTimeMs = 0;
   if (s.created_at) {
     triggerTimeMs = new Date(s.created_at).getTime();
@@ -26,13 +28,13 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   }
 
   const nowMs = getSyncedNow();
-  // ยังไม่ถึงเวลาสุ่มตรวจ -> ห้ามเด้ง popup
-  if (nowMs < triggerTimeMs) {
+  // สำหรับการสุ่มตรวจเฉพาะกิจ: ถือว่าเริ่มทันที ไม่ต้องรอนาฬิกาเครื่องตรงกัน
+  if (!isManual && nowMs < triggerTimeMs - 5000) {
     return false;
   }
 
-  // เกินเวลา 10 นาทีไปแล้ว -> หมดเวลา
-  const deadlineMs = triggerTimeMs + 10 * 60 * 1000;
+  // เกินเวลา 10 นาที (เผื่อ tolerance 1 นาที) -> หมดเวลา
+  const deadlineMs = triggerTimeMs + 11 * 60 * 1000;
   if (nowMs > deadlineMs) {
     return false;
   }
@@ -136,21 +138,25 @@ export default function GlobalSpotCheckWatcher() {
     checkPendingSpotCheck();
 
     const interval = setInterval(() => {
-      // Avoid burning quotas and network if tab is minimized or hidden
-      if (typeof document !== 'undefined' && document.hidden) return;
       checkPendingSpotCheck();
-    }, 25000);
+    }, 6000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
         checkPendingSpotCheck();
       }
     };
+    const handleFocus = () => {
+      checkPendingSpotCheck();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

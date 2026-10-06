@@ -21,6 +21,30 @@ export async function GET() {
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
+    // Include active manual spot checks from persistent store
+    try {
+      const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
+      const activeManualChecks = getActiveManualSpotChecks(String(session.employee_id));
+      for (const mc of activeManualChecks) {
+        if (mc.result_status === 'Scheduled' || mc.result_status === 'Pending') {
+          const notifId = `spot_manual_${mc.id}`;
+          const alreadyExists = memoryNotifs.some((m) => m.id === notifId || m.message?.includes(mc.id));
+          if (!alreadyExists) {
+            dynamicNotifs.unshift({
+              id: notifId,
+              employee_id: session.employee_id,
+              type: 'spotcheck',
+              title: '🔔 ได้รับคำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ!',
+              message: `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${mc.scheduled_time} น.)`,
+              link: '/spotcheck',
+              is_read: isNotifRead(notifId),
+              created_at: mc.created_at || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    } catch {}
+
     // Fetch spotcheck logs to generate real-time notification items
     try {
       const gasRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 300 });

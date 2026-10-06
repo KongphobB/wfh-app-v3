@@ -1,7 +1,55 @@
+import fs from 'fs';
+import path from 'path';
 import { NotificationType, NotificationItem } from '@/types';
 
-// In-memory notification store
-let memoryNotifications: NotificationItem[] = (global as any).__memoryNotifications || [];
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOCAL_STORE_FILE = path.join(DATA_DIR, 'notifications.json');
+const TMP_STORE_FILE = '/tmp/notifications.json';
+
+function getStoragePath(): string {
+  if (process.env.VERCEL) {
+    return TMP_STORE_FILE;
+  }
+  return LOCAL_STORE_FILE;
+}
+
+function ensureDir(filePath: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+function loadNotificationsFromDisk(): NotificationItem[] {
+  const filePath = getStoragePath();
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load notifications from disk:', err);
+  }
+  return [];
+}
+
+function saveNotificationsToDisk(items: NotificationItem[]) {
+  const filePath = getStoragePath();
+  try {
+    ensureDir(filePath);
+    fs.writeFileSync(filePath, JSON.stringify(items.slice(0, 200), null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save notifications to disk:', err);
+  }
+}
+
+// In-memory notification store with file fallback
+let memoryNotifications: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
 (global as any).__memoryNotifications = memoryNotifications;
 
 // Global read notification IDs set
@@ -36,10 +84,13 @@ export async function createNotification(params: {
     created_at: new Date().toISOString(),
   };
 
+  memoryNotifications = (global as any).__memoryNotifications || loadNotificationsFromDisk();
   memoryNotifications.unshift(newNotif);
   if (memoryNotifications.length > 200) {
     memoryNotifications = memoryNotifications.slice(0, 200);
   }
+  (global as any).__memoryNotifications = memoryNotifications;
+  saveNotificationsToDisk(memoryNotifications);
 }
 
 export async function createNotificationForAdmins(params: {
@@ -75,7 +126,8 @@ export async function createNotificationForSupervisor(params: {
 }
 
 export function getNotificationsForUser(employeeId: string, role?: string) {
-  return memoryNotifications.filter((n) => {
+  const list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
+  return list.filter((n) => {
     // 1. Direct notification to this specific employee
     if (n.employee_id === employeeId) return true;
 
@@ -92,7 +144,8 @@ export function markNotificationsAsRead(employeeId: string, notifId?: string, ro
   if (notifId) {
     readNotifIds.add(notifId);
   }
-  memoryNotifications = memoryNotifications.map((n) => {
+  let list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
+  list = list.map((n) => {
     const isTargetUser = n.employee_id === employeeId || (role === 'admin' && (n.employee_id === 'ROLE:admin' || n.employee_id === '9999'));
     if (isTargetUser) {
       if (!notifId || n.id === notifId) {
@@ -102,4 +155,6 @@ export function markNotificationsAsRead(employeeId: string, notifId?: string, ro
     }
     return n;
   });
+  (global as any).__memoryNotifications = list;
+  saveNotificationsToDisk(list);
 }
