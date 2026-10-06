@@ -304,10 +304,24 @@ export async function sendSpotCheckTriggeredEmail(params: {
     </div>
   `;
 
+  const bodyText = `
+🔔 คำสั่งสุ่มตรวจยืนยันตัวตน (Spot Check) - SNU WFH
+เรียนคุณ ${params.employeeName} (รหัส: ${params.employeeId}),
+ขณะนี้มีคำสั่งสุ่มตรวจยืนยันตัวตนเข้ามายังบัญชีของคุณ กรุณาเปิดกล้องถ่ายภาพ Selfie สดเพื่อยืนยันการปฏิบัติงานนอกสถานที่
+- รอบการตรวจ: ${params.round}
+- เวลาที่เริ่มส่งคำสั่ง: ${params.scheduledTime} น.
+- ⏰ กำหนดเวลาสิ้นสุด (10 นาที): ${params.deadlineTime} น.
+${params.note ? `- ข้อความจากหัวหน้างาน: "${params.note}"` : ''}
+
+คลิกเปิดหน้าระบบเพื่อถ่ายภาพ Selfie:
+https://wfh-system-v3.vercel.app/spotcheck
+  `.trim();
+
   return sendEmailAlert({
     to: params.employeeEmail.trim(),
     subject,
     bodyHtml,
+    bodyText,
   });
 }
 
