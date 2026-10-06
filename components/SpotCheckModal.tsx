@@ -117,13 +117,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         const secs = diffSecs % 60;
         setTimeLeftStr(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
 
-        // Periodic reminder chime every 60 seconds (and final 30 seconds) while unsubmitted
-        if (!photoDataUrlRef.current && (diffSecs % 60 === 0 || diffSecs === 30)) {
-          if (lastChimeSecRef.current !== diffSecs) {
-            lastChimeSecRef.current = diffSecs;
-            playSpotCheckChime();
-          }
-        }
+        // Periodic milestone chimes are handled by GlobalSpotCheckWatcher
       }
     };
 

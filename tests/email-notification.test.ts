@@ -5,6 +5,7 @@ import {
   sendMissingCheckinAlertEmail,
   sendAbsentAlertEmail,
   sendMissedSpotCheckAlertEmail,
+  sendSpotCheckTriggeredEmail,
 } from '@/lib/email';
 
 describe('Late, Missing, Absent & Spot Check Supervisor Email Notification Suite', () => {
@@ -100,5 +101,23 @@ describe('Late, Missing, Absent & Spot Check Supervisor Email Notification Suite
     const calls = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
     expect(calls).toContain('TO: same_email@company.com');
     expect(calls).not.toContain('TO: same_email@company.com, same_email@company.com');
+  });
+
+  it('6. sendSpotCheckTriggeredEmail dispatches immediate alert to employee email', async () => {
+    const success = await sendSpotCheckTriggeredEmail({
+      employeeName: 'นายกษิดิ์เดช ปิ่นทองพันธ์',
+      employeeId: '1313',
+      employeeEmail: 'Kasidet@snuthailand.com',
+      round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
+      scheduledTime: '10:45',
+      deadlineTime: '10:55',
+      note: 'กรุณาถ่ายภาพยืนยันตัวตน',
+    });
+
+    expect(success).toBe(true);
+    const calls = consoleSpy.mock.calls.map((c: any[]) => c.join(' ')).join('\n');
+    expect(calls).toContain('TO: Kasidet@snuthailand.com');
+    expect(calls).toContain('[ด่วน: สุ่มตรวจ WFH] มีคำสั่งสุ่มตรวจยืนยันตัวตน กรุณาถ่ายภาพ Selfie ภายใน 10 นาที');
+    expect(calls).toContain('10:55 น.');
   });
 });

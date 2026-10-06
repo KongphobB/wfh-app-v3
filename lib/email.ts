@@ -250,6 +250,68 @@ export async function sendAbsentAlertEmail(params: {
 }
 
 /**
+ * Send email immediately when a spot check is initiated (รอบ 10 นาที)
+ * Notifies the employee directly so they receive mobile/Outlook alert while away from browser
+ */
+export async function sendSpotCheckTriggeredEmail(params: {
+  employeeName: string;
+  employeeId: string;
+  employeeEmail?: string | null;
+  round: string;
+  scheduledTime: string;
+  deadlineTime: string;
+  note?: string;
+}): Promise<boolean> {
+  if (!params.employeeEmail || !params.employeeEmail.includes('@')) {
+    return false;
+  }
+
+  const subject = `[ด่วน: สุ่มตรวจ WFH] มีคำสั่งสุ่มตรวจยืนยันตัวตน กรุณาถ่ายภาพ Selfie ภายใน 10 นาที (รอบ ${params.round})`;
+  const bodyHtml = `
+    <div style="font-family: sans-serif; padding: 24px; background-color: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #e2e8f0; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 36px;">🔔</span>
+        <h2 style="color: #dc2626; margin: 8px 0 4px 0;">คำสั่งสุ่มตรวจยืนยันตัวตน (Spot Check)</h2>
+        <p style="color: #64748b; font-size: 14px; margin: 0;">ระบบบันทึกเวลาและติดตามการทำงานนอกสถานที่ SNU WFH</p>
+      </div>
+
+      <div style="background: #ffffff; padding: 20px; border-left: 4px solid #dc2626; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;">
+        <p style="margin: 0 0 10px 0; font-size: 15px;">เรียนคุณ <strong>${params.employeeName}</strong> (รหัส: ${params.employeeId}),</p>
+        <p style="margin: 0 0 12px 0; color: #334155; line-height: 1.5;">
+          ขณะนี้มี <strong>คำสั่งสุ่มตรวจยืนยันตัวตน</strong> เข้ามายังบัญชีของคุณ กรุณาเปิดกล้องถ่ายภาพ Selfie สดเพื่อยืนยันการปฏิบัติงานนอกสถานที่
+        </p>
+
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 14px; margin: 14px 0;">
+          <p style="margin: 3px 0; font-size: 14px;"><strong>รอบการตรวจ:</strong> ${params.round}</p>
+          <p style="margin: 3px 0; font-size: 14px;"><strong>เวลาที่เริ่มส่งคำสั่ง:</strong> ${params.scheduledTime} น.</p>
+          <p style="margin: 3px 0; font-size: 14px; color: #b91c1c;"><strong>⏰ กำหนดเวลาสิ้นสุด (10 นาที):</strong> <strong>${params.deadlineTime} น.</strong></p>
+          ${params.note ? `<p style="margin: 8px 0 0 0; font-size: 13px; color: #7f1d1d;"><strong>ข้อความจากหัวหน้างาน:</strong> "${params.note}"</p>` : ''}
+        </div>
+
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="https://wfh-system-v3.vercel.app/spotcheck" 
+             style="display: inline-block; background-color: #dc2626; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 2px 4px rgba(220,38,38,0.3);">
+            📸 เปิดหน้าระบบเพื่อถ่ายภาพ Selfie ยืนยันตัวตน
+          </a>
+        </div>
+      </div>
+
+      <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0; line-height: 1.5;">
+        💡 หากท่านเปิดหน้าจอมือถือหรืออยู่ระหว่างติดต่อลูกค้า สามารถแตะที่ลิงก์ด้านบนเพื่อถ่ายภาพยืนยันตัวตนได้ทันที
+      </p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+      <p style="font-size: 11px; color: #94a3b8; margin: 0; text-align: center;">อีเมลแจ้งเตือนอัตโนมัติจากระบบ SNU WFH</p>
+    </div>
+  `;
+
+  return sendEmailAlert({
+    to: params.employeeEmail.trim(),
+    subject,
+    bodyHtml,
+  });
+}
+
+/**
  * Send email when an employee misses spot check (เกิน 10 นาที / ขาดการติดต่อ)
  * Sends to BOTH supervisor and admin (and CCs the employee)
  */

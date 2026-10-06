@@ -457,6 +457,13 @@ export default function SupervisorPage() {
   };
 
   const openTriggerSpotCheckModal = (member: { id: string; name: string }) => {
+    const todayLog = attendanceLogs.find(
+      (l) => l.employee_id === member.id && l.log_date === todayStr && l.log_type.includes('เข้างาน')
+    );
+    if (!todayLog) {
+      alert('พนักงานยังไม่ได้ลงเวลาเข้างาน ไม่สามารถสั่งสุ่มตรวจได้');
+      return;
+    }
     setTriggerTarget(member);
     setTriggerNote('');
     setTriggerSuccess('');
@@ -1137,14 +1144,26 @@ export default function SupervisorPage() {
                     </div>
                   </div>
 
-                  <Button
-                    type="button"
-                    onClick={() => openTriggerSpotCheckModal(member)}
-                    className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/20 gap-1.5 py-2.5"
-                  >
-                    <BellRing className="w-4 h-4" />
-                    <span>🔔 สั่งสุ่มตรวจทันที (นับถอยหลัง 10 นาที)</span>
-                  </Button>
+                  {todayLog ? (
+                    <Button
+                      type="button"
+                      onClick={() => openTriggerSpotCheckModal(member)}
+                      className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/20 gap-1.5 py-2.5 cursor-pointer"
+                    >
+                      <BellRing className="w-4 h-4" />
+                      <span>🔔 สั่งสุ่มตรวจทันที (นับถอยหลัง 10 นาที)</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      disabled
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 font-bold text-xs gap-1.5 py-2.5 cursor-not-allowed shadow-none"
+                      title="พนักงานยังไม่ได้ลงเวลาเข้างาน ไม่สามารถสั่งสุ่มตรวจได้"
+                    >
+                      <Clock className="w-4 h-4 text-slate-400" />
+                      <span>⏳ ยังไม่ลงเวลา (ไม่สามารถสุ่มตรวจได้)</span>
+                    </Button>
+                  )}
                 </div>
               );
             })}

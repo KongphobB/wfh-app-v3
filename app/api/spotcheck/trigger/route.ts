@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getLiveEmployeesMap } from '@/lib/gas';
+import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { createNotification } from '@/lib/notifications';
+import { sendSpotCheckTriggeredEmail } from '@/lib/email';
 import { SpotCheck } from '@/types';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
@@ -37,6 +38,23 @@ export async function POST(request: Request) {
     const now = new Date();
     const todayStr = getThaiDateStr(now);
     const timeStr = getThaiTime(now).timeStr;
+
+    // Guard: Employee MUST have checked in today (เข้างาน) to be spot checked
+    const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 150 });
+    const checkinLogs = (checkinRes?.data || []) as any[];
+    const hasCheckedInToday = checkinLogs.some(
+      (c) =>
+        String(c.employeeId || c.employee_id) === String(employee_id) &&
+        c.date === todayStr &&
+        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
+    );
+
+    if (!hasCheckedInToday) {
+      return NextResponse.json(
+        { error: `พนักงาน ${targetEmployee?.name || employee_id} ยังไม่ได้ลงเวลาเข้างานในวันนี้ จึงไม่สามารถสั่งสุ่มตรวจได้` },
+        { status: 400 }
+      );
+    }
 
     const newSpotCheckId = `SPOT-MANUAL-${Date.now()}-${employee_id}`;
 
@@ -78,9 +96,27 @@ export async function POST(request: Request) {
       console.warn('Failed to dispatch spot check notification:', notifErr);
     }
 
+    // Real-time Email Alert directly to employee so mobile/Outlook gets alerted immediately
+    const empEmail = targetEmployee?.email;
+    if (empEmail) {
+      const deadlineDate = new Date(now.getTime() + 10 * 60 * 1000);
+      const deadlineStr = getThaiTime(deadlineDate).timeStr;
+      sendSpotCheckTriggeredEmail({
+        employeeName: empName,
+        employeeId: String(employee_id),
+        employeeEmail: empEmail,
+        round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
+        scheduledTime: timeStr,
+        deadlineTime: deadlineStr,
+        note: note || undefined,
+      }).catch((emailErr) => {
+        console.warn('Failed to send spot check email alert:', emailErr);
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      message: `ส่งคำสั่งสุ่มตรวจไปยังคุณ ${empName} (${employee_id}) เรียบร้อยแล้ว (ระบบเริ่มนับถอยหลัง 10 นาที)`,
+      message: `ส่งคำสั่งสุ่มตรวจไปยังคุณ ${empName} (${employee_id}) เรียบร้อยแล้ว (ระบบเริ่มนับถอยหลัง 10 นาที พร้อมส่งเมลเตือนตรงเข้ากล่องข้อความ)`,
       spotCheck: newSpotCheck,
     });
   } catch (error: any) {

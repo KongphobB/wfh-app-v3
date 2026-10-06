@@ -108,12 +108,20 @@ export default function GlobalSpotCheckWatcher() {
     return () => clearInterval(interval);
   }, []);
 
-  const lastWatcherChimeSecRef = useRef<number>(-1);
+  const triggeredMilestonesRef = useRef<Set<number>>(new Set());
 
   // Countdown timer calculation for the active spot check
-  // and periodic background reminder chime every 60s
+  // and reliable periodic reminder chimes (8m, 6m, 4m, 2m, 1m, 30s)
   useEffect(() => {
-    if (!activeCheck) return;
+    if (!activeCheck) {
+      triggeredMilestonesRef.current.clear();
+      return;
+    }
+
+    // Reset milestones when checking a new spot check ID
+    if (playedAlertForId.current !== activeCheck.id) {
+      triggeredMilestonesRef.current.clear();
+    }
 
     const calcTimer = () => {
       let spotTime = 0;
@@ -143,11 +151,14 @@ export default function GlobalSpotCheckWatcher() {
         const s = secs % 60;
         setTimeLeftStr(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
 
-        // Periodic background chime every 60 seconds (and at 30 seconds) if modal is closed
-        if (!isModalOpen && (secs % 60 === 0 || secs === 30)) {
-          if (lastWatcherChimeSecRef.current !== secs) {
-            lastWatcherChimeSecRef.current = secs;
+        // Milestone reminder chimes: 8m, 6m, 4m, 2m, 1m, and 30s
+        // Works reliably even when tab is throttled in background or modal is open
+        const MILESTONES = [480, 360, 240, 120, 60, 30];
+        for (const milestone of MILESTONES) {
+          if (secs <= milestone && !triggeredMilestonesRef.current.has(milestone)) {
+            triggeredMilestonesRef.current.add(milestone);
             playSpotCheckAlert();
+            break;
           }
         }
       }
@@ -156,7 +167,7 @@ export default function GlobalSpotCheckWatcher() {
     calcTimer();
     const timerInterval = setInterval(calcTimer, 1000);
     return () => clearInterval(timerInterval);
-  }, [activeCheck, isModalOpen]);
+  }, [activeCheck]);
 
   const handleModalClose = () => {
     setIsModalOpen(false);
