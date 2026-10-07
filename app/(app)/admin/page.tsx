@@ -14,6 +14,34 @@ import { Employee, Ticket, AppConfig, CheckinLog, SuggestionItem, SuggestionStat
 import { useLanguage } from '@/lib/i18n';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 
+const getDailyLocationsKey = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `wfh_daily_locations_${y}-${m}-${day}`;
+};
+
+const getClientDailyLocations = (): Record<string, 'office' | 'wfh'> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(getDailyLocationsKey());
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveClientDailyLocation = (empId: string, location: 'office' | 'wfh') => {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = getDailyLocationsKey();
+    const current = getClientDailyLocations();
+    current[empId] = location;
+    localStorage.setItem(key, JSON.stringify(current));
+  } catch {}
+};
+
 export default function AdminPage() {
   const { t, lang } = useLanguage();
   const [activeTab, setActiveTab] = useState<'employees' | 'checkins' | 'tickets' | 'suggestions' | 'holidays' | 'audit' | 'config'>('employees');
@@ -99,7 +127,15 @@ export default function AdminPage() {
         fetch('/api/admin/audit'),
       ]);
 
-      if (eRes.ok) setEmployees((await eRes.json()).employees || []);
+      if (eRes.ok) {
+        const fetchedEmps = (await eRes.json()).employees || [];
+        const clientLocs = getClientDailyLocations();
+        const mergedEmps = fetchedEmps.map((emp: Employee) => ({
+          ...emp,
+          work_location_today: clientLocs[emp.employee_id] || emp.work_location_today || 'wfh',
+        }));
+        setEmployees(mergedEmps);
+      }
       if (cRes.ok) setAllCheckins((await cRes.json()).logs || []);
       if (tRes.ok) setTickets((await tRes.json()).tickets || []);
       if (sugRes.ok) setSuggestions((await sugRes.json()).data || []);
@@ -511,12 +547,15 @@ export default function AdminPage() {
     setError('');
     setMessage('');
 
-    // Instant optimistic update
+    // 1. Instant optimistic update in React state
     setEmployees((prev) =>
       prev.map((e) =>
         e.employee_id === emp.employee_id ? { ...e, work_location_today: nextLocation } : e
       )
     );
+
+    // 2. Persist immediately in client storage so UI NEVER reverts
+    saveClientDailyLocation(emp.employee_id, nextLocation);
 
     try {
       const res = await fetch('/api/admin/employees', {
@@ -533,20 +572,41 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'เปลี่ยนสถานที่ทำงานไม่สำเร็จ');
-        fetchAdminData();
+        const prevLoc = emp.work_location_today || 'wfh';
+        setEmployees((prev) =>
+          prev.map((e) =>
+            e.employee_id === emp.employee_id ? { ...e, work_location_today: prevLoc } : e
+          )
+        );
+        saveClientDailyLocation(emp.employee_id, prevLoc);
         return;
       }
+
+      // Ensure confirmed state is preserved
+      const confirmedLocation = (data.work_location || nextLocation) as 'office' | 'wfh';
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employee_id === emp.employee_id ? { ...e, work_location_today: confirmedLocation } : e
+        )
+      );
+      saveClientDailyLocation(emp.employee_id, confirmedLocation);
 
       setMessage(
         data.message ||
           (lang === 'en'
-            ? `Work location updated to ${nextLocation.toUpperCase()}`
-            : `ปรับสถานที่ทำงานของ ${emp.name} เป็น ${nextLocation === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`)
+            ? `Work location updated to ${confirmedLocation.toUpperCase()}`
+            : `ปรับสถานที่ทำงานของ ${emp.name} เป็น ${confirmedLocation === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`)
       );
-      await fetchAdminData();
+      // DO NOT call fetchAdminData() here! Calling fetchAdminData() caused race condition & overwrite!
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-      fetchAdminData();
+      const prevLoc = emp.work_location_today || 'wfh';
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employee_id === emp.employee_id ? { ...e, work_location_today: prevLoc } : e
+        )
+      );
+      saveClientDailyLocation(emp.employee_id, prevLoc);
     } finally {
       setActionLoadingId(null);
     }

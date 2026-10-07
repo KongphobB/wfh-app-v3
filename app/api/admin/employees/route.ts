@@ -7,6 +7,9 @@ import { getExemptConfig } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const createEmployeeSchema = z.object({
   employee_id: z.string().min(1, 'กรุณาระบุรหัสพนักงาน 4 หลัก'),
   name: z.string().min(1, 'กรุณาระบุชื่อ-นามสกุล'),
@@ -76,7 +79,10 @@ export async function GET() {
         ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
         : employeesList;
 
-      return NextResponse.json({ employees: finalEmployees });
+      return NextResponse.json(
+        { employees: finalEmployees },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      );
     }
 
     // 2. Fallback to getLiveEmployeesMap / getSystemConfig
@@ -109,7 +115,10 @@ export async function GET() {
       ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
       : employeesList;
 
-    return NextResponse.json({ employees: finalEmployees });
+    return NextResponse.json(
+      { employees: finalEmployees },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   } catch (error: any) {
     console.error('GET admin employees error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลพนักงานจาก Google Sheet' }, { status: 500 });
@@ -199,8 +208,20 @@ export async function PATCH(request: Request) {
         details: `${session.name} กำหนดสถานที่ทำงานของพนักงาน ${name || employee_id} (${employee_id}) วันนี้เป็น "${location === 'office' ? 'เข้า Office' : 'ทำงาน WFH'}"`,
       });
 
+      // Sync to Google Sheet checkin log in background if setting to office
+      if (location === 'office') {
+        callGAS('checkin', {
+          type: 'เข้างาน',
+          employeeId: employee_id,
+          lat: 12.736929,
+          lng: 101.114387,
+          note: 'ปฏิบัติงานที่ออฟฟิศ (แอดมินกำหนด)',
+        }).catch((err) => console.warn('Background GAS office log error:', err));
+      }
+
       return NextResponse.json({
         success: true,
+        employee_id,
         work_location: location,
         message: `ปรับสถานที่ทำงานของพนักงาน ${name || employee_id} วันนี้เป็น ${location === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`,
       });
