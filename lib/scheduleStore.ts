@@ -54,7 +54,14 @@ function saveToDisk(data: Record<string, number[]>) {
   const filePath = getStoragePath();
   try {
     ensureDir(filePath);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    const tmpFile = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    try {
+      fs.renameSync(tmpFile, filePath);
+    } catch {
+      fs.copyFileSync(tmpFile, filePath);
+      try { fs.unlinkSync(tmpFile); } catch {}
+    }
   } catch (err) {
     console.warn('Failed to save weekly schedules to disk:', err);
   }
