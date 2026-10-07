@@ -9,7 +9,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const result = await sendPushToEmployee(session.employee_id, {
+    const body = await request.json().catch(() => ({}));
+    let targetEmployeeId = session.employee_id;
+    if (body?.employee_id && (session.role === 'admin' || session.role === 'supervisor')) {
+      targetEmployeeId = String(body.employee_id);
+    }
+
+    const result = await sendPushToEmployee(targetEmployeeId, {
       title: '🔔 ทดสอบระบบ Web Push (PWA)',
       body: 'ระบบสามารถส่งสัญญาณแจ้งเตือนทะลุเข้าโทรศัพท์ของคุณได้สำเร็จ แม้จะปิดแอปไปแล้ว!',
       url: '/dashboard',

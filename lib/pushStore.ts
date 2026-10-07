@@ -135,6 +135,34 @@ export function savePushSubscription(
 }
 
 /**
+ * Save push subscription asynchronously and await Google Sheets persistence
+ */
+export async function savePushSubscriptionAsync(
+  employee_id: string,
+  sub: PushSubscriptionData,
+  userAgent?: string
+): Promise<StoredPushSubscription> {
+  const record = savePushSubscription(employee_id, sub, userAgent);
+
+  try {
+    const { callGAS } = await import('./gas');
+    await callGAS('submitTicket', {
+      employeeId: String(employee_id),
+      problemType: '__SYS_PUSH_SUB__',
+      details: JSON.stringify({
+        endpoint: sub.endpoint,
+        keys: sub.keys,
+        user_agent: userAgent,
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to sync push subscription to Google Sheet:', err);
+  }
+
+  return record;
+}
+
+/**
  * Get all active subscriptions for a specific employee (Synchronous cache lookup)
  */
 export function getSubscriptionsForEmployee(employee_id: string): StoredPushSubscription[] {

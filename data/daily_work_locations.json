@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "2026-10-07_1304",
+    "date": "2026-10-07",
+    "employee_id": "1304",
+    "location": "office",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:36:08.118Z"
+  },
+  {
+    "id": "2026-10-07_1313",
+    "date": "2026-10-07",
+    "employee_id": "1313",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:36:08.116Z"
+  },
+  {
+    "id": "2026-10-07_8888",
+    "date": "2026-10-07",
+    "employee_id": "8888",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:36:08.117Z"
+  }
+]

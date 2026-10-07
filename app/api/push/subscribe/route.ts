@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { savePushSubscription } from '@/lib/pushStore';
+import { savePushSubscriptionAsync } from '@/lib/pushStore';
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     const userAgent = request.headers.get('user-agent') || undefined;
 
-    const saved = savePushSubscription(session.employee_id, subscription, userAgent);
+    const saved = await savePushSubscriptionAsync(session.employee_id, subscription, userAgent);
 
     return NextResponse.json({
       success: true,

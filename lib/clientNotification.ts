@@ -117,7 +117,7 @@ export async function subscribeToWebPush(): Promise<boolean> {
 
     const subJson = subscription.toJSON();
     const saveController = new AbortController();
-    const saveTimeout = setTimeout(() => saveController.abort(), 2500);
+    const saveTimeout = setTimeout(() => saveController.abort(), 10000);
     const saveRes = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -297,10 +297,10 @@ export async function testDeviceNotification(): Promise<{
   // Ensure push subscription is active in background without blocking
   subscribeToWebPush().catch(() => {});
 
-  // Try Server-side Web Push first to test real background push delivery (with 2s timeout)
+  // Try Server-side Web Push first to test real background push delivery (with 8s timeout)
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const pushRes = await fetch('/api/push/test', { method: 'POST', signal: controller.signal });
     clearTimeout(timeout);
     if (pushRes && pushRes.ok) {

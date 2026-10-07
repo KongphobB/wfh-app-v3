@@ -93,6 +93,34 @@ export function addManualSpotCheck(check: SpotCheck): SpotCheck {
   return check;
 }
 
+/**
+ * Add manual spot check asynchronously and await Google Sheets persistence
+ */
+export async function addManualSpotCheckAsync(check: SpotCheck): Promise<SpotCheck> {
+  const store = getMemoryStore();
+  const updated = [
+    check,
+    ...store.filter(
+      (c) => !(c.employee_id === check.employee_id && (c.result_status === 'Scheduled' || c.result_status === 'Pending'))
+    ),
+  ];
+  global.__manualSpotChecks = updated;
+  saveChecksToDisk(updated);
+
+  try {
+    const { callGAS } = await import('./gas');
+    await callGAS('submitTicket', {
+      employeeId: String(check.employee_id),
+      problemType: '__SYS_SPOT_CHECK__',
+      details: JSON.stringify(check),
+    });
+  } catch (err) {
+    console.warn('Failed to sync manual spot check to Google Sheet:', err);
+  }
+
+  return check;
+}
+
 export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
   const store = getMemoryStore();
   const nowMs = Date.now();

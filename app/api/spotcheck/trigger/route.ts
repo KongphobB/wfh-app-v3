@@ -72,8 +72,8 @@ export async function POST(request: Request) {
       created_at: now.toISOString(),
     };
 
-    const { addManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
-    addManualSpotCheck(newSpotCheck);
+    const { addManualSpotCheckAsync } = await import('@/lib/manualSpotCheckStore');
+    await addManualSpotCheckAsync(newSpotCheck);
 
     if (!global.__activeTestSpotChecks) {
       global.__activeTestSpotChecks = [];
@@ -100,27 +100,32 @@ export async function POST(request: Request) {
     }
 
     // Real-time Email Alert directly to employee so mobile/Outlook gets alerted immediately
+    let emailSent = false;
     const empEmail = targetEmployee?.email;
     if (empEmail) {
       const deadlineDate = new Date(now.getTime() + 10 * 60 * 1000);
       const deadlineStr = getThaiTime(deadlineDate).timeStr;
-      sendSpotCheckTriggeredEmail({
-        employeeName: empName,
-        employeeId: String(employee_id),
-        employeeEmail: empEmail,
-        round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
-        scheduledTime: timeStr,
-        deadlineTime: deadlineStr,
-        note: note || undefined,
-      }).catch((emailErr) => {
+      try {
+        const emailRes = await sendSpotCheckTriggeredEmail({
+          employeeName: empName,
+          employeeId: String(employee_id),
+          employeeEmail: empEmail,
+          round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
+          scheduledTime: timeStr,
+          deadlineTime: deadlineStr,
+          note: note || undefined,
+        });
+        emailSent = Boolean(emailRes);
+      } catch (emailErr) {
         console.warn('Failed to send spot check email alert:', emailErr);
-      });
+      }
     }
 
     // Full Web Push Notification to wake up mobile device / lock screen (PWA Background Push)
+    let pushSent = 0;
     try {
       const { sendPushToEmployee } = await import('@/lib/webPush');
-      sendPushToEmployee(String(employee_id), {
+      const pushRes = await sendPushToEmployee(String(employee_id), {
         title: '🔔 คำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ!',
         body: `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${timeStr} น.)${note ? ` หมายเหตุ: "${note}"` : ''}`,
         url: '/spotcheck',
@@ -130,17 +135,18 @@ export async function POST(request: Request) {
         data: {
           spotCheck: newSpotCheck,
         },
-      }).catch((pushErr) => {
-        console.warn('Failed to dispatch web push alert:', pushErr);
       });
-    } catch (pushImportErr) {
-      console.warn('Failed to import webPush:', pushImportErr);
+      pushSent = pushRes?.sent || 0;
+    } catch (pushErr) {
+      console.warn('Failed to dispatch web push alert:', pushErr);
     }
 
     return NextResponse.json({
       success: true,
       message: `ส่งคำสั่งสุ่มตรวจไปยังคุณ ${empName} (${employee_id}) เรียบร้อยแล้ว (ระบบเริ่มนับถอยหลัง 10 นาที พร้อมส่งเมลเตือนตรงเข้ากล่องข้อความ)`,
       spotCheck: newSpotCheck,
+      emailSent,
+      pushSent,
     });
   } catch (error: any) {
     console.error('Trigger spot check error:', error);
