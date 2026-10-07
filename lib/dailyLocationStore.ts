@@ -43,6 +43,9 @@ function loadFromDisk(): DailyLocationRecord[] {
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
+      if (!content || !content.trim()) {
+        return [];
+      }
       const list = JSON.parse(content);
       if (Array.isArray(list)) {
         return list;
