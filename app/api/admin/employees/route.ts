@@ -5,6 +5,7 @@ import { callGAS } from '@/lib/gas';
 import { Employee, WfhStatus } from '@/types';
 import { getExemptConfig } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
+import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
 
 const createEmployeeSchema = z.object({
   employee_id: z.string().min(1, 'กรุณาระบุรหัสพนักงาน 4 หลัก'),
@@ -64,6 +65,7 @@ export async function GET() {
             wfh_status: wfhStatus,
             one_star_count: isNaN(oneStarCount) ? 0 : oneStarCount,
             is_photo_exempt: checkExempt(empId, position, role),
+            work_location_today: getDailyWorkLocation(empId),
             force_pin_change: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -96,6 +98,7 @@ export async function GET() {
         wfh_status: (e as any).wfhStatus || 'เปิดสิทธิ์',
         one_star_count: (e as any).oneStarCount || 0,
         is_photo_exempt: checkExempt(String(empId), e.position, role),
+        work_location_today: getDailyWorkLocation(String(empId)),
         force_pin_change: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -170,15 +173,42 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getSession();
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: 'เฉพาะแอดมินเท่านั้น' }, { status: 403 });
+    if (!session || (session.role !== 'admin' && session.role !== 'supervisor')) {
+      return NextResponse.json({ error: 'เฉพาะแอดมินหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { employee_id, action, name, email, wfh_status, reset_pin, supervisor_id, department, position, role } = body;
+    const { employee_id, action, name, email, wfh_status, reset_pin, supervisor_id, department, position, role, work_location } = body;
 
     if (!employee_id) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสพนักงาน' }, { status: 400 });
+    }
+
+    // 0. If action is updating daily work location (Office vs WFH)
+    if (action === 'update_work_location' || work_location) {
+      const location = (work_location || body.location) === 'office' ? 'office' : 'wfh';
+      const record = setDailyWorkLocation(employee_id, location, name || employee_id, session.name);
+
+      createAuditLog({
+        admin_id: session.employee_id,
+        admin_name: session.name,
+        action_type: location === 'office' ? 'SET_OFFICE_MODE' : 'SET_WFH_MODE',
+        action_title: location === 'office' ? 'กำหนดเข้า Office วันนี้' : 'กำหนดทำงาน WFH วันนี้',
+        target_employee_id: employee_id,
+        target_employee_name: name || employee_id,
+        details: `${session.name} กำหนดสถานที่ทำงานของพนักงาน ${name || employee_id} (${employee_id}) วันนี้เป็น "${location === 'office' ? 'เข้า Office' : 'ทำงาน WFH'}"`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        work_location: location,
+        message: `ปรับสถานที่ทำงานของพนักงาน ${name || employee_id} วันนี้เป็น ${location === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`,
+      });
+    }
+
+    // Only full admin can do other sensitive employee operations
+    if (session.role !== 'admin') {
+      return NextResponse.json({ error: 'เฉพาะแอดมินเท่านั้น' }, { status: 403 });
     }
 
     const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');

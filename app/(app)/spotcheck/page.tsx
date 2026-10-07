@@ -52,6 +52,7 @@ export default function SpotCheckPage() {
   const [activeCheck, setActiveCheck] = useState<SpotCheck | null>(null);
   const [modalCheck, setModalCheck] = useState<SpotCheck | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
+  const [isWorkingAtOfficeToday, setIsWorkingAtOfficeToday] = useState(false);
 
   // Restore active spot check from localStorage immediately on mount
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function SpotCheckPage() {
           syncServerTime(data.server_timestamp);
         }
         setSpotChecks(data.spotChecks || []);
+        setIsWorkingAtOfficeToday(Boolean(data.is_working_at_office_today));
       }
     } catch (err) {
       console.error('Fetch spot checks error:', err);
@@ -164,6 +166,24 @@ export default function SpotCheckPage() {
           </Button>
         </div>
       </div>
+
+      {isWorkingAtOfficeToday && (
+        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-xl shadow-2xs">
+            🏢
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-blue-950">
+              {lang === 'en' ? 'Working Onsite at Office Today' : 'วันนี้ปฏิบัติงานที่ออฟฟิศ'}
+            </h4>
+            <p className="text-xs text-blue-700 mt-0.5">
+              {lang === 'en'
+                ? 'You are exempted from routine WFH spot checks today. (Ad-hoc supervisor checks may still be performed if requested)'
+                : 'ระบบยกเว้นการสุ่มตรวจตามรอบประจำวันให้อัตโนมัติ ไม่ต้องยืนยันตัวตน WFH (ยกเว้นกรณีหัวหน้างานสุ่มตรวจเฉพาะกิจ)'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {activeCheck && (
         <Card className="border-orange-200 bg-orange-50/70">

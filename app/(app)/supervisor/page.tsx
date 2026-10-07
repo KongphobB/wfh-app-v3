@@ -150,7 +150,7 @@ export default function SupervisorPage() {
       }
 
       // 1. Populate official subordinates directly from Google Sheets
-      const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string }>();
+      const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string; work_location_today?: string }>();
       if (empsRes.ok) {
         const eData = await empsRes.json();
         const emps = eData.employees || [];
@@ -161,6 +161,7 @@ export default function SupervisorPage() {
               name: e.name || e.employee_id,
               dept: e.department || undefined,
               position: e.position || undefined,
+              work_location_today: e.work_location_today,
             });
           }
         });
@@ -239,7 +240,7 @@ export default function SupervisorPage() {
     );
 
     // Full detailed list for modal inspection
-    const memberStatusList = teamMembers.map((m) => {
+    const memberStatusList = teamMembers.map((m: any) => {
       const morningLog = todayLogs.find(
         (l) => l.employee_id === m.id && l.log_type?.includes('เข้างาน')
       );
@@ -247,9 +248,12 @@ export default function SupervisorPage() {
       let checkinTime: string | null = null;
       let checkinDetails: string | null = null;
 
+      const isConfiguredOffice = m.work_location_today === 'office';
+
       if (morningLog) {
         checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
         const isOnsite =
+          isConfiguredOffice ||
           morningLog.verification_status?.includes('ออฟฟิศ') ||
           morningLog.note?.includes('ออฟฟิศ');
         const isLate =
@@ -266,6 +270,9 @@ export default function SupervisorPage() {
           status = 'on_time';
           checkinDetails = morningLog.note || morningLog.verification_status || 'ตรงเวลา';
         }
+      } else if (isConfiguredOffice) {
+        status = 'onsite';
+        checkinDetails = 'เข้าปฏิบัติงานที่ออฟฟิศ (กำหนดโดย Admin)';
       }
 
       return {

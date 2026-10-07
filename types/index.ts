@@ -46,6 +46,7 @@ export interface Employee {
   force_pin_change: boolean;
   role: Role;
   is_photo_exempt?: boolean;
+  work_location_today?: 'office' | 'wfh';
   created_at?: string;
   updated_at?: string;
 }
@@ -169,6 +170,9 @@ export type AuditActionType =
   | 'EDIT_EMPLOYEE'
   | 'CREATE_EMPLOYEE'
   | 'TOGGLE_PHOTO_EXEMPT'
+  | 'TOGGLE_WORK_LOCATION'
+  | 'SET_OFFICE_MODE'
+  | 'SET_WFH_MODE'
   | 'UPDATE_CONFIG'
   | 'RESOLVE_TICKET'
   | 'RESPOND_SUGGESTION'

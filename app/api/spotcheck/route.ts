@@ -118,15 +118,20 @@ export async function GET() {
 
     // Check if employee is working at office today
     let isWorkingAtOfficeToday = false;
-    const checkinLogs = (checkinRes?.data || []) as any[];
-    const todayMorningCheckin = checkinLogs.find(
-      (c) =>
-        String(c.employeeId) === String(session.employee_id) &&
-        c.date === todayStr &&
-        c.type === 'เข้างาน'
-    );
-    if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
+    const { isEmployeeAtOfficeToday } = await import('@/lib/dailyLocationStore');
+    if (isEmployeeAtOfficeToday(String(session.employee_id), todayStr)) {
       isWorkingAtOfficeToday = true;
+    } else {
+      const checkinLogs = (checkinRes?.data || []) as any[];
+      const todayMorningCheckin = checkinLogs.find(
+        (c) =>
+          String(c.employeeId) === String(session.employee_id) &&
+          c.date === todayStr &&
+          c.type === 'เข้างาน'
+      );
+      if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
+        isWorkingAtOfficeToday = true;
+      }
     }
 
     // Fetch manual spot checks from persistent store
@@ -161,6 +166,7 @@ export async function GET() {
       {
         spotChecks: combined,
         is_photo_exempt: isPhotoExempt,
+        is_working_at_office_today: isWorkingAtOfficeToday,
         employee_position: position,
         server_time: new Date().toISOString(),
         server_timestamp: Date.now(),

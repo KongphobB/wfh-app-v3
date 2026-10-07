@@ -79,6 +79,7 @@ export default function AdminPage() {
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const [empDeptFilter, setEmpDeptFilter] = useState('all');
   const [empRoleFilter, setEmpRoleFilter] = useState('all');
+  const [empLocationFilter, setEmpLocationFilter] = useState<'all' | 'office' | 'wfh'>('all');
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -503,6 +504,54 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleWorkLocation = async (emp: Employee) => {
+    const nextLocation: 'office' | 'wfh' = emp.work_location_today === 'office' ? 'wfh' : 'office';
+    const loadingKey = `${emp.employee_id}_work_location`;
+    setActionLoadingId(loadingKey);
+    setError('');
+    setMessage('');
+
+    // Instant optimistic update
+    setEmployees((prev) =>
+      prev.map((e) =>
+        e.employee_id === emp.employee_id ? { ...e, work_location_today: nextLocation } : e
+      )
+    );
+
+    try {
+      const res = await fetch('/api/admin/employees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: emp.employee_id,
+          action: 'update_work_location',
+          work_location: nextLocation,
+          name: emp.name,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'เปลี่ยนสถานที่ทำงานไม่สำเร็จ');
+        fetchAdminData();
+        return;
+      }
+
+      setMessage(
+        data.message ||
+          (lang === 'en'
+            ? `Work location updated to ${nextLocation.toUpperCase()}`
+            : `ปรับสถานที่ทำงานของ ${emp.name} เป็น ${nextLocation === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`)
+      );
+      await fetchAdminData();
+    } catch {
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      fetchAdminData();
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const openTicketModal = (t: Ticket) => {
     setSelectedTicket(t);
     setAdminNote(t.admin_notes || '');
@@ -703,6 +752,10 @@ export default function AdminPage() {
         const filteredEmployees = employees.filter((e) => {
           if (empDeptFilter !== 'all' && e.department !== empDeptFilter) return false;
           if (empRoleFilter !== 'all' && e.role !== empRoleFilter) return false;
+          if (empLocationFilter !== 'all') {
+            const loc = e.work_location_today || 'wfh';
+            if (loc !== empLocationFilter) return false;
+          }
           if (empSearchQuery.trim()) {
             const q = empSearchQuery.toLowerCase().trim();
             const matchId = e.employee_id.toLowerCase().includes(q);
@@ -714,7 +767,7 @@ export default function AdminPage() {
           return true;
         });
 
-        const hasActiveEmpFilters = empSearchQuery !== '' || empDeptFilter !== 'all' || empRoleFilter !== 'all';
+        const hasActiveEmpFilters = empSearchQuery !== '' || empDeptFilter !== 'all' || empRoleFilter !== 'all' || empLocationFilter !== 'all';
 
         return (
           <Card className="space-y-4 p-6">
@@ -783,6 +836,17 @@ export default function AdminPage() {
                   <option value="admin">{lang === 'en' ? 'Admin (ผู้ดูแลระบบ)' : 'ผู้ดูแลระบบ (Admin)'}</option>
                 </select>
 
+                {/* Work Location Filter */}
+                <select
+                  value={empLocationFilter}
+                  onChange={(e) => setEmpLocationFilter(e.target.value as any)}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-orange-500 shadow-2xs cursor-pointer"
+                >
+                  <option value="all">{lang === 'en' ? '📍 Location: All' : '📍 สถานที่: ทั้งหมด'}</option>
+                  <option value="office">{lang === 'en' ? '🏢 Office (Onsite)' : '🏢 เข้า Office'}</option>
+                  <option value="wfh">{lang === 'en' ? '🏡 WFH (Home)' : '🏡 ทำงาน WFH'}</option>
+                </select>
+
                 {hasActiveEmpFilters && (
                   <button
                     type="button"
@@ -790,6 +854,7 @@ export default function AdminPage() {
                       setEmpSearchQuery('');
                       setEmpDeptFilter('all');
                       setEmpRoleFilter('all');
+                      setEmpLocationFilter('all');
                     }}
                     className="px-3 py-2 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold flex items-center gap-1 transition-colors cursor-pointer"
                   >
@@ -811,6 +876,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3.5">{t.admin.thEmail}</th>
                     <th className="px-4 py-3.5">{t.admin.thRole}</th>
                     <th className="px-4 py-3.5 text-center whitespace-nowrap">{lang === 'en' ? 'Photo Exempt' : 'ยกเว้นถ่ายภาพ'}</th>
+                    <th className="px-4 py-3.5 text-center whitespace-nowrap">{lang === 'en' ? "Today's Location" : 'สถานที่ทำงานวันนี้'}</th>
                     <th className="px-4 py-3.5 text-center whitespace-nowrap">{t.admin.thStars}</th>
                     <th className="px-4 py-3.5 whitespace-nowrap">{t.admin.thWfhStatus}</th>
                     <th className="px-4 py-3.5 text-right min-w-[320px]">{t.admin.thActions}</th>
@@ -820,6 +886,8 @@ export default function AdminPage() {
                   {filteredEmployees.map((emp) => {
                   const isExempt = !!emp.is_photo_exempt;
                   const isToggling = actionLoadingId === `${emp.employee_id}_photo_exempt`;
+                  const isOffice = emp.work_location_today === 'office';
+                  const isTogglingLocation = actionLoadingId === `${emp.employee_id}_work_location`;
 
                   return (
                     <tr key={emp.employee_id} className="hover:bg-slate-50 transition-colors">
@@ -861,6 +929,37 @@ export default function AdminPage() {
                               : isExempt
                               ? (lang === 'en' ? '🛡️ Exempt (ON)' : '🛡️ ยกเว้น (เปิด)')
                               : (lang === 'en' ? '📷 Required (OFF)' : '📷 บังคับถ่าย (ปิด)')}
+                          </span>
+                        </button>
+                      </td>
+                      {/* Work Location Today Toggle Switch */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleWorkLocation(emp)}
+                          disabled={submitting || Boolean(actionLoadingId)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-2xs ${
+                            isOffice
+                              ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-blue-50'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-emerald-50'
+                          }`}
+                          title={
+                            lang === 'en'
+                              ? 'Click to toggle today work location (Office / WFH)'
+                              : 'คลิกเพื่อสลับสถานที่ทำงานวันนี้ (เข้า Office / ทำงาน WFH)'
+                          }
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isOffice ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'
+                            }`}
+                          />
+                          <span>
+                            {isTogglingLocation
+                              ? (lang === 'en' ? 'Saving...' : 'กำลังบันทึก...')
+                              : isOffice
+                              ? (lang === 'en' ? '🏢 Office (เข้าออฟฟิศ)' : '🏢 Office (เข้าออฟฟิศ)')
+                              : (lang === 'en' ? '🏡 WFH (ทำงานที่บ้าน)' : '🏡 WFH (ทำงานที่บ้าน)')}
                           </span>
                         </button>
                       </td>
@@ -1783,6 +1882,10 @@ export default function AdminPage() {
               return <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-[10px]">แก้ไขพนักงาน</Badge>;
             case 'TOGGLE_PHOTO_EXEMPT':
               return <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-[10px]">ปรับสิทธิ์ถ่ายภาพ</Badge>;
+            case 'SET_OFFICE_MODE':
+              return <Badge variant="default" className="bg-blue-600 text-white text-[10px]">🏢 กำหนดเข้า Office</Badge>;
+            case 'SET_WFH_MODE':
+              return <Badge variant="success" className="bg-emerald-600 text-white text-[10px]">🏡 กำหนดทำงาน WFH</Badge>;
             case 'UPDATE_CONFIG':
               return <Badge variant="default" className="bg-slate-800 text-white text-[10px]">ตั้งค่าระบบ</Badge>;
             case 'RESOLVE_TICKET':
@@ -1846,6 +1949,8 @@ export default function AdminPage() {
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="all">{t.audit.filterAllActions}</option>
+                      <option value="SET_OFFICE_MODE">🏢 กำหนดเข้า Office (SET_OFFICE_MODE)</option>
+                      <option value="SET_WFH_MODE">🏡 กำหนดทำงาน WFH (SET_WFH_MODE)</option>
                       <option value="UPDATE_CONFIG">⚙️ ตั้งค่าระบบ (UPDATE_CONFIG)</option>
                       <option value="UNSUSPEND_WFH">🔓 ปลดระงับสิทธิ์ WFH (UNSUSPEND_WFH)</option>
                       <option value="SUSPEND_WFH">🔒 ระงับสิทธิ์ WFH (SUSPEND_WFH)</option>
