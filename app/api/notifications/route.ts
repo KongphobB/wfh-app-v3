@@ -9,6 +9,7 @@ import {
 import { callGAS } from '@/lib/gas';
 import { AppNotification } from '@/types';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
 
 export async function GET() {
   try {
@@ -62,8 +63,14 @@ export async function GET() {
       }
 
       const nowMs = Date.now();
+      const isOfficeToday = isEmployeeAtOfficeToday(session.employee_id);
 
       for (const [roundName, checksInRound] of roundsMap.entries()) {
+        // If employee is at the office today, routine rounds (เช้า / บ่าย / ประจำวัน) are exempt
+        if (isOfficeToday && (roundName.includes('เช้า') || roundName.includes('บ่าย') || roundName.includes('ประจำวัน'))) {
+          continue;
+        }
+
         const isRoundPassed = checksInRound.some((s) => {
           const status = s.status || s.resultStatus || '';
           return status === 'Pass' || status === 'ผ่าน' || status === 'ผ่านการสุ่มตรวจ' || Boolean(s.actualScanTime);

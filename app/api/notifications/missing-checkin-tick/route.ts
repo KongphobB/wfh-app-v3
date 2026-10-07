@@ -4,6 +4,7 @@ import { verifyCronAuth } from '@/lib/cron';
 import { createNotification, createNotificationForSupervisor } from '@/lib/notifications';
 import { sendEmailAlert, sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
+import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
 import { getHolidayByDate } from '@/lib/holidayStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
@@ -58,8 +59,13 @@ export async function GET(request: Request) {
     const isAfternoonAbsent = currentHour >= 12;
 
     for (const [empId, emp] of Object.entries(employeesMap)) {
-      // Exclude admin, employees already checked in, and employees on approved leave today
-      if (!checkedInEmpIds.has(empId) && empId !== '9999' && !isEmployeeOnApprovedLeave(empId, todayStr)) {
+      // Exclude admin, employees already checked in, employees on approved leave today, and employees at the office
+      if (
+        !checkedInEmpIds.has(empId) &&
+        empId !== '9999' &&
+        !isEmployeeOnApprovedLeave(empId, todayStr) &&
+        !isEmployeeAtOfficeToday(empId)
+      ) {
         notifiedEmployees.push({
           id: empId,
           name: emp.name || empId,

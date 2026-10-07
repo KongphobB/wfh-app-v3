@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { callGAS } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
 import { getThaiDateStr } from '@/lib/timeSync';
+import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +113,13 @@ export async function GET(request: Request) {
       const rawSpotLogs = (spotRes?.data || []) as any[];
       for (const s of rawSpotLogs) {
         if (s.date === todayStr) {
+          // If employee is working at the office today, exempt from routine spot check expiration/failure
+          const isOffice = isEmployeeAtOfficeToday(String(s.employeeId));
+          const isRoutine = !s.round || s.round.includes('เช้า') || s.round.includes('บ่าย') || s.round.includes('ประจำวัน');
+          if (isOffice && isRoutine) {
+            continue;
+          }
+
           const status = s.status || s.resultStatus || 'Scheduled';
           const isPending = status === 'Scheduled' || status === 'Pending' || status === 'รอการยืนยัน';
           if (isPending && !s.actualScanTime && !s.checkInTime) {

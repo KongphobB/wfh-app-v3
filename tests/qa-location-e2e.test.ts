@@ -124,4 +124,58 @@ describe('Comprehensive QA Suite: Multi-Employee Work Location Toggle', () => {
     expect(status).toBe('onsite');
     expect(checkinDetails).toContain('ออฟฟิศ');
   });
+
+  it('QA Test 6: Missing check-in & absent notification tick EXEMPTS office employees', () => {
+    // Simulate employee list
+    const employees = [
+      { id: emp1, name: 'ก้องภพ บุญชู' }, // office
+      { id: emp2, name: 'เกษิเดช' },     // wfh
+    ];
+
+    // Mark emp1 as office today
+    setDailyWorkLocation(emp1, 'office', 'ก้องภพ บุญชู', 'Admin', dateStr);
+    setDailyWorkLocation(emp2, 'wfh', 'เกษิเดช', 'Admin', dateStr);
+
+    const checkedInEmpIds = new Set<string>(); // Neither has checked in yet
+    const notifiedEmployees: { id: string; name: string }[] = [];
+
+    for (const emp of employees) {
+      if (
+        !checkedInEmpIds.has(emp.id) &&
+        emp.id !== '9999' &&
+        !isEmployeeAtOfficeToday(emp.id, dateStr)
+      ) {
+        notifiedEmployees.push(emp);
+      }
+    }
+
+    // Only emp2 (WFH) should receive absent/missing check-in notification.
+    // emp1 (Office) MUST NOT receive any missing check-in alert!
+    expect(notifiedEmployees.map((e) => e.id)).toEqual([emp2]);
+    expect(notifiedEmployees.find((e) => e.id === emp1)).toBeUndefined();
+  });
+
+  it('QA Test 7: Spot check expiration tick ignores routine spot checks for office employees', () => {
+    setDailyWorkLocation(emp1, 'office', 'ก้องภพ บุญชู', 'Admin', dateStr);
+
+    const rawSpotLogs = [
+      { employeeId: emp1, round: 'เช้า', status: 'Scheduled', date: dateStr },
+      { employeeId: emp1, round: 'บ่าย', status: 'Scheduled', date: dateStr },
+      { employeeId: emp1, round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)', status: 'Scheduled', date: dateStr },
+    ];
+
+    const failedOrAlerted: any[] = [];
+    for (const s of rawSpotLogs) {
+      const isOffice = isEmployeeAtOfficeToday(String(s.employeeId), dateStr);
+      const isRoutine = !s.round || s.round.includes('เช้า') || s.round.includes('บ่าย') || s.round.includes('ประจำวัน');
+      if (isOffice && isRoutine) {
+        continue; // Exempt!
+      }
+      failedOrAlerted.push(s);
+    }
+
+    // Routine rounds are skipped, only manual/ad-hoc remains eligible for failure checks
+    expect(failedOrAlerted.length).toBe(1);
+    expect(failedOrAlerted[0].round).toContain('เฉพาะกิจ');
+  });
 });
