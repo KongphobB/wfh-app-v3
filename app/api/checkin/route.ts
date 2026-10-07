@@ -236,11 +236,18 @@ export async function GET(request: Request) {
       role: session.role,
     });
 
-    return NextResponse.json({
-      logs: formattedLogs,
-      is_photo_exempt: isPhotoExempt,
-      employee_position: position,
-    });
+    return NextResponse.json(
+      {
+        logs: formattedLogs,
+        is_photo_exempt: isPhotoExempt,
+        employee_position: position,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=15',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('GET checkin error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดข้อมูลเช็คอินจาก Google Sheet' }, { status: 500 });

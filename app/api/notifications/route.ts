@@ -174,8 +174,14 @@ export async function GET() {
 
     const notifications = Array.from(uniqueMap.values());
     const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-    return NextResponse.json({ notifications, unreadCount });
+    return NextResponse.json(
+      { notifications, unreadCount },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=15',
+        },
+      }
+    );
   } catch (error) {
     console.error('GET notifications error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงการแจ้งเตือน' }, { status: 500 });

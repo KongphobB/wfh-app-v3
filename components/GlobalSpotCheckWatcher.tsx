@@ -186,8 +186,9 @@ export default function GlobalSpotCheckWatcher() {
     checkPendingSpotCheck();
 
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       checkPendingSpotCheck();
-    }, 6000);
+    }, 25000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {

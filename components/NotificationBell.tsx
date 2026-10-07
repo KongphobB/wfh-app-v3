@@ -151,10 +151,11 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchInitialNotifications();
 
-    // Faster polling every 10 seconds and immediate check on window focus
+    // Visibility-aware notification polling (35s active tab, instant on focus)
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchInitialNotifications();
-    }, 10000);
+    }, 35000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {

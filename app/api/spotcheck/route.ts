@@ -17,8 +17,17 @@ export async function GET() {
     }
 
     const todayStr = getThaiDateStr();
+    const { getLiveEmployeesMap } = await import('@/lib/gas');
+    const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
+    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
 
-    const gasRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 300 });
+    // Parallel fetch from GAS & cache to avoid waterfall delays
+    const [gasRes, checkinRes, employeesMap] = await Promise.all([
+      callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
+      callGAS('getLogs', { logType: 'checkin', limit: 100 }).catch(() => ({ data: [] })),
+      getLiveEmployeesMap().catch(() => ({})),
+    ]);
+
     const rawSpotChecks = (gasRes?.data || []) as any[];
 
     // Filter by employee and optionally today
@@ -109,24 +118,18 @@ export async function GET() {
 
     // Check if employee is working at office today
     let isWorkingAtOfficeToday = false;
-    try {
-      const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
-      const checkinLogs = (checkinRes?.data || []) as any[];
-      const todayMorningCheckin = checkinLogs.find(
-        (c) =>
-          String(c.employeeId) === String(session.employee_id) &&
-          c.date === todayStr &&
-          c.type === 'เข้างาน'
-      );
-      if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
-        isWorkingAtOfficeToday = true;
-      }
-    } catch {
-      // Ignore checkin check error
+    const checkinLogs = (checkinRes?.data || []) as any[];
+    const todayMorningCheckin = checkinLogs.find(
+      (c) =>
+        String(c.employeeId) === String(session.employee_id) &&
+        c.date === todayStr &&
+        c.type === 'เข้างาน'
+    );
+    if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
+      isWorkingAtOfficeToday = true;
     }
 
     // Fetch manual spot checks from persistent store
-    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
     const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
 
     const testChecks = [
@@ -146,10 +149,7 @@ export async function GET() {
     }
 
     const combined = [...testChecks, ...finalSpotChecks];
-    const { getLiveEmployeesMap } = await import('@/lib/gas');
-    const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
-    const employeesMap = await getLiveEmployeesMap();
-    const currentEmp = employeesMap[session.employee_id] || {};
+    const currentEmp = (employeesMap as Record<string, any>)[session.employee_id] || {};
     const position = currentEmp.position || '';
     const isPhotoExempt = await isEmployeePhotoExempt({
       employee_id: session.employee_id,
@@ -157,13 +157,20 @@ export async function GET() {
       role: session.role,
     });
 
-    return NextResponse.json({
-      spotChecks: combined,
-      is_photo_exempt: isPhotoExempt,
-      employee_position: position,
-      server_time: new Date().toISOString(),
-      server_timestamp: Date.now(),
-    });
+    return NextResponse.json(
+      {
+        spotChecks: combined,
+        is_photo_exempt: isPhotoExempt,
+        employee_position: position,
+        server_time: new Date().toISOString(),
+        server_timestamp: Date.now(),
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=15',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('GET spot check error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลสุ่มตรวจจาก Google Sheet' }, { status: 500 });

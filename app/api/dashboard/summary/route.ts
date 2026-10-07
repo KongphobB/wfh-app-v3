@@ -98,15 +98,22 @@ export async function GET() {
     );
     const activeSpotCheck = activeManual || formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled') || null;
 
-    return NextResponse.json({
-      success: true,
-      role: session.role,
-      wfhStatus: wfhStatus,
-      checkinLogs: formattedCheckins,
-      tasks: formattedTasks,
-      spotChecks: formattedSpots,
-      activeSpotCheck,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        role: session.role,
+        wfhStatus: wfhStatus,
+        checkinLogs: formattedCheckins,
+        tasks: formattedTasks,
+        spotChecks: formattedSpots,
+        activeSpotCheck,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=5, stale-while-revalidate=15',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('GET dashboard summary error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการโหลดแดชบอร์ด' }, { status: 500 });

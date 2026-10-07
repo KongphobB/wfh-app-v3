@@ -12,6 +12,7 @@ declare global {
   var __gasApiCache: Map<string, CacheEntry> | undefined;
   var __gasInFlight: Map<string, Promise<any>> | undefined;
   var __lastKnownEmployeesMap: Record<string, any> | undefined;
+  var __lastKnownEmployeesMapTime: number | undefined;
 }
 
 if (!global.__gasApiCache) {
@@ -22,6 +23,9 @@ if (!global.__gasInFlight) {
 }
 if (!global.__lastKnownEmployeesMap) {
   global.__lastKnownEmployeesMap = {};
+}
+if (!global.__lastKnownEmployeesMapTime) {
+  global.__lastKnownEmployeesMapTime = 0;
 }
 
 const apiCache = global.__gasApiCache;
@@ -56,6 +60,7 @@ const MUTATION_ACTIONS = new Set([
 ]);
 
 export function invalidateGasCache(actionPrefix?: string) {
+  global.__lastKnownEmployeesMapTime = 0;
   if (!actionPrefix) {
     apiCache.clear();
     return;
@@ -68,6 +73,17 @@ export function invalidateGasCache(actionPrefix?: string) {
 }
 
 export async function getLiveEmployeesMap(): Promise<Record<string, { name: string; email?: string; dept?: string; position?: string; supervisorId?: string; pin?: string }>> {
+  const now = Date.now();
+  // Return cached in-memory map immediately if fresh (< 5 mins) to prevent blocking waterfall
+  if (
+    global.__lastKnownEmployeesMap &&
+    Object.keys(global.__lastKnownEmployeesMap).length > 0 &&
+    global.__lastKnownEmployeesMapTime &&
+    now - global.__lastKnownEmployeesMapTime < 300000
+  ) {
+    return global.__lastKnownEmployeesMap;
+  }
+
   try {
     const inspectRes = await callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' });
     const targetRows = inspectRes?.targetRows || [];
@@ -88,6 +104,7 @@ export async function getLiveEmployeesMap(): Promise<Record<string, { name: stri
       }
       if (Object.keys(map).length > 0) {
         global.__lastKnownEmployeesMap = map;
+        global.__lastKnownEmployeesMapTime = now;
         return map;
       }
     }
@@ -100,6 +117,7 @@ export async function getLiveEmployeesMap(): Promise<Record<string, { name: stri
     const cfgMap = configRes?.config?.employeesMap || {};
     if (Object.keys(cfgMap).length > 0) {
       global.__lastKnownEmployeesMap = cfgMap;
+      global.__lastKnownEmployeesMapTime = now;
       return cfgMap;
     }
   } catch (err) {
