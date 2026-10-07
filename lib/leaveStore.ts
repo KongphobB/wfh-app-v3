@@ -147,10 +147,12 @@ export function createLeaveRequest(params: {
   // Sync to Google Sheet in background
   try {
     callGAS('checkin', {
-      type: 'การลา',
+      type: 'เข้างาน',
       employeeId: params.employee_id,
       note: `[ยื่นคำขอ${params.leave_type}] ${params.start_date} ถึง ${params.end_date} เหตุผล: ${params.reason} สถานะ: ${newRequest.status}`,
-    }).catch((err) => console.warn('Background GAS sync leave error:', err));
+      verificationStatus: `การลา (${params.leave_type})`,
+      gps: 'https://www.google.com/maps?q=12.736929,101.114387',
+    }).catch(() => {});
   } catch {}
 
   return newRequest;
@@ -180,10 +182,12 @@ export function updateLeaveStatus(params: {
   // Sync approval to Google Sheet in background
   try {
     callGAS('checkin', {
-      type: 'การลา',
+      type: 'เข้างาน',
       employeeId: updatedReq.employee_id,
       note: `[ผลการพิจารณา${updatedReq.leave_type}: ${params.status}] ${updatedReq.start_date} ถึง ${updatedReq.end_date} ผู้พิจารณา: ${params.reviewed_by}${params.review_note ? ` หมายเหตุ: ${params.review_note}` : ''}`,
-    }).catch((err) => console.warn('Background GAS sync leave update error:', err));
+      verificationStatus: `อนุมัติ ${updatedReq.leave_type}`,
+      gps: 'https://www.google.com/maps?q=12.736929,101.114387',
+    }).catch(() => {});
   } catch {}
 
   return updatedReq;
