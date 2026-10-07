@@ -19,7 +19,7 @@ export async function GET() {
     const todayStr = getThaiDateStr();
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
-    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
+    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
 
     // Parallel fetch from GAS & cache to avoid waterfall delays
     const [gasRes, checkinRes, employeesMap] = await Promise.all([
@@ -122,8 +122,8 @@ export async function GET() {
     const isExemptFromRoutine = dailyStatus.isExemptFromRoutineSpotCheck;
     const isWorkingAtOfficeToday = dailyStatus.status === 'office';
 
-    // Fetch manual spot checks from persistent store
-    const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
+    // Fetch manual spot checks from persistent store (with Google Sheets recovery)
+    const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
 
     const testChecks = [
       ...manualChecks,

@@ -91,8 +91,8 @@ export async function GET() {
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
-    const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
-    const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
+    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
+    const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
     const activeManual = manualChecks.find(
       (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
     );

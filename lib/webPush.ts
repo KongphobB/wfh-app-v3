@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import {
   getSubscriptionsForEmployee,
+  getSubscriptionsForEmployeeAsync,
   removePushSubscriptionByEndpoint,
   getAllPushSubscriptions,
 } from './pushStore';
@@ -41,7 +42,7 @@ export async function sendPushToEmployee(
   employee_id: string,
   payload: PushNotificationPayload
 ): Promise<{ sent: number; failed: number }> {
-  const subscriptions = getSubscriptionsForEmployee(employee_id);
+  const subscriptions = await getSubscriptionsForEmployeeAsync(employee_id);
   if (subscriptions.length === 0) {
     return { sent: 0, failed: 0 };
   }

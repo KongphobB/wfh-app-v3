@@ -8,7 +8,9 @@ export interface EmailParams {
   bodyText?: string;
 }
 
-const isStubLog = process.env.EMAIL_STUB_LOG === 'true' || !process.env.SMTP_USER;
+const SMTP_USER = process.env.SMTP_USER || 'kongphopb38@gmail.com';
+const SMTP_PASS = process.env.SMTP_PASS || 'wjbmtpmruwnjlecx';
+const isStubLog = process.env.EMAIL_STUB_LOG === 'true' || process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
 
 /**
  * Transporter setup for SMTP
@@ -18,8 +20,8 @@ const transporter = nodemailer.createTransport({
   port: Number(process.env.SMTP_PORT || 587),
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 });
 

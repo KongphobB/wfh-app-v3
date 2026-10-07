@@ -13,9 +13,10 @@ export async function GET() {
     const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 300 });
     const rawTickets = (gasRes?.data || []) as any[];
 
-    let filtered = rawTickets;
+    // Exclude internal system persistence records (e.g. __SYS_PUSH_SUB__)
+    let filtered = rawTickets.filter((t) => !String(t.issueType || '').startsWith('__SYS_'));
     if (session.role === 'employee') {
-      filtered = rawTickets.filter((t) => String(t.employeeId) === String(session.employee_id));
+      filtered = filtered.filter((t) => String(t.employeeId) === String(session.employee_id));
     }
 
     const formatted: Ticket[] = filtered.map((t) => ({

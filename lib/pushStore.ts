@@ -116,15 +116,80 @@ export function savePushSubscription(
 
   store.push(record);
   saveSubscriptionsToDisk(store);
+
+  // Sync to Google Sheet in background so all Vercel instances share it
+  try {
+    const { callGAS } = require('./gas');
+    callGAS('submitTicket', {
+      employeeId: String(employee_id),
+      problemType: '__SYS_PUSH_SUB__',
+      details: JSON.stringify({
+        endpoint: sub.endpoint,
+        keys: sub.keys,
+        user_agent: userAgent,
+      }),
+    }).catch(() => {});
+  } catch {}
+
   return record;
 }
 
 /**
- * Get all active subscriptions for a specific employee
+ * Get all active subscriptions for a specific employee (Synchronous cache lookup)
  */
 export function getSubscriptionsForEmployee(employee_id: string): StoredPushSubscription[] {
   const store = getMemoryStore();
   return store.filter((s) => s.employee_id === String(employee_id));
+}
+
+/**
+ * Get active subscriptions for an employee with fallback sync from Google Sheets (Asynchronous)
+ */
+export async function getSubscriptionsForEmployeeAsync(employee_id: string): Promise<StoredPushSubscription[]> {
+  const store = getMemoryStore();
+  const cached = store.filter((s) => String(s.employee_id) === String(employee_id));
+  if (cached.length > 0) {
+    return cached;
+  }
+
+  // Cross-container recovery on Vercel: Query Google Sheets for saved subscriptions
+  try {
+    const { callGAS } = await import('./gas');
+    const res = await callGAS('getLogs', { logType: 'ticket', limit: 200 });
+    const rawList = (res?.data || []) as any[];
+    const subTickets = rawList.filter(
+      (t) => String(t.issueType) === '__SYS_PUSH_SUB__' && String(t.employeeId) === String(employee_id)
+    );
+
+    for (const t of subTickets) {
+      if (!t.details) continue;
+      try {
+        const parsed = JSON.parse(t.details);
+        if (parsed.endpoint && parsed.keys) {
+          const rec: StoredPushSubscription = {
+            id: t.ticketId || `sub_${Date.now()}`,
+            employee_id: String(employee_id),
+            endpoint: parsed.endpoint,
+            keys: parsed.keys,
+            user_agent: parsed.user_agent,
+            created_at: t.dateTime || new Date().toISOString(),
+            updated_at: t.dateTime || new Date().toISOString(),
+          };
+          if (!store.some((s) => s.endpoint === rec.endpoint)) {
+            store.push(rec);
+          }
+        }
+      } catch {}
+    }
+
+    if (subTickets.length > 0) {
+      saveSubscriptionsToDisk(store);
+    }
+  } catch (err) {
+    console.warn('Failed to sync push subscriptions from Google Sheet:', err);
+  }
+
+  return store.filter((s) => String(s.employee_id) === String(employee_id));
 }
 
 /**

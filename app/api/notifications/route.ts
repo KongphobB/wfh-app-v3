@@ -22,10 +22,10 @@ export async function GET() {
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
-    // Include active manual spot checks from persistent store
+    // Include active manual spot checks from persistent store (with Google Sheets recovery)
     try {
-      const { getActiveManualSpotChecks } = await import('@/lib/manualSpotCheckStore');
-      const activeManualChecks = getActiveManualSpotChecks(String(session.employee_id));
+      const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
+      const activeManualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
       for (const mc of activeManualChecks) {
         if (mc.result_status === 'Scheduled' || mc.result_status === 'Pending') {
           const notifId = `spot_manual_${mc.id}`;
