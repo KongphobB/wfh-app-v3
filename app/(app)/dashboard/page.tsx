@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Clock, MapPin, AlertTriangle, FileText, 
   ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar, LogOut,
-  Timer, CheckCircle2
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,15 +34,6 @@ export default function DashboardPage() {
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [nowMs, setNowMs] = useState<number>(0);
-
-  useEffect(() => {
-    setNowMs(Date.now());
-    const interval = setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchData = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -129,64 +120,6 @@ export default function DashboardPage() {
     }
   })();
 
-  // Live Work Duration & Progress calculation towards standard 8-hour workday
-  const workDurationData = useMemo(() => {
-    if (!todayCheckin) return null;
-
-    const checkinTimeMs = new Date(todayCheckin.log_time).getTime();
-    if (isNaN(checkinTimeMs)) return null;
-
-    let durationMs = 0;
-    const isCompleted = Boolean(todayCheckout);
-
-    if (isCompleted && todayCheckout) {
-      const checkoutTimeMs = new Date(todayCheckout.log_time).getTime();
-      durationMs = Math.max(0, checkoutTimeMs - checkinTimeMs);
-    } else if (nowMs > 0) {
-      durationMs = Math.max(0, nowMs - checkinTimeMs);
-    } else {
-      return null;
-    }
-
-    const totalSeconds = Math.floor(durationMs / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    const standardWorkdayMs = 8 * 3600 * 1000;
-    const progressPercent = Math.min(100, Math.round((durationMs / standardWorkdayMs) * 100));
-    const is8HoursReached = durationMs >= standardWorkdayMs;
-
-    const remainingMs = Math.max(0, standardWorkdayMs - durationMs);
-    const remainingSeconds = Math.floor(remainingMs / 1000);
-    const remainingHours = Math.floor(remainingSeconds / 3600);
-    const remainingMinutes = Math.floor((remainingSeconds % 3600) / 60);
-
-    const checkinTimeDisplay = new Date(todayCheckin.log_time).toLocaleTimeString(
-      lang === 'en' ? 'en-US' : 'th-TH',
-      { hour: '2-digit', minute: '2-digit' }
-    ) + (lang === 'en' ? '' : ' น.');
-
-    const checkoutTimeDisplay = todayCheckout
-      ? new Date(todayCheckout.log_time).toLocaleTimeString(
-          lang === 'en' ? 'en-US' : 'th-TH',
-          { hour: '2-digit', minute: '2-digit' }
-        ) + (lang === 'en' ? '' : ' น.')
-      : null;
-
-    return {
-      hours,
-      minutes,
-      seconds,
-      progressPercent,
-      is8HoursReached,
-      isCompleted,
-      remainingHours,
-      remainingMinutes,
-      checkinTimeDisplay,
-      checkoutTimeDisplay,
-    };
-  }, [todayCheckin, todayCheckout, nowMs, lang]);
 
   return (
     <div className="space-y-6">
@@ -477,117 +410,6 @@ export default function DashboardPage() {
                   </Button>
                 </>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Live Work Duration Counter & Progress Bar (When checked in) */}
-      {workDurationData && (
-        <Card
-          className={`shadow-sm transition-all duration-300 border ${
-            workDurationData.isCompleted
-              ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 dark:from-emerald-950/20 dark:to-slate-900'
-              : workDurationData.is8HoursReached
-              ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/50 dark:from-emerald-950/25 dark:to-slate-900'
-              : 'border-orange-200 bg-gradient-to-br from-orange-50/70 via-white to-amber-50/40 dark:from-slate-900 dark:to-slate-950'
-          }`}
-        >
-          <CardContent className="p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/60 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs font-bold ${
-                    workDurationData.isCompleted || workDurationData.is8HoursReached
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
-                      : 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300'
-                  }`}
-                >
-                  <Timer className={`w-5 h-5 ${!workDurationData.isCompleted ? 'animate-pulse' : ''}`} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
-                    <span>
-                      {workDurationData.isCompleted
-                        ? t.dashboard.workDurationCompletedTitle
-                        : t.dashboard.workDurationTitle}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    {lang === 'en' ? 'Started at' : 'เริ่มเข้างาน'}: <strong>{workDurationData.checkinTimeDisplay}</strong>
-                    {workDurationData.checkoutTimeDisplay && (
-                      <> • {lang === 'en' ? 'Ended at' : 'ออกงาน'}: <strong>{workDurationData.checkoutTimeDisplay}</strong></>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                {workDurationData.isCompleted ? (
-                  <Badge variant="success" className="bg-emerald-600 text-white font-bold px-2.5 py-1 text-xs flex items-center gap-1 shadow-2xs">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{t.dashboard.workDurationCompletedBadge}</span>
-                  </Badge>
-                ) : workDurationData.is8HoursReached ? (
-                  <Badge variant="success" className="bg-emerald-600 text-white font-bold px-2.5 py-1 text-xs flex items-center gap-1 shadow-2xs animate-pulse">
-                    <span>{t.dashboard.workDurationReachedBadge}</span>
-                  </Badge>
-                ) : (
-                  <Badge variant="warning" className="bg-amber-500 text-white font-bold px-2.5 py-1 text-xs flex items-center gap-1.5 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    <span>{t.dashboard.workDurationActiveBadge}</span>
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {/* Time Counter Display */}
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-              <div className="flex items-baseline font-mono tracking-tight text-slate-900 dark:text-slate-100 flex-wrap">
-                <span className="text-2xl sm:text-4xl font-extrabold">{workDurationData.hours}</span>
-                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-2 sm:mr-3">{t.dashboard.hoursUnit}</span>
-
-                <span className="text-2xl sm:text-4xl font-extrabold">{String(workDurationData.minutes).padStart(2, '0')}</span>
-                <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1 mr-2 sm:mr-3">{t.dashboard.minutesUnit}</span>
-
-                {!workDurationData.isCompleted && (
-                  <>
-                    <span className="text-2xl sm:text-4xl font-extrabold text-orange-600 dark:text-orange-400">
-                      {String(workDurationData.seconds).padStart(2, '0')}
-                    </span>
-                    <span className="text-xs sm:text-sm font-sans font-bold text-slate-500 ml-1">{t.dashboard.secondsUnit}</span>
-                  </>
-                )}
-              </div>
-
-              <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {workDurationData.isCompleted || workDurationData.is8HoursReached ? (
-                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">
-                    ✓ {t.dashboard.workDurationGoalReached}
-                  </span>
-                ) : (
-                  <span>
-                    {t.dashboard.workDurationRemaining}: <strong className="text-slate-900 dark:text-slate-100">{workDurationData.remainingHours} {t.dashboard.hoursUnit} {workDurationData.remainingMinutes} {t.dashboard.minutesUnit}</strong> ({workDurationData.progressPercent}%)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Progress Bar towards standard 8-hour workday */}
-            <div className="w-full bg-slate-200/80 dark:bg-slate-800 rounded-full h-2.5 mt-3 overflow-hidden">
-              <div
-                className={`h-2.5 rounded-full transition-all duration-500 ${
-                  workDurationData.isCompleted || workDurationData.is8HoursReached
-                    ? 'bg-emerald-500'
-                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-400'
-                }`}
-                style={{ width: `${workDurationData.progressPercent}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium">
-              <span>{t.dashboard.workDurationStandardGoal}</span>
-              <span>{workDurationData.progressPercent}%</span>
             </div>
           </CardContent>
         </Card>
