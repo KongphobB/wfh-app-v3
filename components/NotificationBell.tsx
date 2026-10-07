@@ -127,6 +127,7 @@ export default function NotificationBell() {
   };
 
   const handleTestNotification = async () => {
+    if (isTestingNotif) return;
     setIsTestingNotif(true);
     // Synchronously play chime and vibrate immediately on user tap
     playSpotCheckChime(true);
@@ -138,11 +139,13 @@ export default function NotificationBell() {
     try {
       const result = await testDeviceNotification();
       setPermissionState(getNotificationPermission());
-      if (result.success) {
-        toast.success(result.message);
+      if (result.nativeBannerShown) {
+        toast.success(result.message, { duration: 5000 });
       } else {
-        toast.warning(result.message);
+        toast.info(result.message, { duration: 5000 });
       }
+    } catch {
+      toast.warning(lang === 'en' ? 'Alert test completed' : '🔔 ทดสอบเสียงและระบบสั่นเสร็จสิ้น');
     } finally {
       setIsTestingNotif(false);
     }

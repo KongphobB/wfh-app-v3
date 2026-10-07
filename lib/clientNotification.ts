@@ -48,6 +48,38 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /**
+ * Safely obtain an active ServiceWorkerRegistration with a strict timeout
+ * Never hangs indefinitely if Service Worker is not registered or supported.
+ */
+export async function getReadyServiceWorker(timeoutMs = 2000): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+
+  try {
+    if (typeof navigator.serviceWorker.getRegistration === 'function') {
+      const existing = await navigator.serviceWorker.getRegistration().catch(() => null);
+      if (!existing && typeof navigator.serviceWorker.register === 'function') {
+        await navigator.serviceWorker.register('/sw.js').catch(() => null);
+      }
+    } else if (typeof navigator.serviceWorker.register === 'function') {
+      await navigator.serviceWorker.register('/sw.js').catch(() => null);
+    }
+
+    const readyPromise = navigator.serviceWorker.ready;
+    if (!readyPromise) return null;
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+
+    return await Promise.race([readyPromise, timeoutPromise]);
+  } catch (err) {
+    console.warn('getReadyServiceWorker error:', err);
+    return null;
+  }
+}
+
+/**
  * Register PushSubscription with service worker and server
  */
 export async function subscribeToWebPush(): Promise<boolean> {
@@ -60,34 +92,41 @@ export async function subscribeToWebPush(): Promise<boolean> {
   }
 
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await getReadyServiceWorker(2000);
     if (!reg || !reg.pushManager) return false;
 
-    // Fetch VAPID public key
-    const res = await fetch('/api/push/public-key');
-    if (!res.ok) return false;
-    const { publicKey } = await res.json();
+    // Fetch VAPID public key with abort timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch('/api/push/public-key', { signal: controller.signal }).catch(() => null);
+    clearTimeout(timeoutId);
+    if (!res || !res.ok) return false;
+    const { publicKey } = await res.json().catch(() => ({}));
     if (!publicKey) return false;
 
-    let subscription = await reg.pushManager.getSubscription();
+    let subscription = await reg.pushManager.getSubscription().catch(() => null);
     if (!subscription) {
       const appServerKey = urlBase64ToUint8Array(publicKey);
       subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: appServerKey as any,
-      });
+      }).catch(() => null);
     }
 
     if (!subscription) return false;
 
     const subJson = subscription.toJSON();
+    const saveController = new AbortController();
+    const saveTimeout = setTimeout(() => saveController.abort(), 2500);
     const saveRes = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: subJson }),
-    });
+      signal: saveController.signal,
+    }).catch(() => null);
+    clearTimeout(saveTimeout);
 
-    return saveRes.ok;
+    return Boolean(saveRes && saveRes.ok);
   } catch (err) {
     console.warn('subscribeToWebPush error:', err);
     return false;
@@ -103,7 +142,27 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 
   try {
-    const perm = await Notification.requestPermission();
+    let perm: string = 'default';
+    const reqPromise = (async () => {
+      try {
+        const result = Notification.requestPermission();
+        if (result && typeof (result as any).then === 'function') {
+          return await result;
+        } else {
+          return await new Promise<string>((resolve) => {
+            Notification.requestPermission((p) => resolve(p));
+          });
+        }
+      } catch {
+        return Notification.permission || 'denied';
+      }
+    })();
+
+    const timeoutPromise = new Promise<string>((resolve) =>
+      setTimeout(() => resolve(Notification.permission || 'default'), 5000)
+    );
+
+    perm = await Promise.race([reqPromise, timeoutPromise]);
     if (perm === 'granted') {
       subscribeToWebPush().catch(() => {});
       return true;
@@ -159,21 +218,19 @@ export async function showNativeNotification(options: ShowNativeNotificationOpti
   }
 
   // 4. Try Service Worker showNotification (Best for Mobile & PWA)
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  const reg = await getReadyServiceWorker(2000);
+  if (reg && 'showNotification' in reg) {
     try {
-      const reg = await navigator.serviceWorker.ready;
-      if (reg && 'showNotification' in reg) {
-        await reg.showNotification(title, {
-          body,
-          icon,
-          badge,
-          tag: tag || `snu_notif_${Date.now()}`,
-          vibrate,
-          requireInteraction,
-          data: { url },
-        } as any);
-        return true;
-      }
+      await reg.showNotification(title, {
+        body,
+        icon,
+        badge,
+        tag: tag || `snu_notif_${Date.now()}`,
+        vibrate,
+        requireInteraction,
+        data: { url },
+      } as any);
+      return true;
     } catch (swErr) {
       console.warn('ServiceWorker showNotification failed, attempting fallback:', swErr);
     }
@@ -204,7 +261,11 @@ export async function showNativeNotification(options: ShowNativeNotificationOpti
 /**
  * Trigger a test notification with sound, vibration, and banner
  */
-export async function testDeviceNotification(): Promise<{ success: boolean; message: string }> {
+export async function testDeviceNotification(): Promise<{
+  success: boolean;
+  message: string;
+  nativeBannerShown?: boolean;
+}> {
   // 1. ALWAYS play chime sound and trigger vibration immediately (Synchronous User Gesture)
   playSpotCheckChime(true);
   if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
@@ -216,7 +277,8 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
   if (!isNotificationSupported()) {
     return {
       success: true,
-      message: '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (อุปกรณ์นี้ไม่รองรับ Notification Banner)',
+      nativeBannerShown: false,
+      message: '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (อุปกรณ์นี้ไม่รองรับ Notification Banner ระดับ OS)',
     };
   }
 
@@ -226,29 +288,34 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
     if (!granted) {
       return {
         success: true,
-        message: '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (แต่สิทธิ์แจ้งเตือนถูกบล็อก กรุณาเปิดในการตั้งค่าเบราว์เซอร์)',
+        nativeBannerShown: false,
+        message: '🔔 ทดสอบเสียงและสั่นสำเร็จ! (สิทธิ์แจ้งเตือนถูกปิดอยู่ กรุณาเปิดอนุญาตในการตั้งค่าเบราว์เซอร์)',
       };
     }
   }
 
-  // Ensure push subscription is active
-  await subscribeToWebPush().catch(() => {});
+  // Ensure push subscription is active in background without blocking
+  subscribeToWebPush().catch(() => {});
 
-  // Try Server-side Web Push first to test real background push delivery
+  // Try Server-side Web Push first to test real background push delivery (with 2s timeout)
   try {
-    const pushRes = await fetch('/api/push/test', { method: 'POST' });
-    if (pushRes.ok) {
-      const data = await pushRes.json();
-      if (data.success) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const pushRes = await fetch('/api/push/test', { method: 'POST', signal: controller.signal });
+    clearTimeout(timeout);
+    if (pushRes && pushRes.ok) {
+      const data = await pushRes.json().catch(() => ({}));
+      if (data && data.success) {
         return {
           success: true,
+          nativeBannerShown: true,
           message: '🔔 ทดสอบเสียง, ระบบสั่น และส่ง Web Push สำเร็จ!',
         };
       }
     }
   } catch {}
 
-  await showNativeNotification({
+  const nativeShown = await showNativeNotification({
     title: '🔔 ทดสอบการแจ้งเตือน SNU WFH',
     body: 'ระบบแจ้งเตือนทำงานได้สมบูรณ์แบบ! คุณจะไม่พลาดการสุ่มตรวจและงานสำคัญ',
     url: '/dashboard',
@@ -260,6 +327,9 @@ export async function testDeviceNotification(): Promise<{ success: boolean; mess
 
   return {
     success: true,
-    message: '🔔 ทดสอบเสียง, ระบบสั่น และการแจ้งเตือนสำเร็จ!',
+    nativeBannerShown: nativeShown,
+    message: nativeShown
+      ? '🔔 ทดสอบเสียง, ระบบสั่น และการแจ้งเตือนสำเร็จ!'
+      : '🔔 ทดสอบเสียงและระบบสั่นสำเร็จ! (หากไม่เห็นแถบ Banner ด้านบน กรุณาเปิดอนุญาต Notification ในการตั้งค่าเบราว์เซอร์)',
   };
 }

@@ -31,6 +31,7 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
   const { t, lang } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isTestingAlert, setIsTestingAlert] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -255,25 +256,34 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
                 </span>
                 <button
                   type="button"
+                  disabled={isTestingAlert}
                   onClick={async () => {
-                    // Synchronously play chime and vibrate immediately on user tap
+                    if (isTestingAlert) return;
+                    setIsTestingAlert(true);
                     playSpotCheckChime(true);
                     if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
                       try {
                         navigator.vibrate([300, 150, 300, 150, 400]);
                       } catch {}
                     }
-                    toast.info(lang === 'en' ? 'Triggering alert test...' : 'กำลังทดสอบเสียงและส่งสัญญาณแจ้งเตือน...');
-                    const res = await testDeviceNotification();
-                    if (res.success) {
-                      toast.success(res.message);
-                    } else {
-                      toast.warning(res.message);
+                    try {
+                      const res = await testDeviceNotification();
+                      if (res.nativeBannerShown) {
+                        toast.success(res.message, { duration: 5000 });
+                      } else {
+                        toast.info(res.message, { duration: 5000 });
+                      }
+                    } catch {
+                      toast.warning(lang === 'en' ? 'Alert test completed' : '🔔 ทดสอบเสียงและระบบสั่นเสร็จสิ้น');
+                    } finally {
+                      setIsTestingAlert(false);
                     }
                   }}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 dark:hover:bg-orange-900 cursor-pointer transition-all active:scale-95"
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 dark:hover:bg-orange-900 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {lang === 'en' ? 'Test Alert' : 'ทดสอบเสียง/สั่น'}
+                  {isTestingAlert
+                    ? (lang === 'en' ? 'Testing...' : 'กำลังทดสอบ...')
+                    : (lang === 'en' ? 'Test Alert' : 'ทดสอบเสียง/สั่น')}
                 </button>
               </div>
             </div>
