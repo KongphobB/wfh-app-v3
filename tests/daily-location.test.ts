@@ -16,10 +16,10 @@ describe('Daily Work Location Store & Toggle Tests', () => {
     setDailyWorkLocation(testEmpId, 'wfh', 'QA Tester', 'Admin', testDate);
   });
 
-  it('1. Defaults to WFH for an employee with no record', () => {
+  it('1. Defaults to Office for an employee with no record', () => {
     const loc = getDailyWorkLocation('non_existent_random_id_9999', testDate);
-    expect(loc).toBe('wfh');
-    expect(isEmployeeAtOfficeToday('non_existent_random_id_9999', testDate)).toBe(false);
+    expect(loc).toBe('office');
+    expect(isEmployeeAtOfficeToday('non_existent_random_id_9999', testDate)).toBe(true);
   });
 
   it('2. Setting work location to Office updates store and isEmployeeAtOfficeToday', () => {

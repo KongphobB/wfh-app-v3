@@ -47,6 +47,9 @@ export interface Employee {
   role: Role;
   is_photo_exempt?: boolean;
   work_location_today?: 'office' | 'wfh';
+  resolved_daily_status?: 'holiday' | 'leave' | 'leave_pending' | 'wfh' | 'office';
+  daily_status_reason?: string;
+  is_auto_gps_location?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -142,7 +145,7 @@ export interface SessionPayload {
   force_pin_change: boolean;
 }
 
-export type LeaveType = 'ลาป่วย' | 'ลากิจ' | 'ลาพักร้อน' | 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
+export type LeaveType = 'ลาป่วย' | 'ลากิจ' | 'ลาพักร้อน' | 'ปฏิบัติงานที่ออฟฟิศ (Onsite)' | 'ขอปฏิบัติงานที่บ้าน (WFH)';
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface LeaveRequest {

@@ -5,6 +5,7 @@ import { createNotification, createNotificationForSupervisor } from '@/lib/notif
 import { sendEmailAlert, sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { isEmployeeOnApprovedLeave } from '@/lib/leaveStore';
 import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
+import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 import { getHolidayByDate } from '@/lib/holidayStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 
@@ -59,18 +60,21 @@ export async function GET(request: Request) {
     const isAfternoonAbsent = currentHour >= 12;
 
     for (const [empId, emp] of Object.entries(employeesMap)) {
-      // Exclude admin, employees already checked in, employees on approved leave today, and employees at the office
-      if (
-        !checkedInEmpIds.has(empId) &&
-        empId !== '9999' &&
-        !isEmployeeOnApprovedLeave(empId, todayStr) &&
-        !isEmployeeAtOfficeToday(empId)
-      ) {
-        notifiedEmployees.push({
-          id: empId,
-          name: emp.name || empId,
-          email: emp.email,
-        });
+      if (empId === '9999' || checkedInEmpIds.has(empId)) {
+        continue;
+      }
+
+      // Check daily status resolution (Holiday, Leave, Pending Leave, Office vs WFH)
+      const dailyStatus = resolveEmployeeDailyStatus(empId, todayStr);
+      if (dailyStatus.isExemptFromMissingCheckin) {
+        continue;
+      }
+
+      notifiedEmployees.push({
+        id: empId,
+        name: emp.name || empId,
+        email: emp.email,
+      });
 
         const supervisorEmail = emp.supervisorId ? employeesMap[emp.supervisorId]?.email : null;
         const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
@@ -137,7 +141,6 @@ export async function GET(request: Request) {
           });
         }
       }
-    }
 
     return NextResponse.json({
       success: true,

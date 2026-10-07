@@ -3,6 +3,7 @@ import { callGAS } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
 import { getThaiDateStr } from '@/lib/timeSync';
 import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
+import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,10 +114,10 @@ export async function GET(request: Request) {
       const rawSpotLogs = (spotRes?.data || []) as any[];
       for (const s of rawSpotLogs) {
         if (s.date === todayStr) {
-          // If employee is working at the office today, exempt from routine spot check expiration/failure
-          const isOffice = isEmployeeAtOfficeToday(String(s.employeeId));
+          // Check resolved daily status (Leave, Holiday, Office vs WFH)
+          const dailyStatus = resolveEmployeeDailyStatus(String(s.employeeId), todayStr);
           const isRoutine = !s.round || s.round.includes('เช้า') || s.round.includes('บ่าย') || s.round.includes('ประจำวัน');
-          if (isOffice && isRoutine) {
+          if (dailyStatus.isExemptFromRoutineSpotCheck && isRoutine) {
             continue;
           }
 

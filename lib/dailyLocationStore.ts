@@ -10,6 +10,8 @@ export interface DailyLocationRecord {
   date: string;
   employee_id: string;
   location: WorkLocationMode;
+  reason?: string;
+  is_auto_gps?: boolean;
   updated_by?: string;
   updated_at: string;
 }
@@ -77,6 +79,13 @@ function getMemoryStore(): Map<string, DailyLocationRecord> {
   return global.__dailyLocationStore;
 }
 
+export function getDailyLocationRecord(employeeId: string, dateStr?: string): DailyLocationRecord | null {
+  const date = dateStr || getThaiDateStr();
+  const id = `${date}_${employeeId}`;
+  const store = getMemoryStore();
+  return store.get(id) || null;
+}
+
 export function getDailyWorkLocation(employeeId: string, dateStr?: string): WorkLocationMode {
   const date = dateStr || getThaiDateStr();
   const id = `${date}_${employeeId}`;
@@ -87,22 +96,28 @@ export function getDailyWorkLocation(employeeId: string, dateStr?: string): Work
     return record.location;
   }
 
-  // Also check if employee has an approved onsite leave request for this date
+  // Also check if employee has an approved onsite or WFH leave request for this date
   const leaves = getAllLeaveRequests();
-  const hasOnsiteLeave = leaves.some(
+  const approvedLeaveToday = leaves.find(
     (l) =>
       l.employee_id === employeeId &&
       l.status === 'Approved' &&
-      l.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)' &&
       l.start_date <= date &&
       date <= l.end_date
   );
 
-  if (hasOnsiteLeave) {
-    return 'office';
+  if (approvedLeaveToday) {
+    if (approvedLeaveToday.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)') {
+      return 'office';
+    }
+    if (approvedLeaveToday.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)') {
+      return 'wfh';
+    }
   }
 
-  return 'wfh';
+  // ค่าเริ่มต้นสำหรับทุกคนคือ 'office' (ระบบสแกนหน้าของบริษัท)
+  // พนักงานที่ไม่ได้แจ้ง WFH ไม่ต้องเช็คอินในแอป และระบบจะไม่มีการแจ้งเตือนขาดงาน
+  return 'office';
 }
 
 export function setDailyWorkLocation(
@@ -110,7 +125,8 @@ export function setDailyWorkLocation(
   location: WorkLocationMode,
   employeeName?: string,
   updatedBy?: string,
-  dateStr?: string
+  dateStr?: string,
+  options?: { reason?: string; is_auto_gps?: boolean }
 ): DailyLocationRecord {
   const date = dateStr || getThaiDateStr();
   const id = `${date}_${employeeId}`;
@@ -121,6 +137,8 @@ export function setDailyWorkLocation(
     date,
     employee_id: employeeId,
     location,
+    reason: options?.reason,
+    is_auto_gps: options?.is_auto_gps,
     updated_by: updatedBy || 'Admin',
     updated_at: new Date().toISOString(),
   };
@@ -179,6 +197,19 @@ export function getAllDailyWorkLocations(dateStr?: string): Record<string, WorkL
   const store = getMemoryStore();
   const result: Record<string, WorkLocationMode> = {};
 
+  // 1. From approved leaves
+  const leaves = getAllLeaveRequests();
+  leaves.forEach((l) => {
+    if (l.status === 'Approved' && l.start_date <= date && date <= l.end_date) {
+      if (l.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)') {
+        result[l.employee_id] = 'office';
+      } else if (l.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)') {
+        result[l.employee_id] = 'wfh';
+      }
+    }
+  });
+
+  // 2. From direct daily records
   store.forEach((rec) => {
     if (rec.date === date) {
       result[rec.employee_id] = rec.location;

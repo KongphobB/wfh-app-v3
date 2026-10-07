@@ -107,7 +107,7 @@ export default function AdminPage() {
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const [empDeptFilter, setEmpDeptFilter] = useState('all');
   const [empRoleFilter, setEmpRoleFilter] = useState('all');
-  const [empLocationFilter, setEmpLocationFilter] = useState<'all' | 'office' | 'wfh'>('all');
+  const [empLocationFilter, setEmpLocationFilter] = useState<'all' | 'office' | 'wfh' | 'leave'>('all');
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -132,7 +132,9 @@ export default function AdminPage() {
         const clientLocs = getClientDailyLocations();
         const mergedEmps = fetchedEmps.map((emp: Employee) => ({
           ...emp,
-          work_location_today: clientLocs[emp.employee_id] || emp.work_location_today || 'wfh',
+          work_location_today: emp.is_auto_gps_location
+            ? 'wfh'
+            : (clientLocs[emp.employee_id] || emp.work_location_today || 'office'),
         }));
         setEmployees(mergedEmps);
       }
@@ -572,7 +574,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'เปลี่ยนสถานที่ทำงานไม่สำเร็จ');
-        const prevLoc = emp.work_location_today || 'wfh';
+        const prevLoc = emp.work_location_today || 'office';
         setEmployees((prev) =>
           prev.map((e) =>
             e.employee_id === emp.employee_id ? { ...e, work_location_today: prevLoc } : e
@@ -600,7 +602,7 @@ export default function AdminPage() {
       // DO NOT call fetchAdminData() here! Calling fetchAdminData() caused race condition & overwrite!
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-      const prevLoc = emp.work_location_today || 'wfh';
+      const prevLoc = emp.work_location_today || 'office';
       setEmployees((prev) =>
         prev.map((e) =>
           e.employee_id === emp.employee_id ? { ...e, work_location_today: prevLoc } : e
@@ -813,8 +815,12 @@ export default function AdminPage() {
           if (empDeptFilter !== 'all' && e.department !== empDeptFilter) return false;
           if (empRoleFilter !== 'all' && e.role !== empRoleFilter) return false;
           if (empLocationFilter !== 'all') {
-            const loc = e.work_location_today || 'wfh';
-            if (loc !== empLocationFilter) return false;
+            if (empLocationFilter === 'leave') {
+              if (e.resolved_daily_status !== 'leave' && e.resolved_daily_status !== 'leave_pending') return false;
+            } else {
+              const loc = e.work_location_today || 'office';
+              if (loc !== empLocationFilter) return false;
+            }
           }
           if (empSearchQuery.trim()) {
             const q = empSearchQuery.toLowerCase().trim();
@@ -902,9 +908,10 @@ export default function AdminPage() {
                   onChange={(e) => setEmpLocationFilter(e.target.value as any)}
                   className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-orange-500 shadow-2xs cursor-pointer"
                 >
-                  <option value="all">{lang === 'en' ? '📍 Location: All' : '📍 สถานที่: ทั้งหมด'}</option>
+                  <option value="all">{lang === 'en' ? '📍 Location: All' : '📍 สถานที่/สถานะ: ทั้งหมด'}</option>
                   <option value="office">{lang === 'en' ? '🏢 Office (Onsite)' : '🏢 เข้า Office'}</option>
                   <option value="wfh">{lang === 'en' ? '🏡 WFH (Home)' : '🏡 ทำงาน WFH'}</option>
+                  <option value="leave">{lang === 'en' ? '🌴 Leave (ลางาน)' : '🌴 ลางาน (อนุมัติแล้ว)'}</option>
                 </select>
 
                 {hasActiveEmpFilters && (
@@ -994,34 +1001,56 @@ export default function AdminPage() {
                       </td>
                       {/* Work Location Today Toggle Switch */}
                       <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleWorkLocation(emp)}
-                          disabled={submitting || Boolean(actionLoadingId)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-2xs ${
-                            isOffice
-                              ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-blue-50'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-emerald-50'
-                          }`}
-                          title={
-                            lang === 'en'
-                              ? 'Click to toggle today work location (Office / WFH)'
-                              : 'คลิกเพื่อสลับสถานที่ทำงานวันนี้ (เข้า Office / ทำงาน WFH)'
-                          }
-                        >
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              isOffice ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'
-                            }`}
-                          />
-                          <span>
-                            {isTogglingLocation
-                              ? (lang === 'en' ? 'Saving...' : 'กำลังบันทึก...')
-                              : isOffice
-                              ? (lang === 'en' ? '🏢 Office (เข้าออฟฟิศ)' : '🏢 Office (เข้าออฟฟิศ)')
-                              : (lang === 'en' ? '🏡 WFH (ทำงานที่บ้าน)' : '🏡 WFH (ทำงานที่บ้าน)')}
-                          </span>
-                        </button>
+                        <div className="inline-flex flex-col items-center gap-1">
+                          {emp.resolved_daily_status === 'leave' ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border border-purple-300 bg-purple-50 text-purple-700 shadow-2xs"
+                              title={emp.daily_status_reason || 'ลางาน (อนุมัติแล้ว)'}
+                            >
+                              <span>🌴</span>
+                              <span>{lang === 'en' ? 'On Leave' : 'ลางาน (อนุมัติแล้ว)'}</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleWorkLocation(emp)}
+                              disabled={submitting || Boolean(actionLoadingId)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-2xs ${
+                                isOffice
+                                  ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-blue-50'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-emerald-50'
+                              }`}
+                              title={
+                                lang === 'en'
+                                  ? 'Click to toggle today work location (Office / WFH)'
+                                  : 'คลิกเพื่อสลับสถานที่ทำงานวันนี้ (เข้า Office / ทำงาน WFH)'
+                              }
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  isOffice ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'
+                                }`}
+                              />
+                              <span>
+                                {isTogglingLocation
+                                  ? (lang === 'en' ? 'Saving...' : 'กำลังบันทึก...')
+                                  : isOffice
+                                  ? (lang === 'en' ? '🏢 Office (เข้าออฟฟิศ)' : '🏢 Office (เข้าออฟฟิศ)')
+                                  : (lang === 'en' ? '🏡 WFH (ทำงานที่บ้าน)' : '🏡 WFH (ทำงานที่บ้าน)')}
+                              </span>
+                            </button>
+                          )}
+
+                          {emp.is_auto_gps_location && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200"
+                              title="พนักงานเช็คอินนอกพื้นที่ออฟฟิศ ระบบตรวจจับ GPS และปรับเป็น WFH อัตโนมัติ"
+                            >
+                              <span>🤖</span>
+                              <span>ตรวจจาก GPS</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3.5 text-center font-bold text-amber-600">{emp.one_star_count} ครั้ง</td>
                       <td className="px-4 py-3.5">

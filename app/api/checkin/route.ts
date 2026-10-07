@@ -7,6 +7,9 @@ import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 import { sendLateCheckinNotificationEmail } from '@/lib/email';
 import { createNotificationForSupervisor } from '@/lib/notifications';
+import { calculateHaversineDistanceMeters, isValidCoordinate } from '@/lib/geo';
+import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
+import { createAuditLog } from '@/lib/auditStore';
 
 export async function GET(request: Request) {
   try {
@@ -309,6 +312,76 @@ export async function POST(request: Request) {
     }
 
     const todayStr = getThaiDateStr();
+
+    // Calculate GPS Geofence vs Office location
+    let isOutsideOffice = false;
+    let distanceMeters = 0;
+    const officeLat = 12.736929;
+    const officeLng = 101.114387;
+    const maxOfficeRadiusMeters = 200;
+
+    if (isValidCoordinate(gps_lat, gps_lng)) {
+      distanceMeters = calculateHaversineDistanceMeters(gps_lat, gps_lng, officeLat, officeLng);
+      isOutsideOffice = distanceMeters > maxOfficeRadiusMeters;
+    } else {
+      // If coordinates missing or invalid, assume outside office
+      isOutsideOffice = true;
+    }
+
+    // Auto-update daily work location on 'เข้างาน':
+    if (log_type === 'เข้างาน') {
+      const prevLocation = getDailyWorkLocation(session.employee_id, todayStr);
+      if (isOutsideOffice) {
+        // Automatically switch to WFH mode!
+        setDailyWorkLocation(
+          session.employee_id,
+          'wfh',
+          session.name,
+          'ระบบตรวจจับพิกัด GPS อัตโนมัติ',
+          todayStr,
+          {
+            reason: `เช็คอินนอกพื้นที่บริษัท (${Math.round(distanceMeters)} ม.) ปรับเป็น WFH อัตโนมัติ`,
+            is_auto_gps: true,
+          }
+        );
+
+        // If previously configured as Office, notify supervisor and log audit trail
+        if (prevLocation === 'office') {
+          createAuditLog({
+            admin_id: 'SYSTEM',
+            admin_name: 'ระบบตรวจจับพิกัด GPS',
+            action_type: 'SET_WFH_MODE',
+            action_title: 'สลับเป็น WFH อัตโนมัติตามพิกัด GPS',
+            target_employee_id: session.employee_id,
+            target_employee_name: session.name,
+            details: `ตรวจพบการเช็คอินนอกพื้นที่บริษัท (${Math.round(distanceMeters)} ม.) ระบบปรับสถานะของ ${session.name} จาก Office เป็น WFH อัตโนมัติ และเปิดรับการสุ่มตรวจ`,
+          });
+
+          if (currentEmp.supervisorId) {
+            createNotificationForSupervisor({
+              supervisor_id: currentEmp.supervisorId,
+              type: 'warning',
+              title: `⚠️ สลับสถานะเป็น WFH อัตโนมัติ: ${session.name} (${session.employee_id})`,
+              message: `เดิมพนักงานถูกกำหนดเป็นเข้า Office แต่วันนี้เช็คอินจากนอกบริษัท (ระยะห่าง ${Math.round(distanceMeters)} ม.) ระบบจึงปรับเป็น WFH ให้อัตโนมัติ`,
+              link: '/supervisor',
+            }).catch(() => {});
+          }
+        }
+      } else {
+        // Checked in inside office perimeter
+        setDailyWorkLocation(
+          session.employee_id,
+          'office',
+          session.name,
+          'พนักงานเช็คอินที่ออฟฟิศ',
+          todayStr,
+          {
+            reason: `เช็คอินในพื้นที่บริษัท (${Math.round(distanceMeters)} ม.)`,
+            is_auto_gps: true,
+          }
+        );
+      }
+    }
 
     // Store in memory cache & disk for persistent preview
     const typeKey = `${session.employee_id}_${todayStr}_${log_type}`;

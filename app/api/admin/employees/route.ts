@@ -5,7 +5,8 @@ import { callGAS } from '@/lib/gas';
 import { Employee, WfhStatus } from '@/types';
 import { getExemptConfig } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
-import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
+import { getDailyWorkLocation, setDailyWorkLocation, getDailyLocationRecord } from '@/lib/dailyLocationStore';
+import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -57,6 +58,9 @@ export async function GET() {
           const wfhStatus: WfhStatus = r[8] === 'ระงับสิทธิ์' ? 'ระงับสิทธิ์' : 'เปิดสิทธิ์';
           const role = determineRole(position || undefined, dept || undefined, empId);
 
+          const dailyDetail = resolveEmployeeDailyStatus(empId);
+          const locRecord = getDailyLocationRecord(empId);
+
           return {
             employee_id: empId,
             name: name,
@@ -68,7 +72,10 @@ export async function GET() {
             wfh_status: wfhStatus,
             one_star_count: isNaN(oneStarCount) ? 0 : oneStarCount,
             is_photo_exempt: checkExempt(empId, position, role),
-            work_location_today: getDailyWorkLocation(empId),
+            work_location_today: dailyDetail.location,
+            resolved_daily_status: dailyDetail.status,
+            daily_status_reason: locRecord?.reason || dailyDetail.reason,
+            is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
             force_pin_change: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -92,6 +99,8 @@ export async function GET() {
     const employeesList: Employee[] = Object.keys(employeesMap).map((empId) => {
       const e = employeesMap[empId];
       const role = determineRole(e.position, e.dept, empId);
+      const dailyDetail = resolveEmployeeDailyStatus(String(empId));
+      const locRecord = getDailyLocationRecord(String(empId));
 
       return {
         employee_id: String(empId),
@@ -104,7 +113,10 @@ export async function GET() {
         wfh_status: (e as any).wfhStatus || 'เปิดสิทธิ์',
         one_star_count: (e as any).oneStarCount || 0,
         is_photo_exempt: checkExempt(String(empId), e.position, role),
-        work_location_today: getDailyWorkLocation(String(empId)),
+        work_location_today: dailyDetail.location,
+        resolved_daily_status: dailyDetail.status,
+        daily_status_reason: locRecord?.reason || dailyDetail.reason,
+        is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
         force_pin_change: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -116,23 +116,11 @@ export async function GET() {
     }
     const dedupedFormatted = Array.from(dedupedMap.values());
 
-    // Check if employee is working at office today
-    let isWorkingAtOfficeToday = false;
-    const { isEmployeeAtOfficeToday } = await import('@/lib/dailyLocationStore');
-    if (isEmployeeAtOfficeToday(String(session.employee_id), todayStr)) {
-      isWorkingAtOfficeToday = true;
-    } else {
-      const checkinLogs = (checkinRes?.data || []) as any[];
-      const todayMorningCheckin = checkinLogs.find(
-        (c) =>
-          String(c.employeeId) === String(session.employee_id) &&
-          c.date === todayStr &&
-          c.type === 'เข้างาน'
-      );
-      if (todayMorningCheckin && todayMorningCheckin.verificationStatus === 'ปฏิบัติงานที่ออฟฟิศ') {
-        isWorkingAtOfficeToday = true;
-      }
-    }
+    // Check resolved daily status (Leave, Holiday, Office vs WFH)
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const dailyStatus = resolveEmployeeDailyStatus(String(session.employee_id), todayStr);
+    const isExemptFromRoutine = dailyStatus.isExemptFromRoutineSpotCheck;
+    const isWorkingAtOfficeToday = dailyStatus.status === 'office';
 
     // Fetch manual spot checks from persistent store
     const manualChecks = getActiveManualSpotChecks(String(session.employee_id));
@@ -145,8 +133,8 @@ export async function GET() {
     ];
 
     let finalSpotChecks = dedupedFormatted;
-    if (isWorkingAtOfficeToday) {
-      // If working at office, exempt from routine scheduled checks (เช้า / บ่าย),
+    if (isExemptFromRoutine) {
+      // If working at office or on leave, exempt from routine scheduled checks (เช้า / บ่าย),
       // but STILL include supervisor ad-hoc manual spot checks!
       finalSpotChecks = dedupedFormatted.filter(
         (s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL')
@@ -167,6 +155,8 @@ export async function GET() {
         spotChecks: combined,
         is_photo_exempt: isPhotoExempt,
         is_working_at_office_today: isWorkingAtOfficeToday,
+        is_on_leave_today: dailyStatus.status === 'leave' || dailyStatus.status === 'leave_pending',
+        daily_status: dailyStatus.status,
         employee_position: position,
         server_time: new Date().toISOString(),
         server_timestamp: Date.now(),

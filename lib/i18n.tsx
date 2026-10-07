@@ -297,6 +297,7 @@ export interface Translations {
     sickLeave: string;
     personalLeave: string;
     vacationLeave: string;
+    wfhLeave: string;
     onsiteLeave: string;
     pending: string;
     approved: string;
@@ -718,6 +719,7 @@ export const translations: Record<Language, Translations> = {
       sickLeave: 'ลาป่วย (Sick Leave)',
       personalLeave: 'ลากิจ (Personal Leave)',
       vacationLeave: 'ลาพักร้อน (Annual Leave)',
+      wfhLeave: 'ขอปฏิบัติงานที่บ้าน (WFH Request)',
       onsiteLeave: 'ปฏิบัติงานที่ออฟฟิศ (Work Onsite)',
       pending: 'รอพิจารณา',
       approved: 'อนุมัติแล้ว',
@@ -1131,6 +1133,7 @@ export const translations: Record<Language, Translations> = {
       sickLeave: 'Sick Leave',
       personalLeave: 'Personal Leave',
       vacationLeave: 'Annual Vacation Leave',
+      wfhLeave: 'Work from Home (WFH Request)',
       onsiteLeave: 'Work Onsite (Office Exemption)',
       pending: 'Pending Review',
       approved: 'Approved',

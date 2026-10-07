@@ -63,7 +63,7 @@ export default function SupervisorPage() {
   const [triggerError, setTriggerError] = useState('');
 
   // Attendance Status Detail Modal State
-  const [statusModalFilter, setStatusModalFilter] = useState<'all' | 'on_time' | 'onsite' | 'late' | 'missing' | null>(null);
+  const [statusModalFilter, setStatusModalFilter] = useState<'all' | 'on_time' | 'onsite' | 'late' | 'leave' | 'missing' | null>(null);
   const [statusModalSearch, setStatusModalSearch] = useState('');
 
   // Search & Filter States
@@ -150,7 +150,7 @@ export default function SupervisorPage() {
       }
 
       // 1. Populate official subordinates directly from Google Sheets
-      const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string; work_location_today?: string }>();
+      const memberMap = new Map<string, { id: string; name: string; dept?: string; position?: string; work_location_today?: string; resolved_daily_status?: string; daily_status_reason?: string; is_auto_gps_location?: boolean }>();
       if (empsRes.ok) {
         const eData = await empsRes.json();
         const emps = eData.employees || [];
@@ -162,6 +162,9 @@ export default function SupervisorPage() {
               dept: e.department || undefined,
               position: e.position || undefined,
               work_location_today: e.work_location_today,
+              resolved_daily_status: e.resolved_daily_status,
+              daily_status_reason: e.daily_status_reason,
+              is_auto_gps_location: e.is_auto_gps_location,
             });
           }
         });
@@ -244,13 +247,17 @@ export default function SupervisorPage() {
       const morningLog = todayLogs.find(
         (l) => l.employee_id === m.id && l.log_type?.includes('เข้างาน')
       );
-      let status: 'on_time' | 'onsite' | 'late' | 'missing' = 'missing';
+      let status: 'on_time' | 'onsite' | 'late' | 'leave' | 'missing' = 'missing';
       let checkinTime: string | null = null;
       let checkinDetails: string | null = null;
 
       const isConfiguredOffice = m.work_location_today === 'office';
+      const isLeave = m.resolved_daily_status === 'leave' || m.resolved_daily_status === 'leave_pending';
 
-      if (morningLog) {
+      if (isLeave) {
+        status = 'leave';
+        checkinDetails = m.daily_status_reason || 'ลางาน (อนุมัติแล้ว)';
+      } else if (morningLog) {
         checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
         const isOnsite =
           isConfiguredOffice ||
@@ -272,7 +279,7 @@ export default function SupervisorPage() {
         }
       } else if (isConfiguredOffice) {
         status = 'onsite';
-        checkinDetails = 'เข้าปฏิบัติงานที่ออฟฟิศ (กำหนดโดย Admin)';
+        checkinDetails = m.daily_status_reason || 'เข้าปฏิบัติงานที่ออฟฟิศ (ระบบสแกนหน้าบริษัท)';
       }
 
       return {
@@ -290,6 +297,7 @@ export default function SupervisorPage() {
     const onTimeCount = memberStatusList.filter((m) => m.status === 'on_time').length;
     const onsiteCount = memberStatusList.filter((m) => m.status === 'onsite').length;
     const lateCount = memberStatusList.filter((m) => m.status === 'late').length;
+    const leaveCount = memberStatusList.filter((m) => m.status === 'leave').length;
     const missingEmployees = memberStatusList.filter((m) => m.status === 'missing');
 
     // Pending tasks unrated
@@ -303,10 +311,11 @@ export default function SupervisorPage() {
         : '5.0';
 
     return {
-      checkedInCount: memberStatusList.filter((m) => m.status !== 'missing').length,
+      checkedInCount: memberStatusList.filter((m) => m.status !== 'missing' && m.status !== 'leave').length,
       onTimeCount,
       onsiteCount,
       lateCount,
+      leaveCount,
       missingCount: missingEmployees.length,
       missingEmployees,
       memberStatusList,
@@ -328,6 +337,8 @@ export default function SupervisorPage() {
       list = list.filter((m) => m.status === 'onsite');
     } else if (statusModalFilter === 'late') {
       list = list.filter((m) => m.status === 'late');
+    } else if (statusModalFilter === 'leave') {
+      list = list.filter((m) => m.status === 'leave');
     } else if (statusModalFilter === 'missing') {
       list = list.filter((m) => m.status === 'missing');
     }
@@ -629,6 +640,19 @@ export default function SupervisorPage() {
                     className="inline-flex items-center gap-0.5 text-rose-600 font-bold ml-1 hover:underline cursor-pointer"
                   >
                     <AlertCircle className="w-3 h-3" /> {lang === 'en' ? 'Late ' : 'สาย '}{stats.lateCount}
+                  </button>
+                )}
+                {stats.leaveCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusModalFilter('leave');
+                      setStatusModalSearch('');
+                    }}
+                    className="inline-flex items-center gap-0.5 text-purple-600 font-bold ml-1 hover:underline cursor-pointer"
+                  >
+                    <span>🌴 {lang === 'en' ? 'Leave ' : 'ลางาน '}{stats.leaveCount}</span>
                   </button>
                 )}
               </div>
@@ -1467,6 +1491,17 @@ export default function SupervisorPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setStatusModalFilter('leave')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusModalFilter === 'leave'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                  }`}
+                >
+                  <span>🌴 ลางาน ({stats.leaveCount})</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setStatusModalFilter('missing')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                     statusModalFilter === 'missing'
@@ -1604,6 +1639,30 @@ export default function SupervisorPage() {
                           >
                             <BellRing className="w-3 h-3" />
                             <span>สั่งสุ่มตรวจ</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {emp.status === 'leave' && (
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-800 text-[11px] font-bold border border-purple-200">
+                              <span>🌴</span>
+                              ลางาน
+                            </span>
+                            {emp.checkinDetails && (
+                              <div className="text-xs text-purple-700 font-medium mt-0.5 max-w-[160px] truncate" title={emp.checkinDetails}>
+                                {emp.checkinDetails}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            disabled
+                            className="px-2.5 py-1 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-[10px] font-bold cursor-not-allowed opacity-70 shrink-0"
+                            title="พนักงานอยู่ในสถานะลางาน ได้รับการยกเว้นการสุ่มตรวจ"
+                          >
+                            ยกเว้นสุ่มตรวจ (ลา)
                           </button>
                         </div>
                       )}

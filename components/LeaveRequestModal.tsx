@@ -158,6 +158,7 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
                 { type: 'ลาป่วย' as LeaveType, label: t.leave.sickLeave, icon: '🤒' },
                 { type: 'ลากิจ' as LeaveType, label: t.leave.personalLeave, icon: '💼' },
                 { type: 'ลาพักร้อน' as LeaveType, label: t.leave.vacationLeave, icon: '🏖️' },
+                { type: 'ขอปฏิบัติงานที่บ้าน (WFH)' as LeaveType, label: t.leave.wfhLeave, icon: '🏡' },
                 { type: 'ปฏิบัติงานที่ออฟฟิศ (Onsite)' as LeaveType, label: t.leave.onsiteLeave, icon: '🏢' },
               ].map((item) => (
                 <button
@@ -177,6 +178,11 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
                   {item.type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)' && (
                     <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md self-start">
                       ⚡ อนุมัติทันที ไม่ต้องรอหัวหน้า
+                    </span>
+                  )}
+                  {item.type === 'ขอปฏิบัติงานที่บ้าน (WFH)' && (
+                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md self-start">
+                      ⏳ รอหัวหน้าอนุมัติ
                     </span>
                   )}
                 </button>

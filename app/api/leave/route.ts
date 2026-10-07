@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const CreateLeaveSchema = z.object({
-  leave_type: z.enum(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'ปฏิบัติงานที่ออฟฟิศ (Onsite)']),
+  leave_type: z.enum(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'ปฏิบัติงานที่ออฟฟิศ (Onsite)', 'ขอปฏิบัติงานที่บ้าน (WFH)']),
   start_date: z.string().min(10),
   end_date: z.string().min(10),
   reason: z.string().min(3),
@@ -70,15 +70,20 @@ export async function POST(request: Request) {
     });
 
     const isOnsite = newRequest.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
+    const isWFH = newRequest.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)';
 
     // Notify admins / supervisor
     await createNotificationForAdmins({
       type: 'ticket',
       title: isOnsite
         ? `🏢 แจ้งเข้าออฟฟิศ: ${session.name} (อนุมัติอัตโนมัติ)`
+        : isWFH
+        ? `🏡 ขอปฏิบัติงาน WFH: ${session.name} (รอหัวหน้าอนุมัติ)`
         : `📅 คำขอลาใหม่: ${session.name} (${parsed.data.leave_type})`,
       message: isOnsite
         ? `พนักงาน ${session.name} แจ้งเข้าปฏิบัติงานที่ออฟฟิศ วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} (ระบบยกเว้นการแจ้งเตือนขาดงานให้อัตโนมัติ)`
+        : isWFH
+        ? `พนักงาน ${session.name} ขอย้ายไปปฏิบัติงาน WFH วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`
         : `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`,
       link: '/leave',
     });
@@ -87,6 +92,8 @@ export async function POST(request: Request) {
       success: true,
       message: isOnsite
         ? 'บันทึกการเข้าปฏิบัติงานที่ออฟฟิศสำเร็จ (อนุมัติอัตโนมัติ) ระบบจะยกเว้นการแจ้งเตือนขาดงานให้ทันที'
+        : isWFH
+        ? 'ยื่นคำขอปฏิบัติงาน WFH เรียบร้อยแล้ว (รอหัวหน้างานอนุมัติ) เมื่อได้รับการอนุมัติระบบจะเปิดระบบสุ่มตรวจและเช็คอิน WFH ให้'
         : 'ยื่นคำขอลาเรียบร้อยแล้ว ระบบจะยกเว้นการแจ้งเตือนขาดงานเมื่อได้รับการอนุมัติ',
       data: newRequest,
     });
