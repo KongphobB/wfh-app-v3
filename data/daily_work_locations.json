@@ -22,5 +22,56 @@
     "location": "wfh",
     "updated_by": "Admin",
     "updated_at": "2026-10-07T09:36:08.117Z"
+  },
+  {
+    "id": "2026-10-07_test_qa_emp_location",
+    "date": "2026-10-07",
+    "employee_id": "test_qa_emp_location",
+    "location": "office",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:58:27.569Z"
+  },
+  {
+    "id": "2026-10-07_emp_qa_hierarchy_2_3",
+    "date": "2026-10-07",
+    "employee_id": "emp_qa_hierarchy_2_3",
+    "location": "office",
+    "reason": "มีประชุมด่วนที่สำนักงานใหญ่",
+    "updated_by": "Admin Supervisor",
+    "updated_at": "2026-10-07T09:58:27.588Z"
+  },
+  {
+    "id": "2026-10-07_qa_emp_gps_switch",
+    "date": "2026-10-07",
+    "employee_id": "qa_emp_gps_switch",
+    "location": "office",
+    "reason": "เช็คอินภายในพื้นที่บริษัท (เข้า Office)",
+    "is_auto_gps": false,
+    "updated_by": "ระบบตรวจจับพิกัด GPS อัตโนมัติ",
+    "updated_at": "2026-10-07T09:58:27.766Z"
+  },
+  {
+    "id": "2026-10-07_qa_emp_reset_test",
+    "date": "2026-10-07",
+    "employee_id": "qa_emp_reset_test",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:58:27.821Z"
+  },
+  {
+    "id": "2026-10-07_qa_emp_leave_precedence",
+    "date": "2026-10-07",
+    "employee_id": "qa_emp_leave_precedence",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:58:27.824Z"
+  },
+  {
+    "id": "2026-10-07_qa_emp_spot_check_rules",
+    "date": "2026-10-07",
+    "employee_id": "qa_emp_spot_check_rules",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-07T09:58:27.844Z"
   }
 ]

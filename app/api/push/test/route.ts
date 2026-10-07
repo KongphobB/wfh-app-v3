@@ -15,6 +15,11 @@ export async function POST(request: Request) {
       targetEmployeeId = String(body.employee_id);
     }
 
+    if (body?.subscription && body.subscription.endpoint && body.subscription.keys) {
+      const { savePushSubscription } = await import('@/lib/pushStore');
+      savePushSubscription(targetEmployeeId, body.subscription, request.headers.get('user-agent') || undefined);
+    }
+
     const result = await sendPushToEmployee(targetEmployeeId, {
       title: '🔔 ทดสอบระบบ Web Push (PWA)',
       body: 'ระบบสามารถส่งสัญญาณแจ้งเตือนทะลุเข้าโทรศัพท์ของคุณได้สำเร็จ แม้จะปิดแอปไปแล้ว!',

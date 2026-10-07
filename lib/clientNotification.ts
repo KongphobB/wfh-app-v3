@@ -299,9 +299,18 @@ export async function testDeviceNotification(): Promise<{
 
   // Try Server-side Web Push first to test real background push delivery (with 8s timeout)
   try {
+    const reg = await getReadyServiceWorker(2000);
+    const existingSub = reg && reg.pushManager ? await reg.pushManager.getSubscription().catch(() => null) : null;
+    const subJson = existingSub ? existingSub.toJSON() : undefined;
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const pushRes = await fetch('/api/push/test', { method: 'POST', signal: controller.signal });
+    const pushRes = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: subJson }),
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
     if (pushRes && pushRes.ok) {
       const data = await pushRes.json().catch(() => ({}));

@@ -80,45 +80,14 @@ export function addManualSpotCheck(check: SpotCheck): SpotCheck {
   global.__manualSpotChecks = updated;
   saveChecksToDisk(updated);
 
-  // Sync to Google Sheet in background so all Vercel instances share it
-  try {
-    const { callGAS } = require('./gas');
-    callGAS('submitTicket', {
-      employeeId: String(check.employee_id),
-      problemType: '__SYS_SPOT_CHECK__',
-      details: JSON.stringify(check),
-    }).catch(() => {});
-  } catch {}
-
   return check;
 }
 
 /**
- * Add manual spot check asynchronously and await Google Sheets persistence
+ * Add manual spot check asynchronously
  */
 export async function addManualSpotCheckAsync(check: SpotCheck): Promise<SpotCheck> {
-  const store = getMemoryStore();
-  const updated = [
-    check,
-    ...store.filter(
-      (c) => !(c.employee_id === check.employee_id && (c.result_status === 'Scheduled' || c.result_status === 'Pending'))
-    ),
-  ];
-  global.__manualSpotChecks = updated;
-  saveChecksToDisk(updated);
-
-  try {
-    const { callGAS } = await import('./gas');
-    await callGAS('submitTicket', {
-      employeeId: String(check.employee_id),
-      problemType: '__SYS_SPOT_CHECK__',
-      details: JSON.stringify(check),
-    });
-  } catch (err) {
-    console.warn('Failed to sync manual spot check to Google Sheet:', err);
-  }
-
-  return check;
+  return addManualSpotCheck(check);
 }
 
 export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
@@ -130,13 +99,12 @@ export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
     if (employeeId && String(c.employee_id) !== String(employeeId)) return false;
     if (c.check_date !== todayStr) return false;
 
-    // Check if still within active 10-minute window or was completed today
-    const createdMs = c.created_at ? new Date(c.created_at).getTime() : 0;
+    // If completed (Pass or Fail or scanned), it is NEVER active!
     const isCompleted = c.result_status === 'Pass' || c.result_status === 'Fail' || Boolean(c.actual_scan_time);
-    
-    if (isCompleted) return true;
+    if (isCompleted) return false;
 
     // Active pending check: not expired (created within 11 minutes)
+    const createdMs = c.created_at ? new Date(c.created_at).getTime() : 0;
     if (createdMs > 0 && nowMs <= createdMs + 11 * 60 * 1000) {
       return true;
     }
@@ -146,40 +114,9 @@ export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
 }
 
 /**
- * Asynchronously retrieve active manual spot checks with cross-container recovery from Google Sheets
+ * Asynchronously retrieve active manual spot checks
  */
 export async function getActiveManualSpotChecksAsync(employeeId?: string): Promise<SpotCheck[]> {
-  const active = getActiveManualSpotChecks(employeeId);
-  if (active.length > 0) {
-    return active;
-  }
-
-  // Cross-container recovery on Vercel: Query Google Sheets for today's spot checks
-  try {
-    const { callGAS } = await import('./gas');
-    const todayStr = getThaiDateStr();
-    const res = await callGAS('getLogs', { logType: 'ticket', limit: 100 });
-    const rawList = (res?.data || []) as any[];
-    const spotTickets = rawList.filter(
-      (t) => String(t.issueType) === '__SYS_SPOT_CHECK__' && (!employeeId || String(t.employeeId) === String(employeeId))
-    );
-
-    const store = getMemoryStore();
-    for (const t of spotTickets) {
-      if (!t.details) continue;
-      try {
-        const parsed = JSON.parse(t.details) as SpotCheck;
-        if (parsed.id && parsed.employee_id && parsed.check_date === todayStr) {
-          if (!store.some((s) => s.id === parsed.id)) {
-            store.unshift(parsed);
-          }
-        }
-      } catch {}
-    }
-  } catch (err) {
-    console.warn('Failed to recover spot checks from Google Sheet:', err);
-  }
-
   return getActiveManualSpotChecks(employeeId);
 }
 

@@ -353,6 +353,11 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         } catch {}
       }
 
+      try {
+        localStorage.setItem(`wfh_completed_spot_${spotCheck.id}`, 'true');
+        localStorage.removeItem('wfh_active_spotcheck');
+      } catch {}
+
       onSuccess();
       onClose();
     } catch {

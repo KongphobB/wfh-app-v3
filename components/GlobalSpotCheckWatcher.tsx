@@ -27,6 +27,12 @@ function getValidCachedSpotCheck(): SpotCheck | null {
 }
 
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
+  if (typeof window !== 'undefined') {
+    if (localStorage.getItem(`wfh_completed_spot_${s.id}`) === 'true') {
+      return false;
+    }
+  }
+
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
 
@@ -66,6 +72,7 @@ export default function GlobalSpotCheckWatcher() {
   const [remainingSecs, setRemainingSecs] = useState(600);
 
   const playedAlertForId = useRef<string | null>(null);
+  const hasSubscribedRef = useRef<boolean>(false);
 
   // 1. Instant recovery on mount / cold start on mobile device
   useEffect(() => {
@@ -170,12 +177,14 @@ export default function GlobalSpotCheckWatcher() {
   // Smart visibility-aware polling & Web Push subscription setup
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
+      if (!hasSubscribedRef.current && Notification.permission === 'granted') {
+        hasSubscribedRef.current = true;
         subscribeToWebPush().catch(() => {});
-      } else if (Notification.permission === 'default') {
+      } else if (!hasSubscribedRef.current && Notification.permission === 'default') {
         Notification.requestPermission()
           .then((perm) => {
             if (perm === 'granted') {
+              hasSubscribedRef.current = true;
               subscribeToWebPush().catch(() => {});
             }
           })
@@ -330,6 +339,11 @@ export default function GlobalSpotCheckWatcher() {
 
   const handleSuccess = () => {
     setIsModalOpen(false);
+    if (activeCheck?.id) {
+      try {
+        localStorage.setItem(`wfh_completed_spot_${activeCheck.id}`, 'true');
+      } catch {}
+    }
     setActiveCheck(null);
     try {
       localStorage.removeItem(SPOTCHECK_STORAGE_KEY);

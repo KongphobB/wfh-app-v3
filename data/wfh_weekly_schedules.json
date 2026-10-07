@@ -37,5 +37,31 @@
   ],
   "emp_preset_test_6": [
     3
+  ],
+  "emp_qa_hierarchy_2_2": [
+    3
+  ],
+  "emp_qa_hierarchy_2_3": [
+    3
+  ],
+  "emp_qa_hierarchy_2_4": [
+    3
+  ],
+  "emp_qa_gps_override": [
+    3
+  ],
+  "emp_qa_leave_override": [
+    3
+  ],
+  "emp_qa_hol_override": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "emp_qa_store_sync": [
+    1,
+    4
   ]
 }
