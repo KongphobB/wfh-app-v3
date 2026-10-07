@@ -154,10 +154,29 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         setGpsStatus('success');
       },
       (err) => {
+        // Fallback for mobile devices indoors when satellite GPS times out:
+        if (err.code === 3 /* TIMEOUT */) {
+          navigator.geolocation.getCurrentPosition(
+            (pos2) => {
+              setGps({ lat: pos2.coords.latitude, lng: pos2.coords.longitude });
+              setGpsStatus('success');
+            },
+            (err2) => {
+              setGpsStatus('error');
+              setGpsErrorMessage('ไม่สามารถดึงพิกัด GPS ได้ กรุณาเปิดระบบระบุตำแหน่งบนมือถือ');
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          );
+          return;
+        }
         setGpsStatus('error');
-        setGpsErrorMessage(err.message || 'ไม่สามารถดึงพิกัด GPS ได้');
+        setGpsErrorMessage(
+          err.code === 1
+            ? 'กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS Permission) บนเบราว์เซอร์หรือมือถือ'
+            : err.message || 'ไม่สามารถดึงพิกัด GPS ได้'
+        );
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 

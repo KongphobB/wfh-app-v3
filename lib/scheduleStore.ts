@@ -38,15 +38,23 @@ function loadFromDisk(): Record<string, number[]> {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
       if (content && content.trim()) {
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === 'object') {
-          return parsed;
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === 'object') {
+            return parsed;
+          }
+        } catch {
+          if (global.__weeklyScheduleStore) {
+            const obj: Record<string, number[]> = {};
+            global.__weeklyScheduleStore.forEach((dList, id) => {
+              obj[id] = dList;
+            });
+            return obj;
+          }
         }
       }
     }
-  } catch (err) {
-    console.warn('Failed to read weekly schedules from disk:', err);
-  }
+  } catch {}
   return {};
 }
 
@@ -54,14 +62,7 @@ function saveToDisk(data: Record<string, number[]>) {
   const filePath = getStoragePath();
   try {
     ensureDir(filePath);
-    const tmpFile = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-    try {
-      fs.renameSync(tmpFile, filePath);
-    } catch {
-      fs.copyFileSync(tmpFile, filePath);
-      try { fs.unlinkSync(tmpFile); } catch {}
-    }
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.warn('Failed to save weekly schedules to disk:', err);
   }

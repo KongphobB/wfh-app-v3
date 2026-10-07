@@ -49,14 +49,18 @@ function loadFromDisk(): DailyLocationRecord[] {
       if (!content || !content.trim()) {
         return [];
       }
-      const list = JSON.parse(content);
-      if (Array.isArray(list)) {
-        return list;
+      try {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) {
+          return list;
+        }
+      } catch {
+        if (global.__dailyLocationStore) {
+          return Array.from(global.__dailyLocationStore.values());
+        }
       }
     }
-  } catch (err) {
-    console.warn('Failed to read daily work locations from disk:', err);
-  }
+  } catch {}
   return [];
 }
 
@@ -64,14 +68,7 @@ function saveToDisk(records: DailyLocationRecord[]) {
   const filePath = getStoragePath();
   try {
     ensureDir(filePath);
-    const tmpFile = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(records, null, 2), 'utf-8');
-    try {
-      fs.renameSync(tmpFile, filePath);
-    } catch {
-      fs.copyFileSync(tmpFile, filePath);
-      try { fs.unlinkSync(tmpFile); } catch {}
-    }
+    fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
   } catch (err) {
     console.warn('Failed to save daily work locations to disk:', err);
   }

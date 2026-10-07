@@ -202,8 +202,21 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         (pos) => {
           setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         },
-        (err) => console.warn('SpotCheck GPS error:', err),
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => {
+          // If timeout on mobile indoors, fallback to network/cached location
+          if (err.code === 3 /* TIMEOUT */) {
+            navigator.geolocation.getCurrentPosition(
+              (pos2) => {
+                setGps({ lat: pos2.coords.latitude, lng: pos2.coords.longitude });
+              },
+              (err2) => console.warn('SpotCheck GPS fallback error:', err2),
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+            );
+          } else {
+            console.warn('SpotCheck GPS error:', err);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
       );
     }
   };
