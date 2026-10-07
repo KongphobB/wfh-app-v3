@@ -135,6 +135,10 @@ export interface Translations {
     checkoutBannerBadge: string;
     checkoutBannerDesc: string;
     checkoutBannerBtn: string;
+    eveningTaskReminderTitle: string;
+    eveningTaskReminderBadge: string;
+    eveningTaskReminderDesc: string;
+    eveningTaskReminderBtn: string;
     workDurationTitle: string;
     workDurationCompletedTitle: string;
     workDurationActiveBadge: string;
@@ -563,6 +567,10 @@ export const translations: Record<Language, Translations> = {
       checkoutBannerBadge: 'เลิกงานแล้ว',
       checkoutBannerDesc: 'สิ้นสุดเวลาปฏิบัติงานประจำวัน กรุณาถ่ายภาพ Selfie เพื่อบันทึกเวลาออกงานให้เรียบร้อยครับ',
       checkoutBannerBtn: 'ลงเวลาออกงานทันที',
+      eveningTaskReminderTitle: '⏰ อย่าลืมส่งสรุปงานประจำวันก่อนเลิกงานนะครับ',
+      eveningTaskReminderBadge: 'ช่วงเวลาสรุปงาน 16:30 - 17:00 น.',
+      eveningTaskReminderDesc: 'ใกล้ถึงเวลาเลิกงานแล้ว กรุณาบันทึกสรุปผลงานที่ปฏิบัติในวันนี้ เพื่อให้หัวหน้างานติดตามความคืบหน้าได้อย่างครบถ้วน',
+      eveningTaskReminderBtn: 'ส่งสรุปงานตอนนี้',
       workDurationTitle: '⏱️ เวลาปฏิบัติงานสะสมวันนี้',
       workDurationCompletedTitle: '⏱️ เวลาปฏิบัติงานรวมประจำวัน',
       workDurationActiveBadge: 'กำลังปฏิบัติงาน',
@@ -977,6 +985,10 @@ export const translations: Record<Language, Translations> = {
       checkoutBannerBadge: 'Workday Ended',
       checkoutBannerDesc: 'Your workday has ended. Please record your evening check-out with a live selfie.',
       checkoutBannerBtn: 'Check-out Now',
+      eveningTaskReminderTitle: "⏰ Don't forget to submit your daily task summary before checkout",
+      eveningTaskReminderBadge: 'Task Window 16:30 - 17:00',
+      eveningTaskReminderDesc: 'Approaching workday end. Please submit your daily task summary so your supervisor can review your progress.',
+      eveningTaskReminderBtn: 'Submit Task Now',
       workDurationTitle: '⏱️ Active Work Duration Today',
       workDurationCompletedTitle: '⏱️ Total Work Duration Today',
       workDurationActiveBadge: 'In Progress',

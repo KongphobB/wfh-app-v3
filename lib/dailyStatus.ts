@@ -1,6 +1,7 @@
 import { getHolidayByDate } from './holidayStore';
 import { getAllLeaveRequests, isEmployeeOnApprovedLeave } from './leaveStore';
-import { getDailyWorkLocation, WorkLocationMode } from './dailyLocationStore';
+import { getDailyWorkLocation, getDailyLocationRecord, WorkLocationMode } from './dailyLocationStore';
+import { isEmployeeScheduledWfhToday } from './scheduleStore';
 import { getThaiDateStr } from './timeSync';
 
 export type ResolvedDailyStatus =
@@ -14,7 +15,7 @@ export interface DailyStatusDetail {
   status: ResolvedDailyStatus;
   location: WorkLocationMode;
   reason: string;
-  source: 'holiday' | 'leave_approved' | 'leave_pending' | 'admin_toggle' | 'gps_auto' | 'default_office';
+  source: 'holiday' | 'leave_approved' | 'leave_pending' | 'admin_toggle' | 'gps_auto' | 'weekly_schedule' | 'default_office';
   leaveType?: string;
   isExemptFromMissingCheckin: boolean;
   isExemptFromRoutineSpotCheck: boolean;
@@ -108,20 +109,63 @@ export function resolveEmployeeDailyStatus(
     };
   }
 
-  // 3. ตรวจสอบสถานะจาก dailyLocationStore (รวมการตั้งค่าของ Admin และการคำนวณ GPS อัตโนมัติ)
-  const storedLocation = getDailyWorkLocation(employeeId, date);
-  if (storedLocation === 'wfh') {
+  // 3. ตรวจสอบสถานะที่มีการระบุเจาะจงรายวัน (Direct Daily Record / Admin Toggle / GPS Auto)
+  const directRecord = getDailyLocationRecord(employeeId, date);
+  if (directRecord) {
+    if (directRecord.location === 'wfh') {
+      return {
+        status: 'wfh',
+        location: 'wfh',
+        reason: directRecord.reason || 'ปฏิบัติงานที่บ้าน (WFH)',
+        source: directRecord.is_auto_gps ? 'gps_auto' : 'admin_toggle',
+        isExemptFromMissingCheckin: false,
+        isExemptFromRoutineSpotCheck: false,
+      };
+    } else {
+      return {
+        status: 'office',
+        location: 'office',
+        reason: directRecord.reason || (directRecord.is_auto_gps
+          ? 'ตรวจพบอยู่ในพื้นที่บริษัท (ระบบสลับเข้า Office อัตโนมัติ)'
+          : 'ปฏิบัติงานที่ออฟฟิศ (Admin กำหนด)'),
+        source: directRecord.is_auto_gps ? 'gps_auto' : 'admin_toggle',
+        isExemptFromMissingCheckin: true,
+        isExemptFromRoutineSpotCheck: true,
+      };
+    }
+  }
+
+  // 3.1 ตรวจสอบคำขอ Onsite / WFH ที่อนุมัติแล้ว
+  const approvedWorkRequest = leaves.find(
+    (l) =>
+      l.status === 'Approved' &&
+      ['ปฏิบัติงานที่ออฟฟิศ (Onsite)', 'ขอปฏิบัติงานที่บ้าน (WFH)'].includes(l.leave_type)
+  );
+  if (approvedWorkRequest) {
+    const isWfh = approvedWorkRequest.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)';
+    return {
+      status: isWfh ? 'wfh' : 'office',
+      location: isWfh ? 'wfh' : 'office',
+      reason: approvedWorkRequest.reason || approvedWorkRequest.leave_type,
+      source: 'admin_toggle',
+      isExemptFromMissingCheckin: !isWfh,
+      isExemptFromRoutineSpotCheck: !isWfh,
+    };
+  }
+
+  // 4. ตรวจสอบตาราง WFH ล่วงหน้ารายสัปดาห์ (Weekly WFH Schedule Preset)
+  if (isEmployeeScheduledWfhToday(employeeId, date)) {
     return {
       status: 'wfh',
       location: 'wfh',
-      reason: 'ปฏิบัติงานที่บ้าน (WFH)',
-      source: 'admin_toggle',
+      reason: 'ปฏิบัติงานที่บ้าน (ตามตารางประจำสัปดาห์)',
+      source: 'weekly_schedule',
       isExemptFromMissingCheckin: false,
       isExemptFromRoutineSpotCheck: false,
     };
   }
 
-  // 4. ค่าเริ่มต้นสำหรับทุกคน (Default): ปฏิบัติงานที่ออฟฟิศ (Office)
+  // 5. ค่าเริ่มต้นสำหรับทุกคน (Default): ปฏิบัติงานที่ออฟฟิศ (Office)
   // พนักงานเข้าออฟฟิศใช้ระบบสแกนหน้าของบริษัท ยกเว้นการเช็คอินและการสุ่มตรวจในแอปนี้อัตโนมัติ
   return {
     status: 'office',

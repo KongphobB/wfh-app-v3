@@ -50,6 +50,7 @@ export interface Employee {
   resolved_daily_status?: 'holiday' | 'leave' | 'leave_pending' | 'wfh' | 'office';
   daily_status_reason?: string;
   is_auto_gps_location?: boolean;
+  wfh_weekly_days?: number[];
   created_at?: string;
   updated_at?: string;
 }

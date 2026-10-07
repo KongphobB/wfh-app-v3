@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getThaiDateStr } from './timeSync';
 import { createLeaveRequest, getAllLeaveRequests, updateLeaveStatus } from './leaveStore';
+import { isEmployeeScheduledWfhToday, getAllWeeklySchedules, getBangkokDayOfWeek } from './scheduleStore';
 
 export type WorkLocationMode = 'office' | 'wfh';
 
@@ -115,6 +116,11 @@ export function getDailyWorkLocation(employeeId: string, dateStr?: string): Work
     }
   }
 
+  // Check weekly WFH schedule preset
+  if (isEmployeeScheduledWfhToday(employeeId, date)) {
+    return 'wfh';
+  }
+
   // ค่าเริ่มต้นสำหรับทุกคนคือ 'office' (ระบบสแกนหน้าของบริษัท)
   // พนักงานที่ไม่ได้แจ้ง WFH ไม่ต้องเช็คอินในแอป และระบบจะไม่มีการแจ้งเตือนขาดงาน
   return 'office';
@@ -197,7 +203,18 @@ export function getAllDailyWorkLocations(dateStr?: string): Record<string, WorkL
   const store = getMemoryStore();
   const result: Record<string, WorkLocationMode> = {};
 
-  // 1. From approved leaves
+  // 1. From weekly WFH schedule preset
+  const weeklySchedules = getAllWeeklySchedules();
+  const dayOfWeek = getBangkokDayOfWeek(date);
+  if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+    Object.entries(weeklySchedules).forEach(([empId, days]) => {
+      if (days.includes(dayOfWeek)) {
+        result[empId] = 'wfh';
+      }
+    });
+  }
+
+  // 2. From approved leaves
   const leaves = getAllLeaveRequests();
   leaves.forEach((l) => {
     if (l.status === 'Approved' && l.start_date <= date && date <= l.end_date) {
@@ -209,7 +226,7 @@ export function getAllDailyWorkLocations(dateStr?: string): Record<string, WorkL
     }
   });
 
-  // 2. From direct daily records
+  // 3. From direct daily records (explicit admin toggle / GPS auto overrides)
   store.forEach((rec) => {
     if (rec.date === date) {
       result[rec.employee_id] = rec.location;

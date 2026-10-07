@@ -98,6 +98,26 @@ export default function AdminPage() {
   const [editPosition, setEditPosition] = useState('');
   const [editSupervisorId, setEditSupervisorId] = useState('');
   const [editRole, setEditRole] = useState<'employee' | 'supervisor' | 'admin'>('employee');
+  const [editWeeklyDays, setEditWeeklyDays] = useState<number[]>([]);
+
+  const currentBangkokDay = (() => {
+    try {
+      const dayStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok',
+        weekday: 'short',
+      }).format(new Date());
+      switch (dayStr) {
+        case 'Mon': return 1;
+        case 'Tue': return 2;
+        case 'Wed': return 3;
+        case 'Thu': return 4;
+        case 'Fri': return 5;
+        default: return -1;
+      }
+    } catch {
+      return -1;
+    }
+  })();
 
   // Ticket Resolution Modal
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -389,6 +409,7 @@ export default function AdminPage() {
     setEditPosition((emp.position || '').replace(/\s*\[(Supervisor|Admin)\]/gi, '').replace(/\s*\(หัวหน้างาน\)/g, '').replace(/\s*\(Admin\)/g, '').trim());
     setEditSupervisorId(emp.supervisor_id || '');
     setEditRole(emp.role);
+    setEditWeeklyDays(emp.wfh_weekly_days || []);
     setError('');
   };
 
@@ -422,7 +443,19 @@ export default function AdminPage() {
         return;
       }
 
-      setMessage(data.message || 'แก้ไขข้อมูลพนักงานสำเร็จ');
+      // Also persist weekly schedule preset if changed
+      await fetch('/api/admin/employees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: editEmployee.employee_id,
+          action: 'update_weekly_schedule',
+          days: editWeeklyDays,
+          name: editName.trim() || editEmployee.name,
+        }),
+      });
+
+      setMessage(data.message || 'แก้ไขข้อมูลพนักงานและตาราง WFH สำเร็จ');
       setEditEmployee(null);
       fetchAdminData();
     } catch {
@@ -609,6 +642,60 @@ export default function AdminPage() {
         )
       );
       saveClientDailyLocation(emp.employee_id, prevLoc);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleToggleWeeklyDay = async (emp: Employee, day: number) => {
+    const currentDays = emp.wfh_weekly_days || [];
+    const nextDays = currentDays.includes(day)
+      ? currentDays.filter((d) => d !== day)
+      : [...currentDays, day].sort((a, b) => a - b);
+
+    const loadingKey = `${emp.employee_id}_weekly_day_${day}`;
+    setActionLoadingId(loadingKey);
+    setError('');
+    setMessage('');
+
+    // Optimistic update
+    setEmployees((prev) =>
+      prev.map((e) =>
+        e.employee_id === emp.employee_id ? { ...e, wfh_weekly_days: nextDays } : e
+      )
+    );
+
+    try {
+      const res = await fetch('/api/admin/employees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: emp.employee_id,
+          action: 'update_weekly_schedule',
+          days: nextDays,
+          name: emp.name,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'บันทึกตาราง WFH ไม่สำเร็จ');
+        setEmployees((prev) =>
+          prev.map((e) =>
+            e.employee_id === emp.employee_id ? { ...e, wfh_weekly_days: currentDays } : e
+          )
+        );
+        return;
+      }
+
+      setMessage(data.message || `บันทึกตาราง WFH ของ ${emp.name} สำเร็จ`);
+    } catch {
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employee_id === emp.employee_id ? { ...e, wfh_weekly_days: currentDays } : e
+        )
+      );
     } finally {
       setActionLoadingId(null);
     }
@@ -944,6 +1031,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3.5">{t.admin.thRole}</th>
                     <th className="px-4 py-3.5 text-center whitespace-nowrap">{lang === 'en' ? 'Photo Exempt' : 'ยกเว้นถ่ายภาพ'}</th>
                     <th className="px-4 py-3.5 text-center whitespace-nowrap">{lang === 'en' ? "Today's Location" : 'สถานที่ทำงานวันนี้'}</th>
+                    <th className="px-4 py-3.5 text-center whitespace-nowrap">{lang === 'en' ? 'Weekly WFH Preset' : 'ตาราง WFH ประจำสัปดาห์'}</th>
                     <th className="px-4 py-3.5 text-center whitespace-nowrap">{t.admin.thStars}</th>
                     <th className="px-4 py-3.5 whitespace-nowrap">{t.admin.thWfhStatus}</th>
                     <th className="px-4 py-3.5 text-right min-w-[320px]">{t.admin.thActions}</th>
@@ -1017,8 +1105,8 @@ export default function AdminPage() {
                               disabled={submitting || Boolean(actionLoadingId)}
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer shadow-2xs ${
                                 isOffice
-                                  ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-blue-50'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-emerald-50'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-blue-50'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-emerald-50'
                               }`}
                               title={
                                 lang === 'en'
@@ -1050,6 +1138,52 @@ export default function AdminPage() {
                               <span>ตรวจจาก GPS</span>
                             </span>
                           )}
+
+                          {emp.work_location_today === 'wfh' && !emp.is_auto_gps_location && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200"
+                              title={emp.daily_status_reason || 'ระบบสลับเป็น WFH ตามตารางประจำสัปดาห์'}
+                            >
+                              <span>{(emp.wfh_weekly_days || []).includes(currentBangkokDay) ? '📅 ตามตารางประจำสัปดาห์' : '✋ กำหนดโดย Admin'}</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Weekly WFH Schedule Preset Pill Selector */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                          {[
+                            { day: 1, label: lang === 'en' ? 'M' : 'จ', full: lang === 'en' ? 'Monday' : 'วันจันทร์' },
+                            { day: 2, label: lang === 'en' ? 'Tu' : 'อ', full: lang === 'en' ? 'Tuesday' : 'วันอังคาร' },
+                            { day: 3, label: lang === 'en' ? 'W' : 'พ', full: lang === 'en' ? 'Wednesday' : 'วันพุธ' },
+                            { day: 4, label: lang === 'en' ? 'Th' : 'พฤ', full: lang === 'en' ? 'Thursday' : 'วันพฤหัสบดี' },
+                            { day: 5, label: lang === 'en' ? 'F' : 'ศ', full: lang === 'en' ? 'Friday' : 'วันศุกร์' },
+                          ].map(({ day, label, full }) => {
+                            const isSelected = (emp.wfh_weekly_days || []).includes(day);
+                            const isToday = currentBangkokDay === day;
+                            const isDayLoading = actionLoadingId === `${emp.employee_id}_weekly_day_${day}`;
+
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => handleToggleWeeklyDay(emp, day)}
+                                disabled={submitting || Boolean(actionLoadingId)}
+                                title={`${full}: ${isSelected ? (lang === 'en' ? 'WFH (Click to switch to Office)' : 'ทำงานที่บ้าน WFH (คลิกเพื่อยกเลิก)') : (lang === 'en' ? 'Office (Click to set WFH)' : 'เข้า Office (คลิกเพื่อตั้ง WFH)')}${isToday ? (lang === 'en' ? ' • Today' : ' • วันนี้') : ''}`}
+                                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center cursor-pointer shadow-2xs ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-200'
+                                    : 'bg-white dark:bg-slate-700 text-slate-500 hover:text-slate-900 hover:bg-slate-200 border border-slate-200 dark:border-slate-600'
+                                } ${isToday ? 'ring-2 ring-blue-500 ring-offset-1 font-black' : ''}`}
+                              >
+                                {isDayLoading ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <span>{label}</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </td>
                       <td className="px-4 py-3.5 text-center font-bold text-amber-600">{emp.one_star_count} ครั้ง</td>
@@ -2530,6 +2664,46 @@ export default function AdminPage() {
                     <option value="supervisor">Supervisor (หัวหน้างาน)</option>
                     <option value="admin">Admin (ผู้ดูแลระบบ)</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 text-xs">
+                  📅 ตาราง WFH ประจำสัปดาห์ (Weekly WFH Schedule)
+                </label>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  เลือกวันทำงานที่บ้านเป็นประจำ (ระบบจะสลับเป็น WFH ให้อัตโนมัติเมื่อถึงวันดังกล่าว)
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  {[
+                    { day: 1, label: 'จันทร์ (Mon)' },
+                    { day: 2, label: 'อังคาร (Tue)' },
+                    { day: 3, label: 'พุธ (Wed)' },
+                    { day: 4, label: 'พฤหัสฯ (Thu)' },
+                    { day: 5, label: 'ศุกร์ (Fri)' },
+                  ].map(({ day, label }) => {
+                    const isSelected = editWeeklyDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() =>
+                          setEditWeeklyDays((prev) =>
+                            prev.includes(day)
+                              ? prev.filter((d) => d !== day)
+                              : [...prev, day].sort((a, b) => a - b)
+                          )
+                        }
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

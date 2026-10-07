@@ -7,6 +7,7 @@ import { getExemptConfig } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 import { getDailyWorkLocation, setDailyWorkLocation, getDailyLocationRecord } from '@/lib/dailyLocationStore';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
+import { getEmployeeWeeklySchedule, setEmployeeWeeklySchedule } from '@/lib/scheduleStore';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -76,6 +77,7 @@ export async function GET() {
             resolved_daily_status: dailyDetail.status,
             daily_status_reason: locRecord?.reason || dailyDetail.reason,
             is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
+            wfh_weekly_days: getEmployeeWeeklySchedule(empId),
             force_pin_change: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -117,6 +119,7 @@ export async function GET() {
         resolved_daily_status: dailyDetail.status,
         daily_status_reason: locRecord?.reason || dailyDetail.reason,
         is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
+        wfh_weekly_days: getEmployeeWeeklySchedule(String(empId)),
         force_pin_change: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -236,6 +239,34 @@ export async function PATCH(request: Request) {
         employee_id,
         work_location: location,
         message: `ปรับสถานที่ทำงานของพนักงาน ${name || employee_id} วันนี้เป็น ${location === 'office' ? '🏢 เข้า Office' : '🏡 ทำงาน WFH'} สำเร็จ`,
+      });
+    }
+
+    // 0.1 If action is updating recurring weekly WFH schedule preset
+    if (action === 'update_weekly_schedule') {
+      const days = Array.isArray(body.days) ? body.days : [];
+      const updatedDays = setEmployeeWeeklySchedule(employee_id, days);
+
+      const dayNamesMap: Record<number, string> = { 1: 'จ.', 2: 'อ.', 3: 'พ.', 4: 'พฤ.', 5: 'ศ.' };
+      const formattedDays = updatedDays.length > 0
+        ? updatedDays.map((d) => dayNamesMap[d] || String(d)).join(', ')
+        : 'ไม่มี (เข้า Office ทุกวัน)';
+
+      createAuditLog({
+        admin_id: session.employee_id,
+        admin_name: session.name,
+        action_type: 'EDIT_EMPLOYEE',
+        action_title: 'ตั้งตาราง WFH ประจำสัปดาห์',
+        target_employee_id: employee_id,
+        target_employee_name: name || employee_id,
+        details: `${session.name} กำหนดตาราง WFH ประจำสัปดาห์ของ ${name || employee_id} (${employee_id}) เป็น: [${formattedDays}]`,
+      });
+
+      return NextResponse.json({
+        success: true,
+        employee_id,
+        wfh_weekly_days: updatedDays,
+        message: `บันทึกตาราง WFH ประจำสัปดาห์ของ ${name || employee_id} สำเร็จ: ${formattedDays}`,
       });
     }
 

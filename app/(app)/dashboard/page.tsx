@@ -104,8 +104,8 @@ export default function DashboardPage() {
     )
   );
 
-  // Check verification, check-in, lunch break, and evening checkout windows
-  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak, isEveningCheckoutWindow } = (() => {
+  // Check verification, check-in, lunch break, evening checkout, and evening task reminder windows
+  const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak, isEveningCheckoutWindow, isEveningTaskReminderWindow } = (() => {
     try {
       const { hour: thHour, minute: thMin } = getThaiTime();
       return {
@@ -114,9 +114,10 @@ export default function DashboardPage() {
         isLateAfternoonVerifyWindow: (thHour === 13 && thMin > 20) || (thHour >= 14 && thHour < 18),
         isMorningMissingCheckin: (thHour > 8 || (thHour === 8 && thMin > 0)) && thHour < 18,
         isEveningCheckoutWindow: thHour >= 17,
+        isEveningTaskReminderWindow: (thHour === 16 && thMin >= 30) || (thHour === 17 && thMin === 0),
       };
     } catch {
-      return { isLunchBreak: false, isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false, isEveningCheckoutWindow: false };
+      return { isLunchBreak: false, isAfternoonVerifyWindow: false, isLateAfternoonVerifyWindow: false, isMorningMissingCheckin: false, isEveningCheckoutWindow: false, isEveningTaskReminderWindow: false };
     }
   })();
 
@@ -329,6 +330,42 @@ export default function DashboardPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Evening Task Reminder Alert Banner (16:30 - 17:00 PM) - WHEN WFH CHECKED IN, NOT CHECKED OUT, AND NO TASK YET */}
+      {isCheckedInWfhToday && !todayTask && !todayCheckout && isEveningTaskReminderWindow && (
+        <Card className="border-amber-300 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-800/40 shadow-sm animate-fade-in">
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold animate-pulse mt-0.5">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-amber-950 dark:text-slate-100 text-sm leading-tight">
+                    {t.dashboard.eveningTaskReminderTitle}
+                  </h3>
+                  <Badge variant="warning" className="text-[10px] px-2 py-0.5 bg-amber-600 text-white shrink-0 font-bold">
+                    {t.dashboard.eveningTaskReminderBadge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-slate-300 font-medium leading-relaxed">
+                  {t.dashboard.eveningTaskReminderDesc}
+                </p>
+              </div>
+            </div>
+            <div className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button
+                type="button"
+                onClick={() => setIsTaskModalOpen(true)}
+                className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold gap-1 text-xs py-2.5 shadow-sm cursor-pointer"
+              >
+                <span>{t.dashboard.eveningTaskReminderBtn}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
