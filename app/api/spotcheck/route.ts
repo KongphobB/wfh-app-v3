@@ -22,9 +22,8 @@ export async function GET() {
     const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
 
     // Parallel fetch from GAS & cache to avoid waterfall delays
-    const [gasRes, checkinRes, employeesMap] = await Promise.all([
+    const [gasRes, employeesMap] = await Promise.all([
       callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
-      callGAS('getLogs', { logType: 'checkin', limit: 100 }).catch(() => ({ data: [] })),
       getLiveEmployeesMap().catch(() => ({})),
     ]);
 

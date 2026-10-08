@@ -1600,16 +1600,11 @@ export default function SupervisorPage() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              setStatusModalFilter(null);
-                              setStatusModalSearch('');
-                              openTriggerSpotCheckModal({ id: emp.id, name: emp.name });
-                            }}
-                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs cursor-pointer transition-colors flex items-center gap-1 shrink-0"
-                            title="สั่งสุ่มตรวจพนักงานคนนี้"
+                            disabled
+                            className="px-2.5 py-1 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-[10px] font-bold cursor-not-allowed opacity-70 shrink-0"
+                            title="พนักงานปฏิบัติงานที่สำนักงาน ได้รับการยกเว้นการสุ่มตรวจ"
                           >
-                            <BellRing className="w-3 h-3" />
-                            <span>สั่งสุ่มตรวจ</span>
+                            ยกเว้นสุ่มตรวจ (Office)
                           </button>
                         </div>
                       )}

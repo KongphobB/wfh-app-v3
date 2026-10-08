@@ -68,6 +68,14 @@ export default function RoutineReminderWatcher() {
         const res = await fetch('/api/checkin?scope=self');
         if (!res.ok) return;
         const data = await res.json();
+
+        // Exempt employees working at the office (face scan at company) or on leave/holiday
+        const isOfficeToday = data.work_location_today === 'office' || data.resolved_daily_status === 'office';
+        const isLeaveOrHoliday = data.resolved_daily_status === 'leave' || data.resolved_daily_status === 'leave_pending' || data.resolved_daily_status === 'holiday';
+        if (isOfficeToday || isLeaveOrHoliday) {
+          return;
+        }
+
         const logs: any[] = data.logs || [];
         const todayLogs = logs.filter((l) => (l.date === todayStr || l.log_date === todayStr));
 

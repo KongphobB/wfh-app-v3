@@ -39,7 +39,29 @@ export async function POST(request: Request) {
     const todayStr = getThaiDateStr(now);
     const timeStr = getThaiTime(now).timeStr;
 
-    // Guard: Employee MUST have checked in today (เข้างาน) to be spot checked
+    // Guard 1: Check daily status (Office, Leave, Holiday are exempt from spot checks)
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const dailyStatus = resolveEmployeeDailyStatus(String(employee_id), todayStr);
+    if (dailyStatus.status === 'office') {
+      return NextResponse.json(
+        { error: `พนักงาน ${targetEmployee?.name || employee_id} ปฏิบัติงานที่ออฟฟิศในวันนี้ จึงได้รับการยกเว้นการสุ่มตรวจ` },
+        { status: 400 }
+      );
+    }
+    if (dailyStatus.status === 'leave' || dailyStatus.status === 'leave_pending') {
+      return NextResponse.json(
+        { error: `พนักงาน ${targetEmployee?.name || employee_id} อยู่ในสถานะลางาน จึงได้รับการยกเว้นการสุ่มตรวจ` },
+        { status: 400 }
+      );
+    }
+    if (dailyStatus.status === 'holiday') {
+      return NextResponse.json(
+        { error: `วันนี้เป็นวันหยุด (${dailyStatus.reason}) จึงได้รับการยกเว้นการสุ่มตรวจ` },
+        { status: 400 }
+      );
+    }
+
+    // Guard 2: Employee MUST have checked in today (เข้างาน) to be spot checked
     const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 150 });
     const checkinLogs = (checkinRes?.data || []) as any[];
     const hasCheckedInToday = checkinLogs.some(

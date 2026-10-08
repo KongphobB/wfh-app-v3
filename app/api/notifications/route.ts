@@ -19,6 +19,7 @@ export async function GET() {
     }
 
     const todayStr = getThaiDateStr();
+    const isOfficeToday = isEmployeeAtOfficeToday(session.employee_id);
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
@@ -63,7 +64,6 @@ export async function GET() {
       }
 
       const nowMs = Date.now();
-      const isOfficeToday = isEmployeeAtOfficeToday(session.employee_id);
 
       for (const [roundName, checksInRound] of roundsMap.entries()) {
         // If employee is at the office today, routine rounds (เช้า / บ่าย / ประจำวัน) are exempt
@@ -127,45 +127,49 @@ export async function GET() {
       // Ignore background gas fetch error
     }
 
-    // 2. Afternoon Attendance Verification Notification (13:00 - 13:20) (Exempt for office employees)
+    // 2. Afternoon Attendance Verification Notification (13:00 - 13:20) (Exempt for office and leave employees)
     try {
       const { hour: thHour, minute: thMin } = getThaiTime();
 
-      // Only query check-in logs if currently within the 13:00 - 13:20 afternoon window!
-      if (thHour === 13 && thMin >= 0 && thMin <= 20) {
-        let isCheckedInWfhToday = false;
-        try {
-          const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
-          const checkinLogs = (checkinRes?.data || []) as any[];
-          const todayMorningCheckin = checkinLogs.find(
-            (c) =>
-              String(c.employeeId) === String(session.employee_id) &&
-              c.date === todayStr &&
-              c.type === 'เข้างาน'
-          );
-          if (
-            todayMorningCheckin &&
-            !(
-              todayMorningCheckin.verificationStatus &&
-              (todayMorningCheckin.verificationStatus.includes('ออฟฟิศ') || todayMorningCheckin.verificationStatus.includes('Office'))
-            )
-          ) {
-            isCheckedInWfhToday = true;
-          }
-        } catch {}
+      // Only query check-in logs if NOT at office and currently within the 13:00 - 13:20 afternoon window!
+      if (!isOfficeToday && thHour === 13 && thMin >= 0 && thMin <= 20) {
+        const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+        const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
+        if (dailyStatus.status === 'wfh') {
+          let isCheckedInWfhToday = false;
+          try {
+            const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
+            const checkinLogs = (checkinRes?.data || []) as any[];
+            const todayMorningCheckin = checkinLogs.find(
+              (c) =>
+                String(c.employeeId) === String(session.employee_id) &&
+                c.date === todayStr &&
+                c.type === 'เข้างาน'
+            );
+            if (
+              todayMorningCheckin &&
+              !(
+                todayMorningCheckin.verificationStatus &&
+                (todayMorningCheckin.verificationStatus.includes('ออฟฟิศ') || todayMorningCheckin.verificationStatus.includes('Office'))
+              )
+            ) {
+              isCheckedInWfhToday = true;
+            }
+          } catch {}
 
-        if (isCheckedInWfhToday) {
-          const notifId = `verify_afternoon_${todayStr}_${session.employee_id}`;
-          dynamicNotifs.unshift({
-            id: notifId,
-            employee_id: session.employee_id,
-            type: 'checkin',
-            title: '📍 ถึงเวลายืนยันตัวตนช่วงบ่าย (13:00 น.)',
-            message: 'กรุณาบันทึกพิกัด GPS และถ่ายภาพ Selfie ยืนยันการปฏิบัติงานช่วงบ่าย (13:00 - 13:20 น.)',
-            link: '/checkin',
-            is_read: isNotifRead(notifId),
-            created_at: `${todayStr}T13:00:00+07:00`,
-          });
+          if (isCheckedInWfhToday) {
+            const notifId = `verify_afternoon_${todayStr}_${session.employee_id}`;
+            dynamicNotifs.unshift({
+              id: notifId,
+              employee_id: session.employee_id,
+              type: 'checkin',
+              title: '📍 ถึงเวลายืนยันตัวตนช่วงบ่าย (13:00 น.)',
+              message: 'กรุณาบันทึกพิกัด GPS และถ่ายภาพ Selfie ยืนยันการปฏิบัติงานช่วงบ่าย (13:00 - 13:20 น.)',
+              link: '/checkin',
+              is_read: isNotifRead(notifId),
+              created_at: `${todayStr}T13:00:00+07:00`,
+            });
+          }
         }
       }
     } catch {}

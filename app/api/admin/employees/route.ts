@@ -223,17 +223,6 @@ export async function PATCH(request: Request) {
         details: `${session.name} กำหนดสถานที่ทำงานของพนักงาน ${name || employee_id} (${employee_id}) วันนี้เป็น "${location === 'office' ? 'เข้า Office' : 'ทำงาน WFH'}"`,
       });
 
-      // Sync to Google Sheet checkin log in background if setting to office
-      if (location === 'office') {
-        callGAS('checkin', {
-          type: 'เข้างาน',
-          employeeId: employee_id,
-          lat: 12.736929,
-          lng: 101.114387,
-          note: 'ปฏิบัติงานที่ออฟฟิศ (แอดมินกำหนด)',
-        }).catch((err) => console.warn('Background GAS office log error:', err));
-      }
-
       return NextResponse.json({
         success: true,
         employee_id,
