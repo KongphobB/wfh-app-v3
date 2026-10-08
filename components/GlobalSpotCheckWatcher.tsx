@@ -365,7 +365,7 @@ export default function GlobalSpotCheckWatcher() {
       )}
 
       {/* 2. Top Floating Attention Toast Popup (Visible whenever spot check is active) */}
-      {!isModalOpen && (
+      {!isModalOpen && !isToastDismissed && (
         <div className="fixed top-3 left-3 right-3 sm:left-auto sm:top-5 sm:right-5 z-40 max-w-md w-auto sm:w-full animate-in fade-in slide-in-from-top-4 duration-300 drop-shadow-2xl">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950 border-2 border-rose-500/80 rounded-3xl p-4.5 shadow-2xl text-white backdrop-blur-xl relative overflow-hidden">
             {/* Top pulsing glow bar */}

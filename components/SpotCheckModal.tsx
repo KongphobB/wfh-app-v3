@@ -132,6 +132,8 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       const res = await fetch('/api/checkin?scope=self');
       if (res.ok) {
         const data = await res.json();
+        if (data.is_photo_exempt != null) setIsPhotoExempt(Boolean(data.is_photo_exempt));
+        if (data.employee_position) setEmployeePosition(data.employee_position);
         const todayStr = getThaiDateStr(getSyncedNow());
         const logs: any[] = data.logs || [];
         const todayMorningLogs = logs.filter(
@@ -166,13 +168,6 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       getGpsLocation();
       startCamera('user');
       fetchFirstCheckIn();
-      fetch('/api/spotcheck')
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.is_photo_exempt != null) setIsPhotoExempt(Boolean(d.is_photo_exempt));
-          if (d.employee_position) setEmployeePosition(d.employee_position);
-        })
-        .catch(() => {});
     } else {
       stopCamera();
       setPhotoDataUrl(null);
