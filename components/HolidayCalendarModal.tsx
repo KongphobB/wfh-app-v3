@@ -20,7 +20,7 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
   const { t, lang } = useLanguage();
   const [holidays, setHolidays] = useState<CompanyHoliday[]>([]);
   const [policyDoc, setPolicyDoc] = useState<HolidayPolicyDoc | null>(null);
-  const [currentYear, setCurrentYear] = useState<number>(2026);
+  const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth()); // 0-indexed
   const [loading, setLoading] = useState<boolean>(true);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);

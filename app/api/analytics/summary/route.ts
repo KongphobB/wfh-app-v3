@@ -147,6 +147,7 @@ export async function GET(request: Request) {
     const spotCheckComplianceRate = spotTotalCount > 0 ? Math.round((spotPassCount / spotTotalCount) * 100) : 100;
 
     // 5. Daily Trends (Last 7 days)
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
     const dailyTrends = [];
     const now = new Date();
 
@@ -160,14 +161,19 @@ export async function GET(request: Request) {
       const isLeaveToday = rawLeaves.some((l) => l.start_date <= dateStr && dateStr <= l.end_date);
       const taskToday = rawTasks.find((t) => (t.date || t.submitDate) === dateStr);
       const star = taskToday ? parseInt(taskToday.starRating || taskToday.rating, 10) || null : null;
+      const dailyDetail = resolveEmployeeDailyStatus(targetEmployeeId, dateStr);
 
       let status: 'on-time' | 'late' | 'leave' | 'missing' | 'none' = 'none';
-      if (isLeaveToday) {
+      if (dailyDetail.status === 'holiday') {
+        status = 'none';
+      } else if (isLeaveToday || dailyDetail.status === 'leave') {
         status = 'leave';
       } else if (checkinToday) {
         const timeStr = checkinToday.time || '';
         const [h, m] = timeStr.split(':').map((x: string) => parseInt(x, 10));
         status = h < 8 || (h === 8 && m === 0) ? 'on-time' : 'late';
+      } else if (dailyDetail.location === 'office') {
+        status = 'leave';
       } else if (d.getDay() !== 0 && d.getDay() !== 6 && i > 0) {
         status = 'missing';
       }
