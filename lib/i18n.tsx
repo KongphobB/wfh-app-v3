@@ -150,6 +150,16 @@ export interface Translations {
     hoursUnit: string;
     minutesUnit: string;
     secondsUnit: string;
+    officeModeTitle: string;
+    officeModeBadge: string;
+    officeModeDesc: string;
+    officeModeBtn: string;
+    officeBadge: string;
+    wfhBadge: string;
+    officeScanRecorded: string;
+    officeScanDetail: string;
+    officeTaskExempt: string;
+    officeTaskDetail: string;
   };
   // Checkin
   checkin: {
@@ -582,6 +592,16 @@ export const translations: Record<Language, Translations> = {
       hoursUnit: 'ชม.',
       minutesUnit: 'นาที',
       secondsUnit: 'วินาที',
+      officeModeTitle: 'วันนี้ปฏิบัติงานที่ Office (เข้าออฟฟิศ)',
+      officeModeBadge: 'สแกนหน้าบริษัท',
+      officeModeDesc: 'คุณลงเวลาปฏิบัติงานผ่านระบบสแกนใบหน้าที่บริษัท โดยไม่ต้องลงเวลาเข้างานหรือส่งรายงานประจำวันในระบบ WFH',
+      officeModeBtn: 'ลงเวลาในระบบ WFH',
+      officeBadge: '🏢 ปฏิบัติงานที่ Office',
+      wfhBadge: '🏡 ปฏิบัติงานที่บ้าน (WFH)',
+      officeScanRecorded: 'สแกนหน้าบริษัท',
+      officeScanDetail: 'บันทึกเวลาผ่านระบบสแกนหน้าออฟฟิศ',
+      officeTaskExempt: 'ยกเว้นการส่งรายงาน',
+      officeTaskDetail: 'ปฏิบัติงานที่ออฟฟิศ ไม่ต้องส่งรายงานในระบบ WFH',
     },
     checkin: {
       pageTitle: 'บันทึกเวลาปฏิบัติงาน (Check-in & GPS)',
@@ -1000,6 +1020,16 @@ export const translations: Record<Language, Translations> = {
       hoursUnit: 'h',
       minutesUnit: 'm',
       secondsUnit: 's',
+      officeModeTitle: "Today's Work Location: Office",
+      officeModeBadge: 'Biometric Face Scan',
+      officeModeDesc: 'You record attendance via the company biometric face scanner. No check-in or daily task report required in the WFH app.',
+      officeModeBtn: 'Check-in WFH',
+      officeBadge: '🏢 Working at Office',
+      wfhBadge: '🏡 Working from Home (WFH)',
+      officeScanRecorded: 'Office Face Scan',
+      officeScanDetail: 'Recorded via company biometric scanner',
+      officeTaskExempt: 'Report Exempt',
+      officeTaskDetail: 'Working at office; WFH report not required',
     },
     checkin: {
       pageTitle: 'Attendance & GPS Verification',

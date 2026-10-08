@@ -98,11 +98,22 @@ export async function GET() {
     );
     const activeSpotCheck = activeManual || formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled') || null;
 
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const { getDailyLocationRecord } = await import('@/lib/dailyLocationStore');
+    const dailyDetail = resolveEmployeeDailyStatus(String(session.employee_id), todayStr);
+    const locRecord = getDailyLocationRecord(String(session.employee_id), todayStr);
+
     return NextResponse.json(
       {
         success: true,
+        employeeId: String(session.employee_id),
         role: session.role,
         wfhStatus: wfhStatus,
+        workLocationToday: dailyDetail.location,
+        resolvedDailyStatus: dailyDetail.status,
+        dailyStatusReason: locRecord?.reason || dailyDetail.reason,
+        isExemptFromMissingCheckin: dailyDetail.isExemptFromMissingCheckin,
+        isExemptFromRoutineSpotCheck: dailyDetail.isExemptFromRoutineSpotCheck,
         checkinLogs: formattedCheckins,
         tasks: formattedTasks,
         spotChecks: formattedSpots,

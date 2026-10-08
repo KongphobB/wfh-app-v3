@@ -178,4 +178,40 @@ describe('Comprehensive QA Suite: Multi-Employee Work Location Toggle', () => {
     expect(failedOrAlerted.length).toBe(1);
     expect(failedOrAlerted[0].round).toContain('เฉพาะกิจ');
   });
+
+  it('QA Test 8: Dashboard suppresses morning check-in warning and adapts cards for office employees', () => {
+    // Case 1: Employee 1 is configured at Office (default or toggled)
+    setDailyWorkLocation(emp1, 'office', 'ก้องภพ บุญชู', 'Admin', dateStr);
+    const isEmp1Office = isEmployeeAtOfficeToday(emp1, dateStr);
+    expect(isEmp1Office).toBe(true);
+
+    const hasCheckedIn = false;
+    const isMorningMissingTime = true; // past 08:00 AM
+
+    const isExemptFromMissingEmp1 = isEmp1Office;
+    const shouldShowWarningEmp1 = !hasCheckedIn && !isExemptFromMissingEmp1 && isMorningMissingTime;
+    // Office employee MUST NOT see the missing check-in warning!
+    expect(shouldShowWarningEmp1).toBe(false);
+
+    // Cards logic for office employee
+    const checkinCardTitleEmp1 = !hasCheckedIn && isEmp1Office ? '🏢 สแกนหน้าบริษัท' : 'ยังไม่ลงเวลา';
+    const taskCardTitleEmp1 = isEmp1Office ? '🏢 ยกเว้นการส่งรายงาน' : 'ยังไม่ส่งงาน';
+    expect(checkinCardTitleEmp1).toBe('🏢 สแกนหน้าบริษัท');
+    expect(taskCardTitleEmp1).toBe('🏢 ยกเว้นการส่งรายงาน');
+
+    // Case 2: Employee 2 is WFH
+    setDailyWorkLocation(emp2, 'wfh', 'เกษิเดช', 'Admin', dateStr);
+    const isEmp2Office = isEmployeeAtOfficeToday(emp2, dateStr);
+    expect(isEmp2Office).toBe(false);
+
+    const isExemptFromMissingEmp2 = isEmp2Office;
+    const shouldShowWarningEmp2 = !hasCheckedIn && !isExemptFromMissingEmp2 && isMorningMissingTime;
+    // WFH employee MUST see the missing check-in warning!
+    expect(shouldShowWarningEmp2).toBe(true);
+
+    const checkinCardTitleEmp2 = !hasCheckedIn && isEmp2Office ? '🏢 สแกนหน้าบริษัท' : 'ยังไม่ลงเวลา';
+    const taskCardTitleEmp2 = isEmp2Office ? '🏢 ยกเว้นการส่งรายงาน' : 'ยังไม่ส่งงาน';
+    expect(checkinCardTitleEmp2).toBe('ยังไม่ลงเวลา');
+    expect(taskCardTitleEmp2).toBe('ยังไม่ส่งงาน');
+  });
 });

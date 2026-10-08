@@ -239,11 +239,16 @@ export async function GET(request: Request) {
       role: session.role,
     });
 
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
+
     return NextResponse.json(
       {
         logs: formattedLogs,
         is_photo_exempt: isPhotoExempt,
         employee_position: position,
+        work_location_today: dailyStatus.location,
+        resolved_daily_status: dailyStatus.status,
       },
       {
         headers: {

@@ -20,6 +20,7 @@ export default function CheckinPage() {
   const [selectedType, setSelectedType] = useState<CheckinType>('เข้างาน');
   const [alertPopup, setAlertPopup] = useState<{ title: string; message: string } | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
+  const [workLocationToday, setWorkLocationToday] = useState<'office' | 'wfh'>('office');
 
   const fetchCheckinLogs = async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -28,6 +29,9 @@ export default function CheckinPage() {
       if (res.ok) {
         const data = await res.json();
         setAllLogs(data.logs || []);
+        if (data.work_location_today) {
+          setWorkLocationToday(data.work_location_today);
+        }
       }
     } catch (err) {
       console.error('Fetch checkin logs error:', err);
@@ -116,6 +120,27 @@ export default function CheckinPage() {
           </p>
         </div>
       </div>
+
+      {/* Office status reminder banner */}
+      {workLocationToday === 'office' && (
+        <Card className="border-blue-200/90 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800/40 shadow-sm animate-fade-in">
+          <CardContent className="p-3.5 sm:p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0 font-bold text-lg">
+              🏢
+            </div>
+            <div className="space-y-0.5">
+              <h4 className="font-bold text-blue-950 dark:text-slate-100 text-xs sm:text-sm">
+                {lang === 'en' ? "Today's Status: Office (Company Face Scan)" : 'วันนี้คุณมีสถานะปฏิบัติงานที่ Office (สแกนหน้าบริษัท)'}
+              </h4>
+              <p className="text-[11px] sm:text-xs text-blue-800 dark:text-slate-300">
+                {lang === 'en'
+                  ? 'If working at office, please scan your face using the company device. You may still check in below if switching to WFH.'
+                  : 'หากเข้าปฏิบัติงานที่ออฟฟิศ ให้สแกนใบหน้าที่เครื่องของบริษัท หรือหากเปลี่ยนเป็นทำงาน WFH สามารถกดลงเวลาด้านล่างได้ตามปกติ'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

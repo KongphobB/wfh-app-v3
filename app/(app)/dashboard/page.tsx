@@ -28,6 +28,10 @@ export default function DashboardPage() {
   const [activeSpotCheck, setActiveSpotCheck] = useState<SpotCheck | null>(null);
   const [userRole, setUserRole] = useState<string>('employee');
   const [wfhStatus, setWfhStatus] = useState<string>('เปิดสิทธิ์');
+  const [workLocationToday, setWorkLocationToday] = useState<'office' | 'wfh'>('office');
+  const [resolvedDailyStatus, setResolvedDailyStatus] = useState<string>('office');
+  const [dailyStatusReason, setDailyStatusReason] = useState<string>('');
+  const [isExemptFromMissingCheckin, setIsExemptFromMissingCheckin] = useState<boolean>(true);
   const [currentEmpId, setCurrentEmpId] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
@@ -49,6 +53,31 @@ export default function DashboardPage() {
         setTasks(data.tasks || []);
         setSpotChecks(data.spotChecks || []);
         setActiveSpotCheck(data.activeSpotCheck || null);
+
+        // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)
+        let locToday: 'office' | 'wfh' = data.workLocationToday || 'office';
+        try {
+          const d = new Date();
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const raw = localStorage.getItem(`wfh_daily_locations_${y}-${m}-${day}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed[empId]) {
+              locToday = parsed[empId];
+            }
+          }
+        } catch {}
+
+        setWorkLocationToday(locToday);
+        setResolvedDailyStatus(data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
+        setDailyStatusReason(data.dailyStatusReason || '');
+        setIsExemptFromMissingCheckin(
+          data.isExemptFromMissingCheckin != null
+            ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
+            : locToday === 'office'
+        );
 
         // Auto-show onboarding tour on first login
         if (isInitial && empId) {
@@ -95,6 +124,10 @@ export default function DashboardPage() {
   const todayDateStr = getThaiDateStr();
   const todayTask = tasks.find((t) => t.submit_date === todayDateStr);
 
+  // Derived location and exemption flags
+  const isOfficeToday = workLocationToday === 'office' || resolvedDailyStatus === 'office';
+  const isExemptFromMissing = isOfficeToday || isExemptFromMissingCheckin || resolvedDailyStatus === 'holiday' || resolvedDailyStatus === 'leave';
+
   // Check if employee checked in for WFH today (Only WFH checked-in employees need afternoon verification)
   const isCheckedInWfhToday = Boolean(
     todayCheckin &&
@@ -133,6 +166,16 @@ export default function DashboardPage() {
             </h1>
             <Badge variant={wfhStatus === 'เปิดสิทธิ์' ? 'success' : 'destructive'} className="text-[10px] px-2 py-0.5 font-bold">
               {wfhStatus === 'เปิดสิทธิ์' ? t.dashboard.wfhActive : t.dashboard.wfhSuspended}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`text-[10px] px-2 py-0.5 font-bold ${
+                isOfficeToday
+                  ? 'border-blue-300 text-blue-700 bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:bg-blue-950/40'
+                  : 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:bg-emerald-950/40'
+              }`}
+            >
+              {isOfficeToday ? t.dashboard.officeBadge : t.dashboard.wfhBadge}
             </Badge>
           </div>
           <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 mt-1">{t.dashboard.subtitle}</p>
@@ -213,8 +256,40 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Morning Missing Check-in Alert Banner (After 08:00 AM) */}
-      {!todayCheckin && isMorningMissingCheckin && (
+      {/* Office Mode Status Banner (Biometric Face Scan at Company) */}
+      {isOfficeToday && !todayCheckin && (
+        <Card className="border-blue-200/90 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800/40 shadow-sm animate-fade-in">
+          <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0 font-bold text-xl mt-0.5 shadow-xs">
+                🏢
+              </div>
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-blue-950 dark:text-slate-100 text-sm leading-tight">
+                    {t.dashboard.officeModeTitle}
+                  </h3>
+                  <Badge variant="default" className="text-[10px] px-2 py-0.5 bg-blue-600 shrink-0 font-bold">
+                    {t.dashboard.officeModeBadge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-blue-800 dark:text-slate-300 font-medium leading-relaxed">
+                  {t.dashboard.officeModeDesc}
+                </p>
+              </div>
+            </div>
+            <Link href="/checkin" className="w-full sm:w-auto shrink-0 mt-1 sm:mt-0">
+              <Button variant="outline" className="w-full sm:w-auto border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/50 font-bold text-xs py-2.5 shadow-2xs cursor-pointer">
+                <span>{t.dashboard.officeModeBtn}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Morning Missing Check-in Alert Banner (After 08:00 AM) - Only for WFH employees */}
+      {!todayCheckin && !isExemptFromMissing && isMorningMissingCheckin && (
         <Card className="border-rose-300 bg-rose-50/90 dark:bg-rose-950/30 dark:border-rose-800/40 shadow-sm animate-fade-in">
           <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -457,13 +532,17 @@ export default function DashboardPage() {
         <Card className="border-emerald-200/80 bg-emerald-50/30">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-emerald-700 font-bold">{t.dashboard.checkinTimeToday}</CardDescription>
-            <CardTitle className="text-xl text-slate-900">
+            <CardTitle className="text-xl text-slate-900 dark:text-white">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
                   <Loader2 className="w-4 h-4 animate-spin" /> {t.common.loading}
                 </span>
               ) : todayCheckin ? (
                 new Date(todayCheckin.log_time).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }) + (lang === 'en' ? '' : ' น.')
+              ) : isOfficeToday ? (
+                <span className="text-blue-700 dark:text-blue-300 text-base font-bold flex items-center gap-1.5">
+                  <span>🏢 {t.dashboard.officeScanRecorded}</span>
+                </span>
               ) : (
                 t.dashboard.notRecorded
               )}
@@ -471,7 +550,11 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className="text-[11px] text-slate-500 font-medium">
-              {todayCheckin ? `${t.common.status}: ${todayCheckin.verification_status}` : t.dashboard.notRecorded}
+              {todayCheckin
+                ? `${t.common.status}: ${todayCheckin.verification_status}`
+                : isOfficeToday
+                ? t.dashboard.officeScanDetail
+                : t.dashboard.notRecorded}
             </p>
           </CardContent>
         </Card>
@@ -479,13 +562,17 @@ export default function DashboardPage() {
         <Card className="border-rose-200/80 bg-rose-50/30">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-rose-700 font-bold">{t.dashboard.checkoutTimeToday}</CardDescription>
-            <CardTitle className="text-xl text-slate-900">
+            <CardTitle className="text-xl text-slate-900 dark:text-white">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
                   <Loader2 className="w-4 h-4 animate-spin" /> {t.common.loading}
                 </span>
               ) : todayCheckout ? (
                 new Date(todayCheckout.log_time).toLocaleTimeString(lang === 'en' ? 'en-US' : 'th-TH', { hour: '2-digit', minute: '2-digit' }) + (lang === 'en' ? '' : ' น.')
+              ) : isOfficeToday ? (
+                <span className="text-blue-700 dark:text-blue-300 text-base font-bold flex items-center gap-1.5">
+                  <span>🏢 {t.dashboard.officeScanRecorded}</span>
+                </span>
               ) : (
                 t.dashboard.notRecorded
               )}
@@ -493,7 +580,11 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <p className="text-[11px] text-slate-500 font-medium">
-              {todayCheckout ? `${t.common.status}: ${todayCheckout.verification_status}` : t.dashboard.notRecorded}
+              {todayCheckout
+                ? `${t.common.status}: ${todayCheckout.verification_status}`
+                : isOfficeToday
+                ? t.dashboard.officeScanDetail
+                : t.dashboard.notRecorded}
             </p>
           </CardContent>
         </Card>
@@ -508,7 +599,7 @@ export default function DashboardPage() {
                 </span>
               )}
             </CardDescription>
-            <CardTitle className="text-base sm:text-lg text-slate-900">
+            <CardTitle className="text-base sm:text-lg text-slate-900 dark:text-white">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
                   <Loader2 className="w-4 h-4 animate-spin" /> {t.common.loading}
@@ -524,6 +615,10 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </div>
+              ) : isOfficeToday ? (
+                <span className="text-slate-600 dark:text-slate-300 text-sm font-bold flex items-center gap-1.5">
+                  <span>🏢 {t.dashboard.officeTaskExempt}</span>
+                </span>
               ) : (
                 <span className="text-rose-600 text-sm font-bold">
                   {t.dashboard.notSubmitted}
@@ -533,13 +628,19 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-              <span>{todayTask ? (lang === 'en' ? 'Report submitted before leaving' : 'รายงานก่อนเลิกงานเรียบร้อย') : (lang === 'en' ? 'Report before leaving' : 'ส่งรายงานสรุปก่อนเลิกงาน')}</span>
+              <span>
+                {todayTask
+                  ? (lang === 'en' ? 'Report submitted before leaving' : 'รายงานก่อนเลิกงานเรียบร้อย')
+                  : isOfficeToday
+                  ? t.dashboard.officeTaskDetail
+                  : (lang === 'en' ? 'Report before leaving' : 'ส่งรายงานสรุปก่อนเลิกงาน')}
+              </span>
               <button
                 type="button"
                 onClick={() => setIsTaskModalOpen(true)}
                 className="text-orange-600 font-bold hover:underline cursor-pointer"
               >
-                {todayTask ? t.tasks.editTodayReport : t.tasks.reportBtn}
+                {todayTask ? t.tasks.editTodayReport : (isOfficeToday ? (lang === 'en' ? 'Report (Optional)' : 'ส่งรายงาน (ถ้ามี)') : t.tasks.reportBtn)}
               </button>
             </div>
           </CardContent>
