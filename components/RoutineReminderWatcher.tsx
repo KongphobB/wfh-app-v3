@@ -73,6 +73,9 @@ export default function RoutineReminderWatcher() {
         const isOfficeToday = data.work_location_today === 'office' || data.resolved_daily_status === 'office';
         const isLeaveOrHoliday = data.resolved_daily_status === 'leave' || data.resolved_daily_status === 'leave_pending' || data.resolved_daily_status === 'holiday';
         if (isOfficeToday || isLeaveOrHoliday) {
+          if (isMorningWindow) localStorage.setItem(morningKey, 'true');
+          if (isAfternoonWindow) localStorage.setItem(afternoonKey, 'true');
+          if (isEveningWindow) localStorage.setItem(eveningKey, 'true');
           return;
         }
 
