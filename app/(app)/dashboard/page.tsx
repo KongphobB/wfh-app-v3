@@ -225,7 +225,7 @@ export default function DashboardPage() {
             <div>
               <h3 className="font-bold text-teal-950 dark:text-teal-200 text-sm flex items-center gap-2">
                 <span>{t.lunchBreak.bannerTitle}</span>
-                <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-teal-600">
+                <Badge className="text-[10px] px-1.5 py-0 bg-teal-600 text-white border-transparent font-bold">
                   {t.lunchBreak.badge}
                 </Badge>
               </h3>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-blue-950 dark:text-slate-100 text-sm leading-tight">
                     {t.dashboard.officeModeTitle}
                   </h3>
-                  <Badge variant="default" className="text-[10px] px-2 py-0.5 bg-blue-600 shrink-0 font-bold">
+                  <Badge className="text-[10px] px-2 py-0.5 bg-blue-600 text-white border-transparent shrink-0 font-bold">
                     {t.dashboard.officeModeBadge}
                   </Badge>
                 </div>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm leading-tight">
                     {lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างานช่วงเช้า'}
                   </h3>
-                  <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 shrink-0 font-bold">
+                  <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 text-white border-transparent shrink-0 font-bold">
                     {lang === 'en' ? 'Overdue > 08:00 AM' : 'เกินเวลา 08:00 น.'}
                   </Badge>
                 </div>
@@ -335,7 +335,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-blue-900 dark:text-slate-100 text-sm leading-tight">
                     {t.dashboard.verifyWindowBannerTitle}
                   </h3>
-                  <Badge variant="default" className="text-[10px] px-2 py-0.5 bg-blue-600 shrink-0 font-bold">
+                  <Badge className="text-[10px] px-2 py-0.5 bg-blue-600 text-white border-transparent shrink-0 font-bold">
                     {t.dashboard.verifyWindowBannerBadge}
                   </Badge>
                 </div>
@@ -459,7 +459,7 @@ export default function DashboardPage() {
                     <h3 className="font-bold text-rose-950 dark:text-slate-100 text-sm leading-tight">
                       {t.dashboard.checkoutBannerTitle}
                     </h3>
-                    <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 shrink-0 font-bold">
+                    <Badge variant="destructive" className="text-[10px] px-2 py-0.5 bg-rose-600 text-white border-transparent shrink-0 font-bold">
                       {t.dashboard.checkoutBannerBadge}
                     </Badge>
                   </div>
