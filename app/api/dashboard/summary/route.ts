@@ -91,17 +91,27 @@ export async function GET() {
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
-    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
-    const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
-    const activeManual = manualChecks.find(
-      (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
-    );
-    const activeSpotCheck = activeManual || formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled') || null;
 
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
     const { getDailyLocationRecord } = await import('@/lib/dailyLocationStore');
     const dailyDetail = resolveEmployeeDailyStatus(String(session.employee_id), todayStr);
     const locRecord = getDailyLocationRecord(String(session.employee_id), todayStr);
+
+    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
+    const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
+    const activeManual = manualChecks.find(
+      (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
+    );
+
+    // If employee is exempt from routine spot checks (Office, Holiday, Leave), omit routine checks
+    const activeRoutine = dailyDetail.isExemptFromRoutineSpotCheck
+      ? null
+      : formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled');
+    const activeSpotCheck = activeManual || activeRoutine || null;
+
+    const finalSpots = dailyDetail.isExemptFromRoutineSpotCheck
+      ? formattedSpots.filter((s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL'))
+      : formattedSpots;
 
     return NextResponse.json(
       {
@@ -116,7 +126,7 @@ export async function GET() {
         isExemptFromRoutineSpotCheck: dailyDetail.isExemptFromRoutineSpotCheck,
         checkinLogs: formattedCheckins,
         tasks: formattedTasks,
-        spotChecks: formattedSpots,
+        spotChecks: finalSpots,
         activeSpotCheck,
       },
       {

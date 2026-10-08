@@ -132,15 +132,19 @@ export async function GET() {
     ];
 
     let finalSpotChecks = dedupedFormatted;
+    let finalTestChecks = testChecks;
     if (isExemptFromRoutine) {
-      // If working at office or on leave, exempt from routine scheduled checks (เช้า / บ่าย),
+      // If working at office or on leave, exempt from routine scheduled checks (เช้า / บ่าย) and test checks,
       // but STILL include supervisor ad-hoc manual spot checks!
       finalSpotChecks = dedupedFormatted.filter(
         (s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL')
       );
+      finalTestChecks = testChecks.filter(
+        (t) => t.round?.includes('เฉพาะกิจ') || t.id?.startsWith('SPOT-MANUAL')
+      );
     }
 
-    const combined = [...testChecks, ...finalSpotChecks];
+    const combined = [...finalTestChecks, ...finalSpotChecks];
     const currentEmp = (employeesMap as Record<string, any>)[session.employee_id] || {};
     const position = currentEmp.position || '';
     const isPhotoExempt = await isEmployeePhotoExempt({

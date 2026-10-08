@@ -503,6 +503,15 @@ export default function SupervisorPage() {
   };
 
   const openTriggerSpotCheckModal = (member: { id: string; name: string }) => {
+    const statusInfo = stats.memberStatusList.find((m) => m.id === member.id);
+    if (statusInfo?.status === 'onsite') {
+      alert('พนักงานปฏิบัติงานที่สำนักงานในวันนี้ ได้รับการยกเว้นการสุ่มตรวจ');
+      return;
+    }
+    if (statusInfo?.status === 'leave') {
+      alert('พนักงานอยู่ในสถานะลางาน ได้รับการยกเว้นการสุ่มตรวจ');
+      return;
+    }
     const todayLog = attendanceLogs.find(
       (l) => l.employee_id === member.id && l.log_date === todayStr && l.log_type.includes('เข้างาน')
     );

@@ -119,6 +119,18 @@ export default function GlobalSpotCheckWatcher() {
         syncServerTime(data.server_timestamp);
       }
 
+      // If employee is working at office or on leave today, cancel any pending spot check modal/toast
+      if (data.is_working_at_office_today || data.is_on_leave_today) {
+        if (activeCheck) {
+          setActiveCheck(null);
+          setIsModalOpen(false);
+          try {
+            localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+          } catch {}
+        }
+        return;
+      }
+
       const list: SpotCheck[] = data.spotChecks || [];
       const pending = list.find((s) => isSpotCheckCurrentlyActive(s));
 

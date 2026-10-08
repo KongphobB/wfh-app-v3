@@ -29,8 +29,12 @@ const snuPolicyDoc: HolidayPolicyDoc = {
 };
 
 // Initialize global storage for memory persistence across reloads
-(global as any).__memoryHolidays = [...snuHolidays2026];
-(global as any).__memoryHolidayPolicy = { ...snuPolicyDoc };
+if (!(global as any).__memoryHolidays) {
+  (global as any).__memoryHolidays = [...snuHolidays2026];
+}
+if (!(global as any).__memoryHolidayPolicy) {
+  (global as any).__memoryHolidayPolicy = { ...snuPolicyDoc };
+}
 
 export function getAllHolidays(): CompanyHoliday[] {
   const holidays: CompanyHoliday[] = (global as any).__memoryHolidays || snuHolidays2026;
