@@ -49,7 +49,7 @@ export async function sendEmailAlert({ to, cc, subject, bodyHtml, bodyText }: Em
 
   try {
     await transporter.sendMail({
-      from: `"WFH System Alert" <${process.env.SMTP_USER}>`,
+      from: `"WFH System Alert" <${SMTP_USER}>`,
       to: toList,
       cc: ccList,
       subject,

@@ -57,11 +57,8 @@ export default function DashboardPage() {
         // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)
         let locToday: 'office' | 'wfh' = data.workLocationToday || 'office';
         try {
-          const d = new Date();
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          const raw = localStorage.getItem(`wfh_daily_locations_${y}-${m}-${day}`);
+          const todayDateStr = getThaiDateStr();
+          const raw = localStorage.getItem(`wfh_daily_locations_${todayDateStr}`);
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed[empId]) {
@@ -131,6 +128,7 @@ export default function DashboardPage() {
   // Check if employee checked in for WFH today (Only WFH checked-in employees need afternoon verification)
   const isCheckedInWfhToday = Boolean(
     todayCheckin &&
+    !isOfficeToday &&
     !(
       todayCheckin.verification_status &&
       (todayCheckin.verification_status.includes('ออฟฟิศ') || todayCheckin.verification_status.includes('Office'))

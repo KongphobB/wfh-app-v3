@@ -70,6 +70,16 @@ export async function GET(request: Request) {
         continue;
       }
 
+      // Deduplicate: Send at most ONE alert per employee per window per day
+      const alertKey = isAfternoonAbsent
+        ? `alerted_absent_${empId}_${todayStr}`
+        : `alerted_missing_checkin_${empId}_${todayStr}`;
+
+      if ((global as any)[alertKey]) {
+        continue;
+      }
+      (global as any)[alertKey] = true;
+
       notifiedEmployees.push({
         id: empId,
         name: emp.name || empId,
