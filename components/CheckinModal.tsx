@@ -36,6 +36,11 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const photoDataUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    photoDataUrlRef.current = photoDataUrl;
+  }, [photoDataUrl]);
 
   const [loading, setLoading] = useState(false);
   const [isPhotoExempt, setIsPhotoExempt] = useState(false);
@@ -133,10 +138,20 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       setPopupAlert(null);
     }
 
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current && isOpen) {
+        if (!streamRef.current || streamRef.current.getVideoTracks().some((t) => t.readyState === 'ended')) {
+          startCamera(facingMode);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       stopCamera();
     };
-  }, [isOpen, defaultType]);
+  }, [isOpen, defaultType, facingMode]);
 
   const getGpsLocation = () => {
     setGpsStatus('loading');

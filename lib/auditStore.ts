@@ -52,6 +52,9 @@ export function createAuditLog(params: {
   details: string;
   ip_address?: string | null;
 }): AuditLogItem {
+  if (!(global as any).__memoryAuditLogs) {
+    (global as any).__memoryAuditLogs = [...defaultAuditLogs];
+  }
   const logs: AuditLogItem[] = (global as any).__memoryAuditLogs;
   const newLog: AuditLogItem = {
     id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
