@@ -70,8 +70,32 @@
     "id": "2026-10-07_test_qa_emp_location",
     "date": "2026-10-07",
     "employee_id": "test_qa_emp_location",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-09T02:53:49.848Z"
+  },
+  {
+    "id": "2026-10-07_1304",
+    "date": "2026-10-07",
+    "employee_id": "1304",
     "location": "office",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:33:06.318Z"
+    "updated_at": "2026-10-09T02:53:50.144Z"
+  },
+  {
+    "id": "2026-10-07_1313",
+    "date": "2026-10-07",
+    "employee_id": "1313",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-09T02:53:50.146Z"
+  },
+  {
+    "id": "2026-10-07_8888",
+    "date": "2026-10-07",
+    "employee_id": "8888",
+    "location": "wfh",
+    "updated_by": "Admin",
+    "updated_at": "2026-10-09T02:53:50.143Z"
   }
 ]

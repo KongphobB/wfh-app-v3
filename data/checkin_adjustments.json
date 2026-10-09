@@ -1,0 +1,15 @@
+[
+  {
+    "id": "2026-10-09_1304",
+    "date": "2026-10-09",
+    "employee_id": "1304",
+    "time": "07:50:51",
+    "verification_status": "ตรงเวลา",
+    "note": "",
+    "original_time": "09:15:32",
+    "remove_duplicate_employee_id": "9999",
+    "reason": "แก้ไขเวลาเข้างานให้ถูกต้องเนื่องจากเข้าสู่ระบบผิดบัญชีด้วยรหัส Admin เมื่อเวลา 07:50 น.",
+    "updated_at": "2026-10-09T07:50:51.000Z",
+    "updated_by": "System (Admin Request)"
+  }
+]

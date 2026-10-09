@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { getThaiDateStr } from '@/lib/timeSync';
+import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
 export async function GET() {
   try {
@@ -20,7 +21,7 @@ export async function GET() {
     }
 
     const employeesMap = res.config?.employeesMap || {};
-    const rawCheckins = (res.checkinLogs || []) as any[];
+    const rawCheckins = applyCheckinAdjustments((res.checkinLogs || []) as any[]);
     const rawTasks = (res.tasks || []) as any[];
     const rawSpots = (res.spotChecks || []) as any[];
 

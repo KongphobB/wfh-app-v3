@@ -10,6 +10,7 @@ import { createNotificationForSupervisor } from '@/lib/notifications';
 import { calculateHaversineDistanceMeters, isValidCoordinate } from '@/lib/geo';
 import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
 import { createAuditLog } from '@/lib/auditStore';
+import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
 export async function GET(request: Request) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
       callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
     ]);
 
-    const rawCheckinLogs = (gasRes?.data || []) as any[];
+    const rawCheckinLogs = applyCheckinAdjustments((gasRes?.data || []) as any[]);
 
     // Build map of employee check-in GPS by employeeId_date for fallback
     const checkinGpsMap = new Map<string, string>();

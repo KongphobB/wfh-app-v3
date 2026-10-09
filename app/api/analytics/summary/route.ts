@@ -4,6 +4,7 @@ import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { getLeaveRequestsForUser } from '@/lib/leaveStore';
 import { AnalyticsSummary } from '@/types';
 import { getThaiDateStr } from '@/lib/timeSync';
+import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลสถิติได้' }, { status: 500 });
     }
 
-    const rawCheckins = ((res.checkinLogs || []) as any[]).filter(
+    const rawCheckins = (applyCheckinAdjustments((res.checkinLogs || []) as any[])).filter(
       (l) => String(l.employeeId) === String(targetEmployeeId) && (l.type === 'เข้างาน' || l.log_type === 'เข้างาน')
     );
     const rawTasks = ((res.tasks || []) as any[]).filter(
