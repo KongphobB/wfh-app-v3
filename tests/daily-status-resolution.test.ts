@@ -85,4 +85,33 @@ describe('Daily Status Resolution & Rules QA', () => {
     expect(status.status).toBe('wfh');
     expect(status.isExemptFromMissingCheckin).toBe(false);
   });
+
+  it('6. Employee checking in via WFH app is immediately resolved as WFH', () => {
+    const testEmp = 'emp_qa_res_checkin_wfh';
+    const status = resolveEmployeeDailyStatus(testEmp, todayStr, { hasCheckedInWfhToday: true });
+    expect(status.status).toBe('wfh');
+    expect(status.location).toBe('wfh');
+    expect(status.source).toBe('wfh_checkin');
+    expect(status.isExemptFromMissingCheckin).toBe(false);
+    expect(status.isExemptFromRoutineSpotCheck).toBe(false);
+  });
+
+  it('7. Employee checking in at Office is resolved as Office', () => {
+    const testEmp = 'emp_qa_res_checkin_office';
+    const status = resolveEmployeeDailyStatus(testEmp, todayStr, { isOfficeCheckin: true });
+    expect(status.status).toBe('office');
+    expect(status.location).toBe('office');
+    expect(status.source).toBe('gps_auto');
+    expect(status.isExemptFromMissingCheckin).toBe(true);
+    expect(status.isExemptFromRoutineSpotCheck).toBe(true);
+  });
+
+  it('8. Real employee 1304 with weekly schedule is resolved as WFH on workdays', () => {
+    // 2026-10-09 is Friday (workday)
+    const status = resolveEmployeeDailyStatus('1304', '2026-10-09');
+    expect(status.status).toBe('wfh');
+    expect(status.location).toBe('wfh');
+    expect(status.isExemptFromMissingCheckin).toBe(false);
+    expect(status.isExemptFromRoutineSpotCheck).toBe(false);
+  });
 });

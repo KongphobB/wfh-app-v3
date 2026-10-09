@@ -92,9 +92,40 @@ export async function GET() {
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
 
+    // Detect if employee has already checked in today via WFH app
+    const todayMorningCheckin = selfCheckins.find(
+      (c) => c.type === 'เข้างาน' || c.log_type === 'เข้างาน'
+    );
+    const isOfficeCheckin = Boolean(
+      todayMorningCheckin &&
+      (todayMorningCheckin.verificationStatus?.includes('ออฟฟิศ') ||
+       todayMorningCheckin.verification_status?.includes('ออฟฟิศ') ||
+       todayMorningCheckin.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
+    );
+    const hasCheckedInWfhToday = Boolean(todayMorningCheckin && !isOfficeCheckin);
+
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-    const { getDailyLocationRecord } = await import('@/lib/dailyLocationStore');
-    const dailyDetail = resolveEmployeeDailyStatus(String(session.employee_id), todayStr);
+    const { getDailyLocationRecord, setDailyWorkLocation } = await import('@/lib/dailyLocationStore');
+
+    if (hasCheckedInWfhToday) {
+      setDailyWorkLocation(
+        String(session.employee_id),
+        'wfh',
+        session.name,
+        'ระบบลงเวลาเข้างาน WFH',
+        todayStr,
+        {
+          reason: 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)',
+          is_auto_gps: false,
+        }
+      );
+    }
+
+    const dailyDetail = resolveEmployeeDailyStatus(String(session.employee_id), todayStr, {
+      hasCheckedInWfhToday,
+      isOfficeCheckin,
+      wfhStatus,
+    });
     const locRecord = getDailyLocationRecord(String(session.employee_id), todayStr);
 
     const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');

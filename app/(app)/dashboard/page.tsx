@@ -54,12 +54,18 @@ export default function DashboardPage() {
         setSpotChecks(data.spotChecks || []);
         setActiveSpotCheck(data.activeSpotCheck || null);
 
+        const hasTodayWfhLog = (data.checkinLogs || []).some(
+          (l: CheckinLog) =>
+            (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
+            !(l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office')))
+        );
+
         // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)
-        let locToday: 'office' | 'wfh' = data.workLocationToday || 'office';
+        let locToday: 'office' | 'wfh' = hasTodayWfhLog ? 'wfh' : (data.workLocationToday || 'office');
         try {
           const todayDateStr = getThaiDateStr();
           const raw = localStorage.getItem(`wfh_daily_locations_${todayDateStr}`);
-          if (raw) {
+          if (raw && !hasTodayWfhLog) {
             const parsed = JSON.parse(raw);
             if (parsed[empId]) {
               locToday = parsed[empId];
@@ -67,13 +73,16 @@ export default function DashboardPage() {
           }
         } catch {}
 
+        const finalStatus = hasTodayWfhLog ? 'wfh' : (data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
         setWorkLocationToday(locToday);
-        setResolvedDailyStatus(data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
-        setDailyStatusReason(data.dailyStatusReason || '');
+        setResolvedDailyStatus(finalStatus);
+        setDailyStatusReason(hasTodayWfhLog ? 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)' : (data.dailyStatusReason || ''));
         setIsExemptFromMissingCheckin(
-          data.isExemptFromMissingCheckin != null
-            ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
-            : locToday === 'office'
+          hasTodayWfhLog
+            ? false
+            : (data.isExemptFromMissingCheckin != null
+                ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
+                : locToday === 'office')
         );
 
         // Auto-show onboarding tour on first login
@@ -122,18 +131,21 @@ export default function DashboardPage() {
   const todayTask = tasks.find((t) => t.submit_date === todayDateStr);
 
   // Derived location and exemption flags
-  const isOfficeToday = workLocationToday === 'office' || resolvedDailyStatus === 'office';
+  const isOfficeCheckin = Boolean(
+    todayCheckin &&
+    (todayCheckin.verification_status?.includes('ออฟฟิศ') ||
+     todayCheckin.verification_status?.includes('Office') ||
+     todayCheckin.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
+  );
+
+  const isOfficeToday = !todayCheckin
+    ? (workLocationToday === 'office' || resolvedDailyStatus === 'office')
+    : isOfficeCheckin;
+
   const isExemptFromMissing = isOfficeToday || isExemptFromMissingCheckin || resolvedDailyStatus === 'holiday' || resolvedDailyStatus === 'leave';
 
   // Check if employee checked in for WFH today (Only WFH checked-in employees need afternoon verification)
-  const isCheckedInWfhToday = Boolean(
-    todayCheckin &&
-    !isOfficeToday &&
-    !(
-      todayCheckin.verification_status &&
-      (todayCheckin.verification_status.includes('ออฟฟิศ') || todayCheckin.verification_status.includes('Office'))
-    )
-  );
+  const isCheckedInWfhToday = Boolean(todayCheckin && !isOfficeCheckin);
 
   // Check verification, check-in, lunch break, evening checkout, and evening task reminder windows
   const { isAfternoonVerifyWindow, isLateAfternoonVerifyWindow, isMorningMissingCheckin, isLunchBreak, isEveningCheckoutWindow, isEveningTaskReminderWindow } = (() => {

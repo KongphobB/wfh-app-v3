@@ -33,33 +33,41 @@ function ensureDir(filePath: string) {
 }
 
 function loadFromDisk(): Record<string, number[]> {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
+  // 1. If running on Vercel and /tmp file exists, read /tmp first
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
       if (content && content.trim()) {
-        try {
-          const parsed = JSON.parse(content);
-          if (parsed && typeof parsed === 'object') {
-            return parsed;
-          }
-        } catch {
-          if (global.__weeklyScheduleStore) {
-            const obj: Record<string, number[]> = {};
-            global.__weeklyScheduleStore.forEach((dList, id) => {
-              obj[id] = dList;
-            });
-            return obj;
-          }
-        }
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+  }
+
+  // 2. Fall back to bundled repository file
+  try {
+    if (fs.existsSync(LOCAL_STORE_FILE)) {
+      const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === 'object') return parsed;
       }
     }
   } catch {}
+
+  if (global.__weeklyScheduleStore) {
+    const obj: Record<string, number[]> = {};
+    global.__weeklyScheduleStore.forEach((dList, id) => {
+      obj[id] = dList;
+    });
+    return obj;
+  }
+
   return {};
 }
 
 function saveToDisk(data: Record<string, number[]>) {
-  const filePath = getStoragePath();
+  const filePath = process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');

@@ -239,8 +239,16 @@ export async function GET(request: Request) {
       role: session.role,
     });
 
+    const todayMorning = formattedLogs.find((l) => l.log_type === 'เข้างาน' && l.log_date === todayStr);
+    const isOfficeLog = Boolean(todayMorning && todayMorning.verification_status?.includes('ออฟฟิศ'));
+    const hasCheckedInWfh = Boolean(todayMorning && !isOfficeLog);
+
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-    const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
+    const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr, {
+      hasCheckedInWfhToday: hasCheckedInWfh,
+      isOfficeCheckin: isOfficeLog,
+      wfhStatus: (currentEmp as any).wfhStatus,
+    });
 
     return NextResponse.json(
       {

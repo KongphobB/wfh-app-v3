@@ -15,10 +15,16 @@ export interface DailyStatusDetail {
   status: ResolvedDailyStatus;
   location: WorkLocationMode;
   reason: string;
-  source: 'holiday' | 'leave_approved' | 'leave_pending' | 'admin_toggle' | 'gps_auto' | 'weekly_schedule' | 'default_office';
+  source: 'holiday' | 'leave_approved' | 'leave_pending' | 'admin_toggle' | 'gps_auto' | 'weekly_schedule' | 'wfh_checkin' | 'default_office';
   leaveType?: string;
   isExemptFromMissingCheckin: boolean;
   isExemptFromRoutineSpotCheck: boolean;
+}
+
+export interface DailyStatusOptions {
+  hasCheckedInWfhToday?: boolean;
+  isOfficeCheckin?: boolean;
+  wfhStatus?: string;
 }
 
 /**
@@ -28,11 +34,14 @@ export interface DailyStatusDetail {
  * 3. ใบลาที่รออนุมัติ -> leave_pending
  * 4. ค่าที่บันทึกไว้ใน dailyLocationStore (รวมการสลับโดย Admin และการตรวจจับ GPS อัตโนมัติ)
  * 5. ตรวจสอบใบแจ้งขอ WFH ล่วงหน้า
- * 6. ค่าเริ่มต้น: office (เข้าออฟฟิศ)
+ * 6. ตรวจสอบการลงเวลาเข้างานจริงผ่านระบบ WFH วันนี้
+ * 7. ตรวจสอบตาราง WFH ประจำสัปดาห์
+ * 8. ค่าเริ่มต้น: office (เข้าออฟฟิศ)
  */
 export function resolveEmployeeDailyStatus(
   employeeId: string,
-  dateStr?: string
+  dateStr?: string,
+  options?: DailyStatusOptions
 ): DailyStatusDetail {
   const date = dateStr || getThaiDateStr();
 
@@ -150,6 +159,29 @@ export function resolveEmployeeDailyStatus(
       source: 'admin_toggle',
       isExemptFromMissingCheckin: !isWfh,
       isExemptFromRoutineSpotCheck: !isWfh,
+    };
+  }
+
+  // 3.2 ตรวจสอบการลงเวลาจริงวันนี้ผ่านระบบ WFH (Actual WFH Check-in)
+  if (options?.hasCheckedInWfhToday) {
+    return {
+      status: 'wfh',
+      location: 'wfh',
+      reason: 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)',
+      source: 'wfh_checkin',
+      isExemptFromMissingCheckin: false,
+      isExemptFromRoutineSpotCheck: false,
+    };
+  }
+
+  if (options?.isOfficeCheckin) {
+    return {
+      status: 'office',
+      location: 'office',
+      reason: 'ปฏิบัติงานที่ออฟฟิศ (เช็คอินในพื้นที่บริษัท)',
+      source: 'gps_auto',
+      isExemptFromMissingCheckin: true,
+      isExemptFromRoutineSpotCheck: true,
     };
   }
 

@@ -42,30 +42,37 @@ function ensureDir(filePath: string) {
 }
 
 function loadFromDisk(): DailyLocationRecord[] {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      if (!content || !content.trim()) {
-        return [];
-      }
-      try {
+  // 1. If running on Vercel and /tmp file exists, read /tmp first
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
         const list = JSON.parse(content);
-        if (Array.isArray(list)) {
-          return list;
-        }
-      } catch {
-        if (global.__dailyLocationStore) {
-          return Array.from(global.__dailyLocationStore.values());
-        }
+        if (Array.isArray(list)) return list;
+      }
+    } catch {}
+  }
+
+  // 2. Fall back to bundled repository file
+  try {
+    if (fs.existsSync(LOCAL_STORE_FILE)) {
+      const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
       }
     }
   } catch {}
+
+  if (global.__dailyLocationStore) {
+    return Array.from(global.__dailyLocationStore.values());
+  }
+
   return [];
 }
 
 function saveToDisk(records: DailyLocationRecord[]) {
-  const filePath = getStoragePath();
+  const filePath = process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
