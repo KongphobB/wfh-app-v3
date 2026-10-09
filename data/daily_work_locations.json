@@ -40,7 +40,7 @@
     "reason": "เช็คอินภายในพื้นที่บริษัท (เข้า Office)",
     "is_auto_gps": false,
     "updated_by": "ระบบตรวจจับพิกัด GPS อัตโนมัติ",
-    "updated_at": "2026-10-09T02:33:06.406Z"
+    "updated_at": "2026-10-09T07:29:00.081Z"
   },
   {
     "id": "2026-10-07_qa_emp_reset_test",
@@ -48,7 +48,7 @@
     "employee_id": "qa_emp_reset_test",
     "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:33:06.547Z"
+    "updated_at": "2026-10-09T07:29:00.246Z"
   },
   {
     "id": "2026-10-07_qa_emp_leave_precedence",
@@ -56,7 +56,7 @@
     "employee_id": "qa_emp_leave_precedence",
     "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:33:06.550Z"
+    "updated_at": "2026-10-09T07:29:00.249Z"
   },
   {
     "id": "2026-10-07_qa_emp_spot_check_rules",
@@ -64,7 +64,7 @@
     "employee_id": "qa_emp_spot_check_rules",
     "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:33:06.570Z"
+    "updated_at": "2026-10-09T07:29:00.272Z"
   },
   {
     "id": "2026-10-07_test_qa_emp_location",
@@ -78,9 +78,9 @@
     "id": "2026-10-07_1304",
     "date": "2026-10-07",
     "employee_id": "1304",
-    "location": "office",
+    "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:53:50.144Z"
+    "updated_at": "2026-10-09T07:29:00.047Z"
   },
   {
     "id": "2026-10-07_1313",
@@ -88,7 +88,7 @@
     "employee_id": "1313",
     "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:53:50.146Z"
+    "updated_at": "2026-10-09T07:29:00.048Z"
   },
   {
     "id": "2026-10-07_8888",
@@ -96,6 +96,6 @@
     "employee_id": "8888",
     "location": "wfh",
     "updated_by": "Admin",
-    "updated_at": "2026-10-09T02:53:50.143Z"
+    "updated_at": "2026-10-09T07:28:59.982Z"
   }
 ]
