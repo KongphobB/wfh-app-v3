@@ -84,6 +84,13 @@ export async function POST(request: Request) {
       }
     }
 
+    const currentCfgRes = await callGAS('getSystemConfig').catch(() => null);
+    const currentCfg = currentCfgRes?.config || {};
+
+    const officeLatToSave = configs.office_lat !== undefined ? String(configs.office_lat) : String(currentCfg.office_latitude || '12.736929');
+    const officeLngToSave = configs.office_lng !== undefined ? String(configs.office_lng) : String(currentCfg.office_longitude || '101.114387');
+    const officeRadiusToSave = configs.max_allowed_radius_meters !== undefined ? String(configs.max_allowed_radius_meters) : String(currentCfg.office_radius_meters || '200');
+
     const localExemptIds = getLocalExemptIds();
     if (configs.auto_exempt_supervisors !== undefined) {
       if (String(configs.auto_exempt_supervisors) === 'false') {
@@ -94,7 +101,11 @@ export async function POST(request: Request) {
       saveLocalExemptIds(localExemptIds);
     }
 
-    const baseKeywords = String(configs.photo_exempt_positions || DEFAULT_EXEMPT_POSITIONS)
+    const rawPhotoPositions = configs.photo_exempt_positions !== undefined
+      ? configs.photo_exempt_positions
+      : (currentCfg.photo_exempt_positions || DEFAULT_EXEMPT_POSITIONS);
+
+    const baseKeywords = String(rawPhotoPositions)
       .split(',')
       .map((p: string) => p.trim())
       .filter(
@@ -108,9 +119,9 @@ export async function POST(request: Request) {
     const mergedExemptPositions = [...baseKeywords, ...Array.from(localExemptIds)].join(', ');
 
     const gasResult = await callGAS('adminUpdateConfig', {
-      officeLat: configs.office_lat,
-      officeLng: configs.office_lng,
-      officeRadius: configs.max_allowed_radius_meters,
+      officeLat: officeLatToSave,
+      officeLng: officeLngToSave,
+      officeRadius: officeRadiusToSave,
       exemptPositions: mergedExemptPositions,
       adminPin: '9999',
     });
