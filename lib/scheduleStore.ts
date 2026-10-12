@@ -107,24 +107,39 @@ const bangkokWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
 });
 
+const dayOfWeekCache = new Map<string, number>();
+
 /**
  * แปลงวันที่หรือวันปัจจุบันเป็นวันในสัปดาห์ตามเวลาประเทศไทย (Bangkok GMT+7)
  * 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat, 0 = Sun
  */
 export function getBangkokDayOfWeek(dateStr?: string): number {
+  if (dateStr) {
+    const cached = dayOfWeekCache.get(dateStr);
+    if (cached !== undefined) return cached;
+  }
+
   const date = dateStr ? new Date(`${dateStr}T12:00:00+07:00`) : new Date();
   const dayStr = bangkokWeekdayFormatter.format(date);
 
+  let dayNum = -1;
   switch (dayStr) {
-    case 'Mon': return 1;
-    case 'Tue': return 2;
-    case 'Wed': return 3;
-    case 'Thu': return 4;
-    case 'Fri': return 5;
-    case 'Sat': return 6;
-    case 'Sun': return 0;
-    default: return -1;
+    case 'Mon': dayNum = 1; break;
+    case 'Tue': dayNum = 2; break;
+    case 'Wed': dayNum = 3; break;
+    case 'Thu': dayNum = 4; break;
+    case 'Fri': dayNum = 5; break;
+    case 'Sat': dayNum = 6; break;
+    case 'Sun': dayNum = 0; break;
   }
+
+  if (dateStr && dayNum !== -1) {
+    if (dayOfWeekCache.size > 400) {
+      dayOfWeekCache.clear();
+    }
+    dayOfWeekCache.set(dateStr, dayNum);
+  }
+  return dayNum;
 }
 
 /**

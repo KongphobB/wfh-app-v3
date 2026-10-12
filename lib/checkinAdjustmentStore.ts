@@ -108,66 +108,75 @@ export function addCheckinAdjustment(adj: CheckinAdjustment) {
 
 export function applyCheckinAdjustments<T extends Record<string, any>>(logs: T[]): T[] {
   if (!Array.isArray(logs) || logs.length === 0) return logs;
-  const adjustments = getAllCheckinAdjustments();
+  const store = getMemoryStore();
 
-  return logs
-    .filter((log) => {
-      const logEmpId = String(log.employeeId || log.employee_id || '');
-      // Exclude test/QA records that may have been synced to Google Sheets
-      if (logEmpId.startsWith('qa_') || logEmpId.startsWith('test_')) {
-        return false;
+  const duplicateRemovalKeys = new Set<string>();
+  store.forEach((adj) => {
+    if (adj.remove_duplicate_employee_id) {
+      duplicateRemovalKeys.add(`${adj.date}_${adj.remove_duplicate_employee_id}`);
+    }
+  });
+
+  const result: T[] = [];
+
+  for (const log of logs) {
+    const logEmpId = String(log.employeeId || log.employee_id || '');
+    // Exclude test/QA records that may have been synced to Google Sheets
+    if (logEmpId.startsWith('qa_') || logEmpId.startsWith('test_')) {
+      continue;
+    }
+
+    const logDate = String(log.date || log.log_date || '');
+    const logType = String(log.type || log.log_type || '');
+
+    // Check if this log should be excluded (e.g. accidental check-in on admin account 9999)
+    if (
+      logType === 'เข้างาน' &&
+      duplicateRemovalKeys.size > 0 &&
+      duplicateRemovalKeys.has(`${logDate}_${logEmpId}`)
+    ) {
+      continue;
+    }
+
+    const noteStr = String(log.note || '');
+
+    // Normalize leave request/approval system logs that were previously stored with type 'เข้างาน'
+    if (
+      logType === 'เข้างาน' &&
+      (noteStr.startsWith('[ยื่นคำขอ') || noteStr.startsWith('[ผลการพิจารณา'))
+    ) {
+      const normalized: any = { ...log, type: 'ระบบการลา' };
+      if ('log_type' in normalized) {
+        normalized.log_type = 'ระบบการลา';
       }
+      result.push(normalized as T);
+      continue;
+    }
 
-      const logDate = String(log.date || log.log_date || '');
-      const logType = String(log.type || log.log_type || '');
-
-      // Check if this log should be excluded (e.g. accidental check-in on admin account 9999)
-      const shouldRemove = adjustments.some(
-        (adj) =>
-          adj.date === logDate &&
-          adj.remove_duplicate_employee_id === logEmpId &&
-          logType === 'เข้างาน'
-      );
-      return !shouldRemove;
-    })
-    .map((log) => {
-      const logEmpId = String(log.employeeId || log.employee_id || '');
-      const logDate = String(log.date || log.log_date || '');
-      const logType = String(log.type || log.log_type || '');
-      const noteStr = String(log.note || '');
-
-      // Normalize leave request/approval system logs that were previously stored with type 'เข้างาน'
-      if (
-        logType === 'เข้างาน' &&
-        (noteStr.startsWith('[ยื่นคำขอ') || noteStr.startsWith('[ผลการพิจารณา'))
-      ) {
-        const normalized: any = { ...log, type: 'ระบบการลา' };
-        if ('log_type' in normalized) {
-          normalized.log_type = 'ระบบการลา';
+    if (logType === 'เข้างาน' && store.size > 0) {
+      const adj = store.get(`${logDate}_${logEmpId}`);
+      if (adj) {
+        const updated: any = { ...log };
+        if (adj.time) {
+          updated.time = adj.time;
+          if (updated.log_time) {
+            updated.log_time = `${logDate}T${adj.time}+07:00`;
+          }
         }
-        return normalized as T;
-      }
-
-      if (logType === 'เข้างาน') {
-        const adj = adjustments.find((a) => a.date === logDate && a.employee_id === logEmpId);
-        if (adj) {
-          const updated: any = { ...log };
-          if (adj.time) {
-            updated.time = adj.time;
-            if (updated.log_time) {
-              updated.log_time = `${logDate}T${adj.time}+07:00`;
-            }
-          }
-          if (adj.verification_status) {
-            updated.verificationStatus = adj.verification_status;
-            updated.verification_status = adj.verification_status;
-          }
-          if (adj.note !== undefined) {
-            updated.note = adj.note;
-          }
-          return updated as T;
+        if (adj.verification_status) {
+          updated.verificationStatus = adj.verification_status;
+          updated.verification_status = adj.verification_status;
         }
+        if (adj.note !== undefined) {
+          updated.note = adj.note;
+        }
+        result.push(updated as T);
+        continue;
       }
-      return log;
-    });
+    }
+
+    result.push(log);
+  }
+
+  return result;
 }

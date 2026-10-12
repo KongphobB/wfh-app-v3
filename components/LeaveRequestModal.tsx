@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CalendarDays, X, AlertCircle, CheckCircle2, ShieldCheck, Paperclip, Upload, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -27,8 +27,13 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     if (isOpen) {
       const currentToday = getThaiDateStr();
       setStartDate(currentToday);
@@ -41,6 +46,12 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
       setSuccess('');
       setSubmitting(false);
     }
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -113,7 +124,8 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
       }
 
       setSuccess(data.message || 'ยื่นคำขอลาเรียบร้อยแล้ว');
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         setSubmitting(false);
         onSuccess?.();
         onClose();

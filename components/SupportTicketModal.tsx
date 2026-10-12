@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const tabSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // My tickets state
   const [myTickets, setMyTickets] = useState<Ticket[]>([]);
@@ -73,11 +74,21 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
   };
 
   useEffect(() => {
+    if (tabSwitchTimerRef.current) {
+      clearTimeout(tabSwitchTimerRef.current);
+      tabSwitchTimerRef.current = null;
+    }
     if (isOpen) {
       setError('');
       setSuccess('');
       fetchMyTickets();
     }
+    return () => {
+      if (tabSwitchTimerRef.current) {
+        clearTimeout(tabSwitchTimerRef.current);
+        tabSwitchTimerRef.current = null;
+      }
+    };
   }, [isOpen]);
 
   const handleSubmitTicket = async (e: React.FormEvent) => {
@@ -121,7 +132,8 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
         fetchMyTickets();
       }
       // Switch to history tab after 1.2 seconds
-      setTimeout(() => {
+      tabSwitchTimerRef.current = setTimeout(() => {
+        tabSwitchTimerRef.current = null;
         setActiveTab('history');
       }, 1200);
     } catch {

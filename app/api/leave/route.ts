@@ -84,27 +84,29 @@ export async function POST(request: Request) {
       ? `พนักงาน ${session.name} ขอย้ายไปปฏิบัติงาน WFH วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`
       : `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`;
 
-    // Notify admins / supervisor
-    await createNotificationForAdmins({
-      type: 'ticket',
-      title: notifTitle,
-      message: notifMessage,
-      link: '/leave',
-    });
-
     const empMap =
       (global as any).__lastKnownEmployeesMap ||
       (process.env.VITEST || process.env.NODE_ENV === 'test' ? {} : await getLiveEmployeesMap());
     const supervisorId = empMap?.[session.employee_id]?.supervisorId;
-    if (supervisorId && supervisorId !== '9999') {
-      await createNotificationForSupervisor({
-        supervisor_id: supervisorId,
+
+    // Notify admins and supervisor concurrently
+    await Promise.all([
+      createNotificationForAdmins({
         type: 'ticket',
         title: notifTitle,
         message: notifMessage,
         link: '/leave',
-      });
-    }
+      }),
+      supervisorId && supervisorId !== '9999'
+        ? createNotificationForSupervisor({
+            supervisor_id: supervisorId,
+            type: 'ticket',
+            title: notifTitle,
+            message: notifMessage,
+            link: '/leave',
+          })
+        : Promise.resolve(),
+    ]);
 
     return NextResponse.json({
       success: true,

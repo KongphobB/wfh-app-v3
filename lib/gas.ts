@@ -191,11 +191,13 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
     } else if (rawPayload.logType === 'tasks' || rawPayload.logType === 'task') {
       payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 100, 200) };
       cacheKeySuffix = `logType_task`;
+    } else if (rawPayload.logType === 'ticket') {
+      payload = { ...rawPayload, limit: Math.max(rawPayload.limit || 200, 300) };
+      cacheKeySuffix = `logType_ticket`;
     }
   }
 
-  // Invalidate cache if this is a mutating write action
-  if (isMutation) {
+  const invalidateForMutation = () => {
     if (CONFIG_MUTATION_ACTIONS.has(action)) {
       global.__lastKnownEmployeesMapTime = 0;
       apiCache.clear();
@@ -203,6 +205,11 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
       invalidateGasCache('getLogs');
       invalidateGasCache('getDashboardSummary');
     }
+  };
+
+  // Invalidate cache if this is a mutating write action
+  if (isMutation) {
+    invalidateForMutation();
   }
 
   // Check cache for read actions
@@ -223,6 +230,10 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
   const executionPromise = (async () => {
     try {
       const parsed = await fetchFromGAS(action, payload);
+      if (isMutation) {
+        // Also invalidate after write completes so concurrent in-flight reads cannot leave stale cache entries
+        invalidateForMutation();
+      }
       const isValid = isResponseContentValid(action, parsed);
 
       if (cacheTtl && isValid) {

@@ -50,13 +50,18 @@ function saveNotificationsToDisk(items: NotificationItem[]) {
   }
 }
 
-// In-memory notification store with file fallback
-let memoryNotifications: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
-(global as any).__memoryNotifications = memoryNotifications;
-
 // Global read notification IDs set
 const readNotifIds: Set<string> = (global as any).__readNotifIds || new Set();
 (global as any).__readNotifIds = readNotifIds;
+
+// In-memory notification store with file fallback
+let memoryNotifications: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
+for (const item of memoryNotifications) {
+  if (item.is_read) {
+    readNotifIds.add(item.id);
+  }
+}
+(global as any).__memoryNotifications = memoryNotifications;
 
 export function isNotifRead(id: string): boolean {
   return readNotifIds.has(id);
@@ -147,22 +152,22 @@ export function markNotificationsAsRead(employeeId: string, notifId?: string, ro
     readNotifIds.add(notifId);
   }
   let changed = false;
-  let list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
-  list = list.map((n) => {
-    const isTargetUser = n.employee_id === employeeId || (role === 'admin' && (n.employee_id === 'ROLE:admin' || n.employee_id === '9999'));
-    if (isTargetUser) {
-      if (!notifId || n.id === notifId) {
-        readNotifIds.add(n.id);
-        if (!n.is_read) {
-          changed = true;
-          return { ...n, is_read: true };
-        }
+  const list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
+  for (let i = 0; i < list.length; i++) {
+    const n = list[i];
+    const isTargetUser =
+      n.employee_id === employeeId ||
+      (role === 'admin' && (n.employee_id === 'ROLE:admin' || n.employee_id === '9999'));
+    if (isTargetUser && (!notifId || n.id === notifId)) {
+      readNotifIds.add(n.id);
+      if (!n.is_read) {
+        list[i] = { ...n, is_read: true };
+        changed = true;
       }
     }
-    return n;
-  });
-  (global as any).__memoryNotifications = list;
+  }
   if (changed) {
+    (global as any).__memoryNotifications = list;
     saveNotificationsToDisk(list);
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquarePlus, X, Shield, ShieldCheck, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -22,13 +22,24 @@ export function SuggestionModal({ isOpen, onClose, onSuccess }: SuggestionModalP
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     if (isOpen) {
       setError('');
       setSuccess('');
       setSubmitting(false);
     }
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -70,7 +81,8 @@ export function SuggestionModal({ isOpen, onClose, onSuccess }: SuggestionModalP
       }
 
       setSuccess(data.message || 'ส่งข้อเสนอแนะเรียบร้อยแล้ว');
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         setTopic('');
         setContent('');
         setSubmitting(false);

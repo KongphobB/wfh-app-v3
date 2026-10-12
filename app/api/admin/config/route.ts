@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { createAuditLog } from '@/lib/auditStore';
-import { invalidateExemptConfigCache } from '@/lib/photoExempt';
+import { invalidateExemptConfigCache, getLocalExemptIds } from '@/lib/photoExempt';
 
 export async function GET() {
   try {
@@ -42,11 +42,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'รูปแบบข้อมูลการตั้งค่าไม่ถูกต้อง' }, { status: 400 });
     }
 
+    const localExemptIds = getLocalExemptIds();
+    const baseKeywords = String(configs.photo_exempt_positions || '')
+      .split(',')
+      .map((p: string) => p.trim())
+      .filter((item) => item && !/^\d+$/.test(item) && !item.startsWith('ID:'));
+    const mergedExemptPositions = [...baseKeywords, ...Array.from(localExemptIds)].join(', ');
+
     const gasResult = await callGAS('adminUpdateConfig', {
       officeLat: configs.office_lat,
       officeLng: configs.office_lng,
       officeRadius: configs.max_allowed_radius_meters,
-      exemptPositions: configs.photo_exempt_positions,
+      exemptPositions: mergedExemptPositions,
       adminPin: '9999',
     });
 

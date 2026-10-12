@@ -42,69 +42,74 @@ export async function GET() {
       return false;
     };
 
+    const { getThaiDateStr } = await import('@/lib/timeSync');
+    const todayStr = getThaiDateStr();
+    const nowIso = new Date().toISOString();
+
     // 1. Fetch live Google Sheet rows directly from 'ข้อมูลพนักงาน'
     const targetRows = inspectRes?.targetRows || [];
 
     if (Array.isArray(targetRows) && targetRows.length > 1) {
       const dataRows = targetRows.slice(1);
       const liveMap: Record<string, any> = {};
+      const finalEmployees: Employee[] = [];
 
-      const employeesList: Employee[] = dataRows
-        .filter((r) => r && r[0] != null && String(r[0]).trim() !== '')
-        .map((r) => {
-          const empId = String(r[0]).trim();
-          const name = r[1] ? String(r[1]).trim() : empId;
-          const email = r[2] ? String(r[2]).trim() : null;
-          const dept = r[3] ? String(r[3]).trim() : null;
-          const position = r[4] ? String(r[4]).trim() : null;
-          const supervisorId = r[5] && String(r[5]).trim() !== '' ? String(r[5]).trim() : null;
-          const oneStarCount = parseInt(r[7] || 0, 10);
-          const wfhStatus: WfhStatus = r[8] === 'ระงับสิทธิ์' ? 'ระงับสิทธิ์' : 'เปิดสิทธิ์';
-          const role = determineRole(position || undefined, dept || undefined, empId);
+      for (const r of dataRows) {
+        if (!r || r[0] == null || String(r[0]).trim() === '') continue;
 
-          liveMap[empId] = {
-            name,
-            email: email || '',
-            dept: dept || '',
-            position: position || '',
-            supervisorId: supervisorId || undefined,
-            oneStarCount: isNaN(oneStarCount) ? 0 : oneStarCount,
-            wfhStatus,
-          };
+        const empId = String(r[0]).trim();
+        const name = r[1] ? String(r[1]).trim() : empId;
+        const email = r[2] ? String(r[2]).trim() : null;
+        const dept = r[3] ? String(r[3]).trim() : null;
+        const position = r[4] ? String(r[4]).trim() : null;
+        const supervisorId = r[5] && String(r[5]).trim() !== '' ? String(r[5]).trim() : null;
+        const oneStarCount = parseInt(r[7] || 0, 10);
+        const wfhStatus: WfhStatus = r[8] === 'ระงับสิทธิ์' ? 'ระงับสิทธิ์' : 'เปิดสิทธิ์';
 
-          const dailyDetail = resolveEmployeeDailyStatus(empId);
-          const locRecord = getDailyLocationRecord(empId);
+        liveMap[empId] = {
+          name,
+          email: email || '',
+          dept: dept || '',
+          position: position || '',
+          supervisorId: supervisorId || undefined,
+          oneStarCount: isNaN(oneStarCount) ? 0 : oneStarCount,
+          wfhStatus,
+        };
 
-          return {
-            employee_id: empId,
-            name: name,
-            email: email,
-            department: dept,
-            position: position,
-            supervisor_id: supervisorId,
-            role: role,
-            wfh_status: wfhStatus,
-            one_star_count: isNaN(oneStarCount) ? 0 : oneStarCount,
-            is_photo_exempt: checkExempt(empId, position, role),
-            work_location_today: dailyDetail.location,
-            resolved_daily_status: dailyDetail.status,
-            daily_status_reason: locRecord?.reason || dailyDetail.reason,
-            is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
-            wfh_weekly_days: getEmployeeWeeklySchedule(empId),
-            force_pin_change: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
+        if (session.role === 'supervisor' && String(supervisorId) !== String(session.employee_id)) {
+          continue;
+        }
+
+        const role = determineRole(position || undefined, dept || undefined, empId);
+        const dailyDetail = resolveEmployeeDailyStatus(empId, todayStr);
+        const locRecord = getDailyLocationRecord(empId, todayStr);
+
+        finalEmployees.push({
+          employee_id: empId,
+          name,
+          email,
+          department: dept,
+          position,
+          supervisor_id: supervisorId,
+          role,
+          wfh_status: wfhStatus,
+          one_star_count: isNaN(oneStarCount) ? 0 : oneStarCount,
+          is_photo_exempt: checkExempt(empId, position, role),
+          work_location_today: dailyDetail.location,
+          resolved_daily_status: dailyDetail.status,
+          daily_status_reason: locRecord?.reason || dailyDetail.reason,
+          is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
+          wfh_weekly_days: getEmployeeWeeklySchedule(empId),
+          force_pin_change: false,
+          created_at: nowIso,
+          updated_at: nowIso,
         });
+      }
 
       if (Object.keys(liveMap).length > 0) {
         global.__lastKnownEmployeesMap = liveMap;
         global.__lastKnownEmployeesMapTime = Date.now();
       }
-
-      const finalEmployees = session.role === 'supervisor'
-        ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
-        : employeesList;
 
       return NextResponse.json(
         { employees: finalEmployees },
@@ -116,20 +121,26 @@ export async function GET() {
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const employeesMap = await getLiveEmployeesMap();
 
-    const employeesList: Employee[] = Object.keys(employeesMap).map((empId) => {
+    const finalEmployees: Employee[] = [];
+    for (const empId of Object.keys(employeesMap)) {
       const e = employeesMap[empId];
-      const role = determineRole(e.position, e.dept, empId);
-      const dailyDetail = resolveEmployeeDailyStatus(String(empId));
-      const locRecord = getDailyLocationRecord(String(empId));
+      const supervisorId = e.supervisorId ? String(e.supervisorId) : null;
+      if (session.role === 'supervisor' && supervisorId !== String(session.employee_id)) {
+        continue;
+      }
 
-      return {
+      const role = determineRole(e.position, e.dept, empId);
+      const dailyDetail = resolveEmployeeDailyStatus(String(empId), todayStr);
+      const locRecord = getDailyLocationRecord(String(empId), todayStr);
+
+      finalEmployees.push({
         employee_id: String(empId),
         name: e.name || empId,
         email: e.email || null,
         department: e.dept || null,
         position: e.position || null,
-        supervisor_id: e.supervisorId ? String(e.supervisorId) : null,
-        role: role,
+        supervisor_id: supervisorId,
+        role,
         wfh_status: (e as any).wfhStatus || 'เปิดสิทธิ์',
         one_star_count: (e as any).oneStarCount || 0,
         is_photo_exempt: checkExempt(String(empId), e.position, role),
@@ -139,14 +150,10 @@ export async function GET() {
         is_auto_gps_location: Boolean(locRecord?.is_auto_gps),
         wfh_weekly_days: getEmployeeWeeklySchedule(String(empId)),
         force_pin_change: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    });
-
-    const finalEmployees = session.role === 'supervisor'
-      ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
-      : employeesList;
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
 
     return NextResponse.json(
       { employees: finalEmployees },
