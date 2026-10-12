@@ -581,9 +581,9 @@ export default function DashboardPage() {
 
       {/* Top Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-emerald-200/80 bg-emerald-50/30">
+        <Card className="border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-emerald-700 font-bold">{t.dashboard.checkinTimeToday}</CardDescription>
+            <CardDescription className="text-emerald-700 dark:text-emerald-400 font-bold">{t.dashboard.checkinTimeToday}</CardDescription>
             <CardTitle className="text-xl text-slate-900 dark:text-white">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
@@ -601,7 +601,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               {todayCheckin
                 ? `${t.common.status}: ${todayCheckin.verification_status}`
                 : isOfficeToday
@@ -611,9 +611,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-rose-200/80 bg-rose-50/30">
+        <Card className="border-rose-200/80 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-rose-700 font-bold">{t.dashboard.checkoutTimeToday}</CardDescription>
+            <CardDescription className="text-rose-700 dark:text-rose-400 font-bold">{t.dashboard.checkoutTimeToday}</CardDescription>
             <CardTitle className="text-xl text-slate-900 dark:text-white">
               {loading ? (
                 <span className="flex items-center gap-2 text-sm text-slate-400 font-normal">
@@ -631,7 +631,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               {todayCheckout
                 ? `${t.common.status}: ${todayCheckout.verification_status}`
                 : isOfficeToday
@@ -641,12 +641,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-orange-200/80 bg-orange-50/30">
+        <Card className="border-orange-200/80 dark:border-orange-900/60 bg-orange-50/30 dark:bg-orange-950/20">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-orange-700 font-bold flex items-center justify-between">
+            <CardDescription className="text-orange-700 dark:text-orange-400 font-bold flex items-center justify-between">
               <span>{t.dashboard.dailyTaskToday}</span>
               {todayTask && (
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded">
                   ✓ ส่งแล้ว
                 </span>
               )}
@@ -658,11 +658,11 @@ export default function DashboardPage() {
                 </span>
               ) : todayTask ? (
                 <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span className="text-emerald-700 font-black">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-black">
                     เสร็จ {todayTask.tasks_completed} งาน
                   </span>
                   {todayTask.tasks_remaining != null && todayTask.tasks_remaining > 0 && (
-                    <span className="text-xs text-amber-700 font-bold">
+                    <span className="text-xs text-amber-700 dark:text-amber-400 font-bold">
                       (ต่อพรุ่งนี้ {todayTask.tasks_remaining})
                     </span>
                   )}
@@ -672,14 +672,14 @@ export default function DashboardPage() {
                   <span>🏢 {t.dashboard.officeTaskExempt}</span>
                 </span>
               ) : (
-                <span className="text-rose-600 text-sm font-bold">
+                <span className="text-rose-600 dark:text-rose-400 text-sm font-bold">
                   {t.dashboard.notSubmitted}
                 </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               <span>
                 {todayTask
                   ? (lang === 'en' ? 'Report submitted before leaving' : 'รายงานก่อนเลิกงานเรียบร้อย')
@@ -690,7 +690,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setIsTaskModalOpen(true)}
-                className="text-orange-600 font-bold hover:underline cursor-pointer"
+                className="text-orange-600 dark:text-orange-400 font-bold hover:underline cursor-pointer"
               >
                 {todayTask ? t.tasks.editTodayReport : (isOfficeToday ? (lang === 'en' ? 'Report (Optional)' : 'ส่งรายงาน (ถ้ามี)') : t.tasks.reportBtn)}
               </button>
@@ -704,7 +704,7 @@ export default function DashboardPage() {
         <Link href="/checkin" className="block group">
           <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:shadow-md transition-all">
             <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
@@ -718,7 +718,7 @@ export default function DashboardPage() {
         <Link href="/spotcheck" className="block group">
           <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-orange-500 hover:shadow-md transition-all">
             <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <BellRing className="w-5 h-5" />
               </div>
               <div>
@@ -732,7 +732,7 @@ export default function DashboardPage() {
         <Link href="/tasks" className={`block group ${userRole === 'supervisor' || userRole === 'admin' ? '' : 'col-span-2 sm:col-span-1'}`}>
           <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-amber-500 hover:shadow-md transition-all">
             <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
@@ -745,14 +745,14 @@ export default function DashboardPage() {
 
         {(userRole === 'supervisor' || userRole === 'admin') && (
           <Link href="/supervisor" className="block group">
-            <Card className="h-full border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all">
+            <Card className="h-full border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:shadow-md transition-all">
               <CardContent className="p-5 flex flex-col justify-between h-full">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{t.dashboard.supervisorBtn}</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{t.supervisor.subtitle}</p>
+                  <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t.dashboard.supervisorBtn}</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t.supervisor.subtitle}</p>
                 </div>
               </CardContent>
             </Card>

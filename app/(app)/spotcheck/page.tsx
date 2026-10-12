@@ -203,15 +203,15 @@ export default function SpotCheckPage() {
       </div>
 
       {isWorkingAtOfficeToday && (
-        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-xl shadow-2xs">
+        <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 text-blue-900 dark:text-blue-200 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0 text-xl shadow-2xs">
             🏢
           </div>
           <div>
-            <h4 className="font-bold text-sm text-blue-950">
+            <h4 className="font-bold text-sm text-blue-950 dark:text-slate-100">
               {lang === 'en' ? 'Working Onsite at Office Today' : 'วันนี้ปฏิบัติงานที่ออฟฟิศ'}
             </h4>
-            <p className="text-xs text-blue-700 mt-0.5">
+            <p className="text-xs text-blue-700 dark:text-slate-300 mt-0.5">
               {lang === 'en'
                 ? 'You are exempted from routine WFH spot checks today. (Ad-hoc supervisor checks may still be performed if requested)'
                 : 'ระบบยกเว้นการสุ่มตรวจตามรอบประจำวันให้อัตโนมัติ ไม่ต้องยืนยันตัวตน WFH (ยกเว้นกรณีหัวหน้างานสุ่มตรวจเฉพาะกิจ)'}
@@ -221,15 +221,15 @@ export default function SpotCheckPage() {
       )}
 
       {activeCheck && (
-        <Card className="border-orange-200 bg-orange-50/70">
+        <Card className="border-orange-200 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/20">
           <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center animate-pulse shrink-0 font-bold">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/60 flex items-center justify-center animate-pulse shrink-0 font-bold">
                 <BellRing className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-base">{t.spotcheck.activePrompt}</h3>
-                <p className="text-xs text-orange-700 font-semibold">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.spotcheck.activePrompt}</h3>
+                <p className="text-xs text-orange-700 dark:text-orange-400 font-semibold">
                   {lang === 'en' ? `Round ${activeCheck.round} — Scan selfie to confirm your location before time runs out` : `รอบ ${activeCheck.round} — สแกนถ่ายภาพ Selfie ยืนยันตำแหน่งก่อนหมดเวลา`}
                 </p>
               </div>

@@ -168,43 +168,43 @@ export default function CheckinPage() {
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-5 border-emerald-200 bg-emerald-50/40">
+        <Card className="p-5 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
               IN
             </div>
             <Badge variant="success">{t.checkin.morningCheckin}</Badge>
           </div>
-          <h3 className="font-bold text-slate-900 text-base">{t.checkin.morningCheckin}</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-4">{t.checkin.morningTimeHint}</p>
+          <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.morningCheckin}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.morningTimeHint}</p>
           <Button onClick={() => openCheckinModal('เข้างาน')} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer">
             {t.checkin.morningCheckin}
           </Button>
         </Card>
 
-        <Card className="p-5 border-rose-200 bg-rose-50/40">
+        <Card className="p-5 border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 flex items-center justify-center font-bold">
               OUT
             </div>
             <Badge variant="destructive">{t.checkin.eveningCheckout}</Badge>
           </div>
-          <h3 className="font-bold text-slate-900 text-base">{t.checkin.eveningCheckout}</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-4">{t.checkin.eveningTimeHint}</p>
+          <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.eveningCheckout}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.eveningTimeHint}</p>
           <Button onClick={() => openCheckinModal('ออกงาน')} variant="destructive" className="w-full font-bold cursor-pointer">
             {t.checkin.eveningCheckout}
           </Button>
         </Card>
 
-        <Card className="p-5 border-orange-200 bg-orange-50/40">
+        <Card className="p-5 border-orange-200 dark:border-orange-900/60 bg-orange-50/40 dark:bg-orange-950/20">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 flex items-center justify-center font-bold">
               ID
             </div>
             <Badge variant="default">{t.checkin.afternoonVerify}</Badge>
           </div>
-          <h3 className="font-bold text-slate-900 text-base">{t.checkin.afternoonVerify}</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-4">{t.checkin.afternoonTimeHint}</p>
+          <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.afternoonVerify}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.afternoonTimeHint}</p>
           <Button onClick={() => openCheckinModal('ยืนยันตัวตน')} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer">
             {t.checkin.afternoonVerify}
           </Button>
@@ -392,19 +392,19 @@ export default function CheckinPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 bg-white text-center relative animate-scale-up"
+            className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 dark:border-orange-900/60 bg-white dark:bg-slate-900 text-center relative animate-scale-up"
           >
-            <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center mx-auto mb-4 font-bold shadow-inner">
-              <AlertCircle className="w-7 h-7 text-orange-600" />
+            <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/60 flex items-center justify-center mx-auto mb-4 font-bold shadow-inner">
+              <AlertCircle className="w-7 h-7 text-orange-600 dark:text-orange-400" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 mb-2">{alertPopup.title}</h3>
-            <p className="text-xs text-slate-600 font-medium leading-relaxed mb-6 px-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">{alertPopup.title}</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-6 px-1">
               {alertPopup.message}
             </p>
             <Button
               type="button"
               onClick={() => setAlertPopup(null)}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl py-2.5 shadow-md shadow-orange-500/20"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl py-2.5 shadow-md shadow-orange-500/20 cursor-pointer"
             >
               {t.common.confirm}
             </Button>

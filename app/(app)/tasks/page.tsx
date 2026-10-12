@@ -86,11 +86,11 @@ export default function DailyTasksPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 shrink-0" />
             <span className="break-words">{t.tasks.pageTitle}</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t.tasks.subtitle}
           </p>
         </div>
@@ -117,16 +117,16 @@ export default function DailyTasksPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-slate-900 font-bold">{t.tasks.historyTitle}</CardTitle>
+          <CardTitle className="text-base text-slate-900 dark:text-slate-100 font-bold">{t.tasks.historyTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-400 text-xs font-medium space-y-2">
+            <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-xs font-medium space-y-2">
               <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto" />
               <p>{t.common.loading}</p>
             </div>
           ) : tasks.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs font-medium">
+            <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-xs font-medium">
               {t.common.noData}
             </div>
           ) : (
@@ -134,28 +134,28 @@ export default function DailyTasksPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="p-4.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3 text-xs"
+                  className="p-4.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-3 text-xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-mono text-[11px] font-medium">
+                    <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] font-medium">
                       {lang === 'en' ? 'Submitted Date: ' : 'วันที่ส่ง: '}{task.submit_date}
                     </span>
                     {renderStars(task.star_rating)}
                   </div>
 
-                  <p className="text-slate-900 font-bold text-sm leading-relaxed">{task.details}</p>
+                  <p className="text-slate-900 dark:text-slate-100 font-bold text-sm leading-relaxed">{task.details}</p>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 border-t border-slate-200 pt-2.5 font-medium">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-2.5 font-medium">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
                         ✓ {lang === 'en' ? 'Completed: ' : 'เสร็จแล้ว: '}{task.tasks_completed} {lang === 'en' ? 'tasks' : 'งาน'}
                       </span>
                       {task.tasks_remaining != null && task.tasks_remaining > 0 ? (
-                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                        <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
                           ⏳ {lang === 'en' ? 'For Tomorrow: ' : 'ต่อพรุ่งนี้: '}{task.tasks_remaining} {lang === 'en' ? 'tasks' : 'งาน'}
                         </span>
                       ) : null}
-                      <span className="text-slate-400">
+                      <span className="text-slate-400 dark:text-slate-500">
                         ({lang === 'en' ? 'Total: ' : 'รวม '}{task.tasks_assigned} {lang === 'en' ? 'items' : 'รายการ'})
                       </span>
                     </div>
@@ -164,7 +164,7 @@ export default function DailyTasksPage() {
                         href={task.submission_link}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-orange-600 font-bold hover:underline"
+                        className="text-orange-600 dark:text-orange-400 font-bold hover:underline"
                       >
                         {lang === 'en' ? 'Open Submission Link ↗' : 'เปิดลิงก์ส่งงาน ↗'}
                       </a>
@@ -172,7 +172,7 @@ export default function DailyTasksPage() {
                   </div>
 
                   {task.supervisor_note && (
-                    <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 text-orange-800 text-xs font-medium">
+                    <div className="p-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/40 text-orange-800 dark:text-orange-300 text-xs font-medium">
                       <strong>{t.tasks.supervisorFeedback}:</strong> {task.supervisor_note}
                     </div>
                   )}
