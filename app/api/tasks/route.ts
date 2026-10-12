@@ -110,6 +110,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    if (body && typeof body.submission_link === 'string') {
+      const link = body.submission_link.trim();
+      if (link && !link.startsWith('http://') && !link.startsWith('https://')) {
+        body.submission_link = `https://${link}`;
+      }
+    }
     const validation = createTaskSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(

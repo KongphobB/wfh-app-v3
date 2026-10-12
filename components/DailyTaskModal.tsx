@@ -75,6 +75,11 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
 
     setLoading(true);
 
+    let cleanLink = submissionLink.trim();
+    if (cleanLink && !cleanLink.startsWith('http://') && !cleanLink.startsWith('https://')) {
+      cleanLink = `https://${cleanLink}`;
+    }
+
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -84,7 +89,7 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
           tasks_completed: Number(tasksCompleted),
           tasks_remaining: Number(tasksRemaining),
           details: details.trim(),
-          submission_link: submissionLink.trim() || undefined,
+          submission_link: cleanLink || undefined,
         }),
       });
 
