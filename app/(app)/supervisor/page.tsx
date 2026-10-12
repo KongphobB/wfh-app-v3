@@ -240,6 +240,20 @@ export default function SupervisorPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedTask && !triggerTarget && !statusModalFilter) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedTask(null);
+        setTriggerTarget(null);
+        setStatusModalFilter(null);
+        setStatusModalSearch('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTask, triggerTarget, statusModalFilter]);
+
   // Filter Attendance Logs
   const attendanceLogs = useMemo(() => {
     return teamCheckins.filter(
@@ -1369,8 +1383,11 @@ export default function SupervisorPage() {
 
       {/* Feature 4: Trigger Spot Check Confirmation Modal */}
       {triggerTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
-          <Card className="w-full max-w-md border-slate-200 bg-white p-6 relative shadow-2xl">
+        <div
+          onClick={() => setTriggerTarget(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
+        >
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border-slate-200 bg-white p-6 relative shadow-2xl">
             <button
               onClick={() => setTriggerTarget(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100"
@@ -1449,8 +1466,11 @@ export default function SupervisorPage() {
 
       {/* Supervisor Rating Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <Card className="w-full max-w-md border-slate-200 bg-white p-6 relative shadow-2xl">
+        <div
+          onClick={() => setSelectedTask(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border-slate-200 bg-white p-6 relative shadow-2xl">
             <button
               onClick={() => setSelectedTask(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100"
@@ -1530,8 +1550,14 @@ export default function SupervisorPage() {
 
       {/* Attendance Status Detail Modal */}
       {statusModalFilter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <Card className="w-full max-w-xl max-h-[85vh] flex flex-col bg-white border-slate-200 shadow-2xl rounded-3xl overflow-hidden">
+        <div
+          onClick={() => {
+            setStatusModalFilter(null);
+            setStatusModalSearch('');
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
+        >
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-xl max-h-[85vh] flex flex-col bg-white border-slate-200 shadow-2xl rounded-3xl overflow-hidden">
             {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2.5">
