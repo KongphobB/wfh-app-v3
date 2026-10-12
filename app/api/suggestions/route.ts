@@ -49,7 +49,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = CreateSuggestionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'ข้อมูลไม่ถูกต้อง กรุณากรอกหัวข้อและรายละเอียดให้ครบถ้วน' }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'ข้อมูลไม่ถูกต้อง กรุณากรอกหัวข้อและรายละเอียดให้ครบถ้วน' },
+        { status: 400 }
+      );
     }
 
     const isAnon = parsed.data.is_anonymous;
@@ -106,7 +109,7 @@ export async function PATCH(request: Request) {
     }
 
     // If submitter is known, notify them about the update
-    if (updated.employee_id) {
+    if (!updated.is_anonymous && updated.employee_id) {
       await createNotification({
         employee_id: updated.employee_id,
         type: 'system',
@@ -126,7 +129,7 @@ export async function PATCH(request: Request) {
         admin_name: session.name,
         action_type: 'RESPOND_SUGGESTION',
         action_title: 'ตอบรับข้อเสนอแนะ',
-        target_employee_id: updated.employee_id || undefined,
+        target_employee_id: updated.is_anonymous ? undefined : (updated.employee_id || undefined),
         target_employee_name: updated.is_anonymous ? 'ไม่ระบุตัวตน' : (updated.employee_name || undefined),
         details: `${session.name} ปรับสถานะข้อเสนอแนะ "${updated.topic}" เป็น "${updated.status}" ${updated.admin_note ? `[บันทึกตอบรับ: ${updated.admin_note}]` : ''}`,
       });

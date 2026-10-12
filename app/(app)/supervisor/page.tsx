@@ -162,18 +162,18 @@ export default function SupervisorPage() {
         const eData = await empsRes.json();
         const emps = eData.employees || [];
         emps.forEach((e: any) => {
-          if (e.employee_id) {
-            memberMap.set(String(e.employee_id), {
-              id: String(e.employee_id),
-              name: e.name || e.employee_id,
-              dept: e.department || undefined,
-              position: e.position || undefined,
-              work_location_today: e.work_location_today,
-              resolved_daily_status: e.resolved_daily_status,
-              daily_status_reason: e.daily_status_reason,
-              is_auto_gps_location: e.is_auto_gps_location,
-            });
-          }
+          const empId = String(e.employee_id || '');
+          if (!empId || empId === '9999' || empId === '9988' || e.department === 'testmail') return;
+          memberMap.set(empId, {
+            id: empId,
+            name: e.name || empId,
+            dept: e.department || undefined,
+            position: e.position || undefined,
+            work_location_today: e.work_location_today,
+            resolved_daily_status: e.resolved_daily_status,
+            daily_status_reason: e.daily_status_reason,
+            is_auto_gps_location: e.is_auto_gps_location,
+          });
         });
       }
 
@@ -187,7 +187,13 @@ export default function SupervisorPage() {
 
         // Supplement any team members from logs & tasks if not already populated
         logs.forEach((l) => {
-          if (l.employee_id && !memberMap.has(l.employee_id)) {
+          if (
+            l.employee_id &&
+            l.employee_id !== '9999' &&
+            l.employee_id !== '9988' &&
+            l.department !== 'testmail' &&
+            !memberMap.has(l.employee_id)
+          ) {
             memberMap.set(l.employee_id, {
               id: l.employee_id,
               name: l.employee_name || l.employee_id,
@@ -278,15 +284,15 @@ export default function SupervisorPage() {
         checkinDetails = m.daily_status_reason || 'ลางาน (อนุมัติแล้ว)';
       } else if (morningLog) {
         checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
-        const isOnsite =
-          isConfiguredOffice ||
+        const isOnsiteLog =
           morningLog.verification_status?.includes('ออฟฟิศ') ||
-          morningLog.note?.includes('ออฟฟิศ');
+          morningLog.verification_status?.includes('Office') ||
+          morningLog.note?.includes('ปฏิบัติงานที่ออฟฟิศ');
         const isLate =
           morningLog.verification_status?.includes('สาย') ||
           morningLog.note?.includes('สาย');
 
-        if (isOnsite) {
+        if (isOnsiteLog) {
           status = 'onsite';
           checkinDetails = 'ปฏิบัติงานที่ออฟฟิศ';
         } else if (isLate) {

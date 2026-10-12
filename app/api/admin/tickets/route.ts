@@ -3,21 +3,39 @@ import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { Ticket } from '@/types';
 
-export async function GET() {
+import { getThaiDateStr } from '@/lib/timeSync';
+
+export async function GET(request: Request) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope');
+    const todayStr = getThaiDateStr();
+
     const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 300 });
     const rawTickets = (gasRes?.data || []) as any[];
 
     // Exclude internal system persistence records (e.g. __SYS_PUSH_SUB__)
     let filtered = rawTickets.filter((t) => !String(t.issueType || '').startsWith('__SYS_'));
-    if (session.role === 'employee') {
+    if (session.role === 'employee' || scope === 'self') {
       filtered = filtered.filter((t) => String(t.employeeId) === String(session.employee_id));
     }
+
+    const normalizeTicketCreatedAt = (rawDateTime: unknown, rawDate: unknown): string => {
+      if (rawDateTime && typeof rawDateTime === 'string') {
+        const clean = rawDateTime.trim();
+        if (clean.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(clean)) {
+          return clean.replace(' ', 'T');
+        }
+        return `${clean.replace(' ', 'T')}+07:00`;
+      }
+      const datePart = typeof rawDate === 'string' && rawDate.trim() ? rawDate.trim() : todayStr;
+      return `${datePart}T09:00:00+07:00`;
+    };
 
     const formatted: Ticket[] = filtered.map((t) => ({
       id: t.uuid || t.ticketId || `${t.employeeId}_${t.date}`,
@@ -27,7 +45,7 @@ export async function GET() {
       description: t.details || t.description || null,
       status: t.status || 'Pending',
       admin_notes: t.adminNotes || t.notes || null,
-      created_at: t.dateTime ? `${t.dateTime.replace(' ', 'T')}+07:00` : `${t.date || '2026-08-19'}T09:00:00Z`,
+      created_at: normalizeTicketCreatedAt(t.dateTime, t.date),
     }));
 
     return NextResponse.json({ tickets: formatted });

@@ -61,7 +61,7 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
   const fetchMyTickets = async () => {
     setLoadingTickets(true);
     try {
-      const res = await fetch('/api/admin/tickets');
+      const res = await fetch('/api/admin/tickets?scope=self');
       if (res.ok) {
         const data = await res.json();
         setMyTickets(data.tickets || []);

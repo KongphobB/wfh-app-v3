@@ -58,7 +58,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = CreateHolidaySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'ข้อมูลไม่ถูกต้อง กรุณากรอกวันที่และชื่อวันหยุด' }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'ข้อมูลไม่ถูกต้อง กรุณากรอกวันที่และชื่อวันหยุด' },
+        { status: 400 }
+      );
     }
 
     const newHol = addCustomHoliday({
@@ -69,6 +72,8 @@ export async function POST(request: Request) {
     });
 
     try {
+      const { invalidateGasCache } = await import('@/lib/gas');
+      invalidateGasCache('getDashboardSummary');
       const { createAuditLog } = await import('@/lib/auditStore');
       createAuditLog({
         admin_id: session.employee_id,
@@ -148,6 +153,8 @@ export async function PATCH(request: Request) {
     }
 
     try {
+      const { invalidateGasCache } = await import('@/lib/gas');
+      invalidateGasCache('getDashboardSummary');
       const { createAuditLog } = await import('@/lib/auditStore');
       createAuditLog({
         admin_id: session.employee_id,
@@ -188,6 +195,8 @@ export async function DELETE(request: Request) {
     }
 
     try {
+      const { invalidateGasCache } = await import('@/lib/gas');
+      invalidateGasCache('getDashboardSummary');
       const { createAuditLog } = await import('@/lib/auditStore');
       createAuditLog({
         admin_id: session.employee_id,

@@ -29,17 +29,37 @@ export async function GET() {
       return NextResponse.json({ error: 'เฉพาะแอดมินหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
-    const [exemptConfig, inspectRes] = await Promise.all([
+    const { getThaiDateStr } = await import('@/lib/timeSync');
+    const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
+    const todayStr = getThaiDateStr();
+    const nowIso = new Date().toISOString();
+
+    const [exemptConfig, inspectRes, checkinGasRes] = await Promise.all([
       getExemptConfig(),
       callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' }),
+      callGAS('getLogs', { logType: 'checkin', limit: 300 }).catch(() => ({ data: [] })),
     ]);
 
     const checkExempt = (empId: string, pos?: string | null, role?: string) =>
       evaluatePhotoExemption({ employee_id: empId, position: pos, role }, exemptConfig);
 
-    const { getThaiDateStr } = await import('@/lib/timeSync');
-    const todayStr = getThaiDateStr();
-    const nowIso = new Date().toISOString();
+    // Build map of today's morning check-in status per employee
+    const todayCheckinLogs = applyCheckinAdjustments((checkinGasRes?.data || []) as any[]);
+    const morningCheckinByEmp = new Map<string, { hasCheckedInWfhToday: boolean; isOfficeCheckin: boolean }>();
+    for (const c of todayCheckinLogs) {
+      const cEmpId = String(c.employeeId || c.employee_id || '');
+      if (!cEmpId || c.date !== todayStr || morningCheckinByEmp.has(cEmpId)) continue;
+      const typeStr = String(c.type || c.log_type || '');
+      if (!typeStr.includes('เข้างาน') && typeStr !== 'ยืนยันตัวตน') continue;
+      const isOffice =
+        String(c.verificationStatus || c.verification_status || '').includes('ออฟฟิศ') ||
+        String(c.verificationStatus || c.verification_status || '').includes('Office') ||
+        String(c.note || '').includes('ปฏิบัติงานที่ออฟฟิศ');
+      morningCheckinByEmp.set(cEmpId, {
+        hasCheckedInWfhToday: !isOffice,
+        isOfficeCheckin: isOffice,
+      });
+    }
 
     // 1. Fetch live Google Sheet rows directly from 'ข้อมูลพนักงาน'
     const targetRows = inspectRes?.targetRows || [];
@@ -76,7 +96,12 @@ export async function GET() {
         }
 
         const role = determineRole(position || undefined, dept || undefined, empId);
-        const dailyDetail = resolveEmployeeDailyStatus(empId, todayStr);
+        const checkinCtx = morningCheckinByEmp.get(empId);
+        const dailyDetail = resolveEmployeeDailyStatus(empId, todayStr, {
+          hasCheckedInWfhToday: checkinCtx?.hasCheckedInWfhToday,
+          isOfficeCheckin: checkinCtx?.isOfficeCheckin,
+          wfhStatus,
+        });
         const locRecord = getDailyLocationRecord(empId, todayStr);
 
         finalEmployees.push({
@@ -125,7 +150,13 @@ export async function GET() {
       }
 
       const role = determineRole(e.position, e.dept, empId);
-      const dailyDetail = resolveEmployeeDailyStatus(String(empId), todayStr);
+      const empWfhStatus: WfhStatus = (e as any).wfhStatus || 'เปิดสิทธิ์';
+      const checkinCtx = morningCheckinByEmp.get(String(empId));
+      const dailyDetail = resolveEmployeeDailyStatus(String(empId), todayStr, {
+        hasCheckedInWfhToday: checkinCtx?.hasCheckedInWfhToday,
+        isOfficeCheckin: checkinCtx?.isOfficeCheckin,
+        wfhStatus: empWfhStatus,
+      });
       const locRecord = getDailyLocationRecord(String(empId), todayStr);
 
       finalEmployees.push({
@@ -136,7 +167,7 @@ export async function GET() {
         position: e.position || null,
         supervisor_id: supervisorId,
         role,
-        wfh_status: (e as any).wfhStatus || 'เปิดสิทธิ์',
+        wfh_status: empWfhStatus,
         one_star_count: (e as any).oneStarCount || 0,
         is_photo_exempt: checkExempt(String(empId), e.position, role),
         work_location_today: dailyDetail.location,

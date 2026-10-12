@@ -352,12 +352,23 @@ export async function POST(request: Request) {
 
     const todayStr = getThaiDateStr();
 
-    // Calculate GPS Geofence vs Office location
+    // Calculate GPS Geofence vs Office location (read dynamic config with safe defaults)
     let isOutsideOffice = false;
     let distanceMeters = 0;
-    const officeLat = 12.736929;
-    const officeLng = 101.114387;
-    const maxOfficeRadiusMeters = 200;
+    let officeLat = 12.736929;
+    let officeLng = 101.114387;
+    let maxOfficeRadiusMeters = 200;
+
+    try {
+      const cfgRes = await callGAS('getSystemConfig');
+      const cfg = cfgRes?.config || {};
+      const parsedLat = parseFloat(cfg.office_latitude);
+      const parsedLng = parseFloat(cfg.office_longitude);
+      const parsedRadius = parseFloat(cfg.office_radius_meters);
+      if (Number.isFinite(parsedLat)) officeLat = parsedLat;
+      if (Number.isFinite(parsedLng)) officeLng = parsedLng;
+      if (Number.isFinite(parsedRadius) && parsedRadius > 0) maxOfficeRadiusMeters = parsedRadius;
+    } catch {}
 
     if (isValidCoordinate(gps_lat, gps_lng)) {
       distanceMeters = calculateHaversineDistanceMeters(gps_lat, gps_lng, officeLat, officeLng);
