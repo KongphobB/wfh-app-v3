@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -133,8 +133,16 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
-  const fetchAdminData = async (isInitial = false) => {
+  const fetchAdminData = async (isInitial = false, force = true) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
       const [eRes, cRes, tRes, confRes, sugRes, holRes, auditRes] = await Promise.all([
@@ -146,6 +154,7 @@ export default function AdminPage() {
         fetch('/api/holidays'),
         fetch('/api/admin/audit'),
       ]);
+      lastFetchTimeRef.current = Date.now();
 
       if (eRes.ok) {
         const fetchedEmps = (await eRes.json()).employees || [];
@@ -184,6 +193,7 @@ export default function AdminPage() {
     } catch (err) {
       console.error('Fetch admin data error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
     }
   };
@@ -335,16 +345,16 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchAdminData(true);
+    fetchAdminData(true, true);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      fetchAdminData(false);
+      fetchAdminData(false, false);
     }, 60000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
-        fetchAdminData(false);
+        fetchAdminData(false, false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);

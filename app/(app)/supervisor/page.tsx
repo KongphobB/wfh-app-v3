@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -129,7 +129,16 @@ export default function SupervisorPage() {
     return timeInput;
   };
 
-  const fetchSupervisorData = async (isInitial = false) => {
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+
+  const fetchSupervisorData = async (isInitial = false, force = true) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     else setRefreshing(true);
 
@@ -139,6 +148,7 @@ export default function SupervisorPage() {
         fetch('/api/checkin?scope=team'),
         fetch('/api/admin/employees'),
       ]);
+      lastFetchTimeRef.current = Date.now();
 
       if (tasksRes.ok) {
         const tData = await tasksRes.json();
@@ -198,22 +208,23 @@ export default function SupervisorPage() {
     } catch (err) {
       console.error('Fetch supervisor data error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchSupervisorData(true);
+    fetchSupervisorData(true, true);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      fetchSupervisorData(false);
+      fetchSupervisorData(false, false);
     }, 45000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
-        fetchSupervisorData(false);
+        fetchSupervisorData(false, false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);

@@ -42,6 +42,8 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const seenNotifIdsRef = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
   // Sync notification permission status
   useEffect(() => {
@@ -67,9 +69,16 @@ export default function NotificationBell() {
     }
   };
 
-  const fetchInitialNotifications = async () => {
+  const fetchInitialNotifications = async (force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     try {
       const res = await fetch('/api/notifications');
+      lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         const rawList: AppNotification[] = data.notifications || [];
@@ -108,6 +117,8 @@ export default function NotificationBell() {
       }
     } catch (err) {
       console.error('Error loading initial notifications:', err);
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -152,25 +163,21 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
-    fetchInitialNotifications();
+    fetchInitialNotifications(true);
 
-    // Visibility-aware notification polling (35s active tab, instant on focus)
+    // Visibility-aware notification polling (35s active tab)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      fetchInitialNotifications();
+      fetchInitialNotifications(false);
     }, 35000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
-        fetchInitialNotifications();
+        fetchInitialNotifications(false);
       }
-    };
-    const handleFocus = () => {
-      fetchInitialNotifications();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
 
     // Close click outside
     const handleClickOutside = (e: MouseEvent) => {
@@ -183,7 +190,6 @@ export default function NotificationBell() {
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CheckinModal from '@/components/CheckinModal';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -21,11 +21,20 @@ export default function CheckinPage() {
   const [alertPopup, setAlertPopup] = useState<{ title: string; message: string } | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<LightboxPhotoData | null>(null);
   const [workLocationToday, setWorkLocationToday] = useState<'office' | 'wfh'>('office');
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
-  const fetchCheckinLogs = async (isInitial = false) => {
+  const fetchCheckinLogs = async (isInitial = false, force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
       const res = await fetch('/api/checkin?scope=self');
+      lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         setAllLogs(data.logs || []);
@@ -36,12 +45,13 @@ export default function CheckinPage() {
     } catch (err) {
       console.error('Fetch checkin logs error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCheckinLogs(true);
+    fetchCheckinLogs(true, true);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -380,7 +390,7 @@ export default function CheckinPage() {
       <CheckinModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchCheckinLogs}
+        onSuccess={() => fetchCheckinLogs(false, true)}
         defaultType={selectedType}
       />
     </div>

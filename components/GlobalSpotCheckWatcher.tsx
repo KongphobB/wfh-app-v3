@@ -73,6 +73,8 @@ export default function GlobalSpotCheckWatcher() {
 
   const playedAlertForId = useRef<string | null>(null);
   const hasSubscribedRef = useRef<boolean>(false);
+  const isFetchingRef = useRef<boolean>(false);
+  const lastFetchTimeRef = useRef<number>(0);
 
   // 1. Instant recovery on mount / cold start on mobile device
   useEffect(() => {
@@ -109,9 +111,16 @@ export default function GlobalSpotCheckWatcher() {
     };
   }, [activeCheck]);
 
-  const checkPendingSpotCheck = async () => {
+  const checkPendingSpotCheck = async (force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 12 seconds
+    if (!force && now - lastFetchTimeRef.current < 12000) return;
+
+    isFetchingRef.current = true;
     try {
       const res = await fetch('/api/spotcheck');
+      lastFetchTimeRef.current = Date.now();
       if (!res.ok) return;
 
       const data = await res.json();
@@ -183,6 +192,8 @@ export default function GlobalSpotCheckWatcher() {
       }
     } catch {
       // Ignore background fetch error
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -204,11 +215,11 @@ export default function GlobalSpotCheckWatcher() {
       }
     }
 
-    checkPendingSpotCheck();
+    checkPendingSpotCheck(true);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      checkPendingSpotCheck();
+      checkPendingSpotCheck(false);
     }, 25000);
 
     const handleVisibilityChange = () => {
@@ -219,16 +230,8 @@ export default function GlobalSpotCheckWatcher() {
           setActiveCheck(cached);
           setIsModalOpen(true);
         }
-        checkPendingSpotCheck();
+        checkPendingSpotCheck(false);
       }
-    };
-    const handleFocus = () => {
-      const cached = getValidCachedSpotCheck();
-      if (cached) {
-        setActiveCheck(cached);
-        setIsModalOpen(true);
-      }
-      checkPendingSpotCheck();
     };
 
     // Listen for background Web Push message from Service Worker
@@ -264,7 +267,6 @@ export default function GlobalSpotCheckWatcher() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     window.addEventListener('storage', handleStorageChange);
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
@@ -273,7 +275,6 @@ export default function GlobalSpotCheckWatcher() {
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('storage', handleStorageChange);
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleSwMessage);

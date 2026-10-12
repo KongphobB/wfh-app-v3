@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Clock, MapPin, AlertTriangle, FileText, 
@@ -38,11 +38,20 @@ export default function DashboardPage() {
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
-  const fetchData = async (isInitial = false) => {
+  const fetchData = async (isInitial = false, force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
       const res = await fetch('/api/dashboard/summary');
+      lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         const empId = data.employeeId || data.employee_id || '';
@@ -98,14 +107,15 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Fetch dashboard error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData(true);
+    fetchData(true, true);
 
-    // Visibility-aware background auto-sync (45s when tab active, instant on focus)
+    // Visibility-aware background auto-sync (45s when tab active)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchData(false);
@@ -729,7 +739,7 @@ export default function DashboardPage() {
       <SuggestionModal
         isOpen={isSuggestionOpen}
         onClose={() => setIsSuggestionOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={() => fetchData(false, true)}
       />
 
       {/* Holiday Calendar Modal */}
@@ -742,7 +752,7 @@ export default function DashboardPage() {
       <CheckinModal
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
-        onSuccess={() => fetchData(false)}
+        onSuccess={() => fetchData(false, true)}
         defaultType="ออกงาน"
       />
 
@@ -750,7 +760,7 @@ export default function DashboardPage() {
       <DailyTaskModal
         isOpen={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
-        onSuccess={() => fetchData(false)}
+        onSuccess={() => fetchData(false, true)}
         existingTask={todayTask}
       />
     </div>

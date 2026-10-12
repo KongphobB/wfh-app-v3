@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DailyTaskModal from '@/components/DailyTaskModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,11 +19,20 @@ export default function DailyTasksPage() {
 
   const todayStr = getThaiDateStr();
   const todayTask = tasks.find((t) => t.submit_date === todayStr);
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
-  const fetchTasks = async (isInitial = false) => {
+  const fetchTasks = async (isInitial = false, force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
       const res = await fetch('/api/tasks');
+      lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
@@ -31,12 +40,13 @@ export default function DailyTasksPage() {
     } catch (err) {
       console.error('Fetch tasks error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks(true);
+    fetchTasks(true, true);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -171,7 +181,7 @@ export default function DailyTasksPage() {
       <DailyTaskModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchTasks}
+        onSuccess={() => fetchTasks(false, true)}
         existingTask={todayTask}
       />
     </div>

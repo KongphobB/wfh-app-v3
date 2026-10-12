@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import SpotCheckModal from '@/components/SpotCheckModal';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -70,10 +70,20 @@ export default function SpotCheckPage() {
     } catch {}
   }, []);
 
-  const fetchSpotChecks = async (isInitial = false) => {
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+
+  const fetchSpotChecks = async (isInitial = false, force = false) => {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    // Throttle automatic polling/visibility triggers if fetched within the last 12 seconds
+    if (!isInitial && !force && now - lastFetchTimeRef.current < 12000) return;
+
+    isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
       const res = await fetch('/api/spotcheck');
+      lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         if (data.server_timestamp) {
@@ -85,12 +95,13 @@ export default function SpotCheckPage() {
     } catch (err) {
       console.error('Fetch spot checks error:', err);
     } finally {
+      isFetchingRef.current = false;
       if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSpotChecks(true);
+    fetchSpotChecks(true, true);
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchSpotChecks(false);
@@ -157,7 +168,7 @@ export default function SpotCheckPage() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => fetchSpotChecks(true)}
+            onClick={() => fetchSpotChecks(true, true)}
             disabled={loading}
             className="text-xs font-bold gap-1 text-slate-600 shadow-xs cursor-pointer"
           >
@@ -391,7 +402,7 @@ export default function SpotCheckPage() {
           } catch {}
           setModalCheck(null);
           setActiveCheck(null);
-          fetchSpotChecks();
+          fetchSpotChecks(false, true);
         }}
       />
     </div>
