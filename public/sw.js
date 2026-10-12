@@ -1,7 +1,6 @@
-// SNU WFH — Progressive Web App Service Worker (v1)
-const CACHE_NAME = 'snu-wfh-cache-v1';
+// SNU WFH — Progressive Web App Service Worker (v2)
+const CACHE_NAME = 'snu-wfh-cache-v2';
 const STATIC_ASSETS = [
-  '/',
   '/snu-logo.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -31,7 +30,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network-first for APIs & documents; Stale-while-revalidate for static files
+// Fetch: Bypass API, Next.js internals, and RSC payloads; cache static shell assets only
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -40,22 +39,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for API routes and dynamic pages to ensure live fresh data
-  if (url.pathname.startsWith('/api') || event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(async () => {
-        const cached = await caches.match(event.request);
-        return cached || (await caches.match('/'));
-      })
-    );
+  // Bypass API routes, Next.js build chunks, and RSC navigation payloads completely
+  if (
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/_next') ||
+    url.searchParams.has('_rsc') ||
+    event.request.headers.get('RSC') === '1'
+  ) {
     return;
   }
 
-  // Stale-while-revalidate for static assets
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
+  // Network-only for HTML document navigations
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
+  // Cache-first for static public assets (icons, logo, favicon)
+  if (STATIC_ASSETS.includes(url.pathname) || url.pathname.startsWith('/icons/')) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -63,12 +69,10 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
-  );
+        });
+      })
+    );
+  }
 });
 
 // Web Push Notification Listener

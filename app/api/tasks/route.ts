@@ -26,6 +26,7 @@ export const createTaskSchema = z
 
 const rateTaskSchema = z.object({
   task_id: z.string().min(1, 'ไม่ระบุรหัสงาน'),
+  employee_id: z.string().optional(),
   star_rating: z.number().min(1).max(5),
   supervisor_note: z.string().optional(),
 });
@@ -174,7 +175,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { task_id, star_rating, supervisor_note } = validation.data;
+    const { task_id, employee_id, star_rating, supervisor_note } = validation.data;
     const employeesMap = await getLiveEmployeesMap();
     const authPin = employeesMap[session.employee_id]?.pin || (session.employee_id === '9999' ? '9999' : '1234');
 
@@ -221,7 +222,7 @@ export async function PATCH(request: Request) {
 
     // Send in-app notification to employee
     try {
-      let empId = task_id.includes('_') ? task_id.split('_')[0] : '';
+      let empId = employee_id || (task_id.includes('_') ? task_id.split('_')[0] : '');
       if (!empId) {
         const tasksRes = await callGAS('getLogs', { logType: 'task', limit: 50 });
         const targetTask = ((tasksRes?.data || []) as any[]).find((t) => t.uuid === task_id || t.id === task_id);

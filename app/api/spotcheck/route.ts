@@ -20,14 +20,23 @@ export async function GET() {
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
     const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
+    const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
 
     // Parallel fetch from GAS & cache to avoid waterfall delays
-    const [gasRes, employeesMap] = await Promise.all([
+    const [gasRes, checkinGasRes, employeesMap] = await Promise.all([
       callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
+      callGAS('getLogs', { logType: 'checkin', limit: 300 }).catch(() => ({ data: [] })),
       getLiveEmployeesMap().catch(() => ({})),
     ]);
 
     const rawSpotChecks = (gasRes?.data || []) as any[];
+    const rawCheckins = applyCheckinAdjustments((checkinGasRes?.data || []) as any[]);
+    const hasCheckedInWfhToday = rawCheckins.some((c: any) => {
+      if (String(c.employeeId) !== String(session.employee_id) || c.date !== todayStr) return false;
+      const typeStr = String(c.type || '');
+      const noteStr = String(c.note || '');
+      return (typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน') && !noteStr.includes('[ปฏิบัติงานที่ออฟฟิศ');
+    });
 
     // Filter by employee and optionally today
     const employeeChecks = rawSpotChecks.filter(
@@ -117,7 +126,9 @@ export async function GET() {
 
     // Check resolved daily status (Leave, Holiday, Office vs WFH)
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-    const dailyStatus = resolveEmployeeDailyStatus(String(session.employee_id), todayStr);
+    const dailyStatus = resolveEmployeeDailyStatus(String(session.employee_id), todayStr, {
+      hasCheckedInWfhToday,
+    });
     const isExemptFromRoutine = dailyStatus.isExemptFromRoutineSpotCheck;
     const isWorkingAtOfficeToday = dailyStatus.status === 'office';
 
@@ -134,13 +145,13 @@ export async function GET() {
     let finalSpotChecks = dedupedFormatted;
     let finalTestChecks = testChecks;
     if (isExemptFromRoutine) {
-      // If working at office or on leave, exempt from routine scheduled checks (เช้า / บ่าย) and test checks,
-      // but STILL include supervisor ad-hoc manual spot checks!
+      // If working at office or on leave, exempt from routine scheduled checks (เช้า / บ่าย),
+      // but STILL include supervisor ad-hoc manual spot checks and explicit live test checks!
       finalSpotChecks = dedupedFormatted.filter(
-        (s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL')
+        (s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL') || s.id?.startsWith('TEST-')
       );
       finalTestChecks = testChecks.filter(
-        (t) => t.round?.includes('เฉพาะกิจ') || t.id?.startsWith('SPOT-MANUAL')
+        (t) => t.round?.includes('เฉพาะกิจ') || t.id?.startsWith('SPOT-MANUAL') || t.id?.startsWith('TEST-')
       );
     }
 
@@ -307,7 +318,8 @@ export async function POST(request: Request) {
         console.warn('Failed to notify supervisor:', notifErr);
       }
 
-      invalidateGasCache();
+      invalidateGasCache('getLogs');
+      invalidateGasCache('getDashboardSummary');
 
       return NextResponse.json({
         success: true,
@@ -364,7 +376,8 @@ export async function POST(request: Request) {
     if (gasResult && !gasResult.success) {
       // If message indicates already completed
       if (gasResult.message?.includes('เรียบร้อยแล้ว')) {
-        invalidateGasCache();
+        invalidateGasCache('getLogs');
+        invalidateGasCache('getDashboardSummary');
         return NextResponse.json({
           success: true,
           result_status: 'Pass',
@@ -378,7 +391,8 @@ export async function POST(request: Request) {
       );
     }
 
-    invalidateGasCache();
+    invalidateGasCache('getLogs');
+    invalidateGasCache('getDashboardSummary');
 
     // Notify supervisor for regular spot check
     try {

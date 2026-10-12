@@ -453,17 +453,21 @@ export default function AdminPage() {
         return;
       }
 
-      // Also persist weekly schedule preset if changed
-      await fetch('/api/admin/employees', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employee_id: editEmployee.employee_id,
-          action: 'update_weekly_schedule',
-          days: editWeeklyDays,
-          name: editName.trim() || editEmployee.name,
-        }),
-      });
+      // Also persist weekly schedule preset ONLY if changed
+      const origDays = [...(editEmployee.wfh_weekly_days || [])].sort((a, b) => a - b).join(',');
+      const nextDays = [...editWeeklyDays].sort((a, b) => a - b).join(',');
+      if (origDays !== nextDays) {
+        await fetch('/api/admin/employees', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_id: editEmployee.employee_id,
+            action: 'update_weekly_schedule',
+            days: editWeeklyDays,
+            name: editName.trim() || editEmployee.name,
+          }),
+        });
+      }
 
       setMessage(data.message || 'แก้ไขข้อมูลพนักงานและตาราง WFH สำเร็จ');
       setEditEmployee(null);
@@ -571,15 +575,22 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'เปลี่ยนสิทธิ์ยกเว้นถ่ายภาพไม่สำเร็จ');
-        fetchAdminData();
+        setEmployees((prev) =>
+          prev.map((e) =>
+            e.employee_id === emp.employee_id ? { ...e, is_photo_exempt: !nextState } : e
+          )
+        );
         return;
       }
 
       setMessage(data.message || (lang === 'en' ? 'Photo exemption updated' : 'อัปเดตสิทธิ์ยกเว้นถ่ายภาพสำเร็จ'));
-      await fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-      fetchAdminData();
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employee_id === emp.employee_id ? { ...e, is_photo_exempt: !nextState } : e
+        )
+      );
     } finally {
       setActionLoadingId(null);
     }

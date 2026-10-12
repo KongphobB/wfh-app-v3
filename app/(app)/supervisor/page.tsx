@@ -488,6 +488,7 @@ export default function SupervisorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task_id: selectedTask.id,
+          employee_id: selectedTask.employee_id,
           star_rating: Number(rating),
           supervisor_note: note.trim() || undefined,
         }),
@@ -504,7 +505,7 @@ export default function SupervisorPage() {
       setMessage(data.message || 'ประเมินผลงานเรียบร้อยแล้ว');
       setTimeout(() => {
         setSelectedTask(null);
-        fetchSupervisorData(false);
+        fetchSupervisorData(false, true);
       }, 1000);
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -565,7 +566,7 @@ export default function SupervisorPage() {
       setTriggerSuccess(data.message || 'ส่งคำสั่งสุ่มตรวจสำเร็จแล้ว (เริ่มนับถอยหลัง 10 นาที)');
       setTimeout(() => {
         setTriggerTarget(null);
-        fetchSupervisorData(false);
+        fetchSupervisorData(false, true);
       }, 1500);
     } catch {
       setTriggerError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -589,7 +590,7 @@ export default function SupervisorPage() {
         </div>
 
         <Button
-          onClick={() => fetchSupervisorData(false)}
+          onClick={() => fetchSupervisorData(false, true)}
           disabled={refreshing}
           variant="outline"
           size="sm"
