@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { callGAS } from '@/lib/gas';
-import { getLocalExemptIds, saveLocalExemptIds, invalidateExemptConfigCache } from '@/lib/photoExempt';
+import { callGAS, invalidateGasCache } from '@/lib/gas';
+import {
+  getLocalExemptIds,
+  saveLocalExemptIds,
+  invalidateExemptConfigCache,
+  DEFAULT_EXEMPT_POSITIONS,
+} from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 
 export async function POST(request: Request) {
@@ -23,8 +28,10 @@ export async function POST(request: Request) {
 
     if (is_exempt) {
       localIds.add(targetEmpId);
+      localIds.delete(`OFF:${targetEmpId}`);
     } else {
       localIds.delete(targetEmpId);
+      localIds.add(`OFF:${targetEmpId}`);
     }
 
     saveLocalExemptIds(localIds);
@@ -33,13 +40,18 @@ export async function POST(request: Request) {
     try {
       const configRes = await callGAS('getSystemConfig');
       const cfg = configRes?.config || {};
-      const rawList = String(
-        cfg.photo_exempt_positions ||
-          'Senior, Manager, ซีเนียร์, ผู้จัดการ, ผจก, ผจก., หัวหน้า, Leader, Supervisor, Admin, Executive'
-      )
+      const rawList = String(cfg.photo_exempt_positions || DEFAULT_EXEMPT_POSITIONS)
         .split(',')
         .map((p: string) => p.trim())
-        .filter((item) => item && !/^\d+$/.test(item) && !item.startsWith('ID:') && item !== targetEmpId);
+        .filter(
+          (item) =>
+            item &&
+            !/^\d+$/.test(item) &&
+            !item.startsWith('ID:') &&
+            !item.toUpperCase().startsWith('OFF:') &&
+            item !== '__AUTO_SUP_OFF__' &&
+            item !== targetEmpId
+        );
 
       rawList.push(...Array.from(localIds));
 
@@ -50,6 +62,7 @@ export async function POST(request: Request) {
         exemptPositions: rawList.join(', '),
         adminPin: '9999',
       });
+      invalidateGasCache('getSystemConfig');
     } catch (gasErr) {
       console.warn('Background GAS sync error:', gasErr);
     }

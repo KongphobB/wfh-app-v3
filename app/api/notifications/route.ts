@@ -20,6 +20,9 @@ export async function GET() {
 
     const todayStr = getThaiDateStr();
     const isOfficeToday = isEmployeeAtOfficeToday(session.employee_id);
+    const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const todayDailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
+    const isExemptRoutineToday = isOfficeToday || todayDailyStatus.isExemptFromRoutineSpotCheck;
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
@@ -66,8 +69,8 @@ export async function GET() {
       const nowMs = Date.now();
 
       for (const [roundName, checksInRound] of roundsMap.entries()) {
-        // If employee is at the office today, routine rounds (เช้า / บ่าย / ประจำวัน) are exempt
-        if (isOfficeToday && (roundName.includes('เช้า') || roundName.includes('บ่าย') || roundName.includes('ประจำวัน'))) {
+        // If employee is at the office, on leave, or on holiday today, routine rounds (เช้า / บ่าย / ประจำวัน) are exempt
+        if (isExemptRoutineToday && (roundName.includes('เช้า') || roundName.includes('บ่าย') || roundName.includes('ประจำวัน'))) {
           continue;
         }
 
@@ -84,8 +87,17 @@ export async function GET() {
         // Otherwise check the most relevant check for this round
         const latestCheck = checksInRound[0];
         const id = latestCheck.uuid || `${latestCheck.employeeId}_${latestCheck.date}_${roundName}`;
-        const scheduledTime = latestCheck.triggeredTime || latestCheck.scheduledTime || latestCheck.time || (roundName === 'เช้า' ? '09:30:00' : '14:30:00');
-        const triggerTimeMs = new Date(`${latestCheck.date || todayStr}T${scheduledTime}+07:00`).getTime();
+        const rawScheduledTime = String(
+          latestCheck.triggeredTime || latestCheck.scheduledTime || latestCheck.time || (roundName === 'เช้า' ? '09:30:00' : '14:30:00')
+        ).trim();
+        const timeMatch = rawScheduledTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const normalizedTime = timeMatch
+          ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3] || '00'}`
+          : roundName === 'เช้า'
+            ? '09:30:00'
+            : '14:30:00';
+        const rawTriggerMs = new Date(`${latestCheck.date || todayStr}T${normalizedTime}+07:00`).getTime();
+        const triggerTimeMs = Number.isFinite(rawTriggerMs) ? rawTriggerMs : nowMs;
 
         const isCurrentlyActive =
           (latestCheck.status === 'Scheduled' || latestCheck.status === 'Pending' || latestCheck.status === 'รอการยืนยัน') &&

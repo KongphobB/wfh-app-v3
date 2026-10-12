@@ -90,4 +90,40 @@ describe('Photo Exemption Logic QA Suite', () => {
     });
     expect(generalExempt).toBe(false);
   });
+
+  it('6. Allows explicit per-employee OFF:<empId> override to disable exemption for supervisors/seniors', async () => {
+    saveLocalExemptIds(new Set(['OFF:7777', 'OFF:5001']));
+
+    const isSupExempt = await isEmployeePhotoExempt({
+      employee_id: '7777',
+      position: 'Developer [Supervisor]',
+      role: 'supervisor',
+    });
+    expect(isSupExempt).toBe(false);
+
+    const isSeniorExempt = await isEmployeePhotoExempt({
+      employee_id: '5001',
+      position: 'Senior Software Engineer',
+      role: 'employee',
+    });
+    expect(isSeniorExempt).toBe(false);
+  });
+
+  it('7. Honors __AUTO_SUP_OFF__ master switch while preserving explicit per-employee ON overrides', async () => {
+    saveLocalExemptIds(new Set(['__AUTO_SUP_OFF__', '8888']));
+
+    const isSupExempt = await isEmployeePhotoExempt({
+      employee_id: '7777',
+      position: 'Developer [Supervisor]',
+      role: 'supervisor',
+    });
+    expect(isSupExempt).toBe(false);
+
+    const isExplicitAdminExempt = await isEmployeePhotoExempt({
+      employee_id: '8888',
+      position: 'HR Officer',
+      role: 'admin',
+    });
+    expect(isExplicitAdminExempt).toBe(true);
+  });
 });

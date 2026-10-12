@@ -24,10 +24,14 @@ function ensureDir(filePath: string) {
   } catch {}
 }
 
+export const DEFAULT_EXEMPT_POSITIONS =
+  'Senior, Manager, ซีเนียร์, ผู้จัดการ, ผจก, ผจก., หัวหน้า, Leader, Supervisor, Admin, Executive';
+
 let cachedExemptConfig: {
   config: {
     exemptKeywords: string[];
     exemptEmployeeIds: Set<string>;
+    exemptForceOffIds: Set<string>;
     autoExemptSupervisors: boolean;
   };
   expiresAt: number;
@@ -85,6 +89,7 @@ export function saveLocalExemptIds(ids: Set<string>): void {
 export async function getExemptConfig(): Promise<{
   exemptKeywords: string[];
   exemptEmployeeIds: Set<string>;
+  exemptForceOffIds: Set<string>;
   autoExemptSupervisors: boolean;
 }> {
   if (cachedExemptConfig && Date.now() < cachedExemptConfig.expiresAt) {
@@ -92,47 +97,124 @@ export async function getExemptConfig(): Promise<{
   }
 
   const localExemptIds = getLocalExemptIds();
+  const exemptForceOffIds = new Set<string>();
+  const mergedExemptIds = new Set<string>();
+  let localAutoSupOff = false;
+
+  localExemptIds.forEach((token) => {
+    const trimmed = String(token).trim();
+    if (!trimmed) return;
+    if (trimmed === '__AUTO_SUP_OFF__') {
+      localAutoSupOff = true;
+    } else if (trimmed.toUpperCase().startsWith('OFF:')) {
+      const offId = trimmed.slice(4).trim();
+      if (offId) exemptForceOffIds.add(offId);
+    } else {
+      mergedExemptIds.add(trimmed.replace(/^ID:/i, '').trim());
+    }
+  });
 
   try {
     const configRes = await callGAS('getSystemConfig');
     const cfg = configRes?.config || {};
-    const rawList = String(
-      cfg.photo_exempt_positions ||
-        'Senior, Manager, ซีเนียร์, ผู้จัดการ, ผจก, ผจก., หัวหน้า, Leader, Supervisor, Admin, Executive'
-    )
+    const rawList = String(cfg.photo_exempt_positions || DEFAULT_EXEMPT_POSITIONS)
       .split(',')
       .map((p: string) => p.trim())
       .filter(Boolean);
 
     const exemptKeywords: string[] = [];
-    const mergedExemptIds = new Set<string>(localExemptIds);
+    let gasAutoSupOff = false;
 
     rawList.forEach((item) => {
-      const lower = item.toLowerCase();
-      if (/^\d+$/.test(item) || item.startsWith('ID:')) {
-        mergedExemptIds.add(item.replace('ID:', '').trim());
+      if (item === '__AUTO_SUP_OFF__') {
+        gasAutoSupOff = true;
+      } else if (item.toUpperCase().startsWith('OFF:')) {
+        const offId = item.slice(4).trim();
+        if (offId && !mergedExemptIds.has(offId)) {
+          exemptForceOffIds.add(offId);
+        }
+      } else if (/^\d+$/.test(item) || item.startsWith('ID:')) {
+        const onId = item.replace(/^ID:/i, '').trim();
+        if (onId && !exemptForceOffIds.has(onId)) {
+          mergedExemptIds.add(onId);
+        }
       } else {
-        exemptKeywords.push(lower);
+        exemptKeywords.push(item.toLowerCase());
       }
     });
 
     const autoExemptSupervisors =
-      cfg.auto_exempt_supervisors !== undefined
-        ? String(cfg.auto_exempt_supervisors).toLowerCase() !== 'false'
-        : true;
+      localAutoSupOff || gasAutoSupOff
+        ? false
+        : cfg.auto_exempt_supervisors !== undefined
+          ? String(cfg.auto_exempt_supervisors).toLowerCase() !== 'false'
+          : true;
 
-    const result = { exemptKeywords, exemptEmployeeIds: mergedExemptIds, autoExemptSupervisors };
+    const result = {
+      exemptKeywords,
+      exemptEmployeeIds: mergedExemptIds,
+      exemptForceOffIds,
+      autoExemptSupervisors,
+    };
     cachedExemptConfig = { config: result, expiresAt: Date.now() + 300000 };
     return result;
   } catch {
     const fallback = {
       exemptKeywords: ['senior', 'manager', 'หัวหน้า', 'supervisor', 'admin', 'executive'],
-      exemptEmployeeIds: localExemptIds,
-      autoExemptSupervisors: true,
+      exemptEmployeeIds: mergedExemptIds,
+      exemptForceOffIds,
+      autoExemptSupervisors: !localAutoSupOff,
     };
     cachedExemptConfig = { config: fallback, expiresAt: Date.now() + 60000 };
     return fallback;
   }
+}
+
+export function evaluatePhotoExemption(
+  employee: {
+    employee_id?: string;
+    position?: string | null;
+    role?: string;
+  },
+  config: {
+    exemptKeywords: string[];
+    exemptEmployeeIds: Set<string>;
+    exemptForceOffIds?: Set<string>;
+    autoExemptSupervisors: boolean;
+  }
+): boolean {
+  if (!employee) return false;
+
+  const { exemptKeywords, exemptEmployeeIds, exemptForceOffIds, autoExemptSupervisors } = config;
+
+  const empId = String(employee.employee_id || '').trim();
+  if (empId && exemptForceOffIds?.has(empId)) {
+    return false;
+  }
+  if (empId && exemptEmployeeIds.has(empId)) {
+    return true;
+  }
+
+  if (!autoExemptSupervisors) {
+    return false;
+  }
+
+  if (employee.role === 'admin' || employee.role === 'supervisor') {
+    return true;
+  }
+
+  const pos = String(employee.position || '')
+    .replace(/\s*\[(Supervisor|Admin)\]/gi, '')
+    .replace(/\s*\((หัวหน้างาน|Admin)\)/gi, '')
+    .trim()
+    .toLowerCase();
+  if (pos) {
+    if (exemptKeywords.some((keyword) => pos.includes(keyword))) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function isEmployeePhotoExempt(
@@ -143,26 +225,6 @@ export async function isEmployeePhotoExempt(
   }
 ): Promise<boolean> {
   if (!employee) return false;
-
-  const { exemptKeywords, exemptEmployeeIds, autoExemptSupervisors } = await getExemptConfig();
-
-  const empId = String(employee.employee_id || '').trim();
-  if (empId && exemptEmployeeIds.has(empId)) {
-    return true;
-  }
-
-  if (autoExemptSupervisors) {
-    if (employee.role === 'admin' || employee.role === 'supervisor') {
-      return true;
-    }
-  }
-
-  const pos = String(employee.position || '').toLowerCase();
-  if (pos) {
-    if (exemptKeywords.some((keyword) => pos.includes(keyword))) {
-      return true;
-    }
-  }
-
-  return false;
+  const config = await getExemptConfig();
+  return evaluatePhotoExemption(employee, config);
 }

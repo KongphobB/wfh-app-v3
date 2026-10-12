@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getSession, determineRole, formatPositionForRole } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { Employee, WfhStatus } from '@/types';
-import { getExemptConfig } from '@/lib/photoExempt';
+import { getExemptConfig, evaluatePhotoExemption } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 import { getDailyWorkLocation, setDailyWorkLocation, getDailyLocationRecord } from '@/lib/dailyLocationStore';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
@@ -29,18 +29,13 @@ export async function GET() {
       return NextResponse.json({ error: 'เฉพาะแอดมินหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
-    const [{ exemptKeywords, exemptEmployeeIds, autoExemptSupervisors }, inspectRes] = await Promise.all([
+    const [exemptConfig, inspectRes] = await Promise.all([
       getExemptConfig(),
       callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' }),
     ]);
 
-    const checkExempt = (empId: string, pos?: string | null, role?: string) => {
-      if (empId && exemptEmployeeIds.has(empId)) return true;
-      if (autoExemptSupervisors && (role === 'admin' || role === 'supervisor')) return true;
-      const lowerPos = String(pos || '').toLowerCase();
-      if (lowerPos && exemptKeywords.some((keyword: string) => lowerPos.includes(keyword))) return true;
-      return false;
-    };
+    const checkExempt = (empId: string, pos?: string | null, role?: string) =>
+      evaluatePhotoExemption({ employee_id: empId, position: pos, role }, exemptConfig);
 
     const { getThaiDateStr } = await import('@/lib/timeSync');
     const todayStr = getThaiDateStr();

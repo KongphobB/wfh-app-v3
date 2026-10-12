@@ -96,7 +96,18 @@ export async function GET(request: Request) {
     const rawSpots = ((res.spotChecks || []) as any[]).filter(
       (s) => String(s.employeeId) === String(targetEmployeeId)
     );
-    const rawLeaves = getLeaveRequestsForUser(targetEmployeeId, 'employee').filter((l) => l.status === 'Approved');
+    const ABSENCE_LEAVE_TYPES = new Set(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน']);
+    const rawLeaves = getLeaveRequestsForUser(targetEmployeeId, 'employee').filter(
+      (l) => l.status === 'Approved' && ABSENCE_LEAVE_TYPES.has(l.leave_type)
+    );
+    const leaveDaysCount = rawLeaves.reduce((sum, l) => {
+      const startMs = new Date(`${l.start_date}T00:00:00+07:00`).getTime();
+      const endMs = new Date(`${l.end_date}T00:00:00+07:00`).getTime();
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+        return sum + Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
+      }
+      return sum + 1;
+    }, 0);
 
     // 1. Calculate On-Time Attendance
     let onTimeCount = 0;
@@ -202,9 +213,10 @@ export async function GET(request: Request) {
         status = 'missing';
       }
 
+      const [, mPart, dPart] = dateStr.split('-');
       dailyTrends.push({
         date: dateStr,
-        dayLabel: `${dayName} ${d.getDate()}/${d.getMonth() + 1}`,
+        dayLabel: `${dayName} ${parseInt(dPart, 10)}/${parseInt(mPart, 10)}`,
         checkinStatus: status,
         checkinTime: checkinToday?.time || null,
         starRating: star,
@@ -216,7 +228,7 @@ export async function GET(request: Request) {
 
     const summary: AnalyticsSummary = {
       period: 'รอบเดือนปัจจุบัน',
-      totalWorkdays: totalCheckins + rawLeaves.length,
+      totalWorkdays: totalCheckins + leaveDaysCount,
       onTimeCheckinCount: onTimeCount,
       lateCheckinCount: lateCount,
       onTimeRate,
@@ -228,7 +240,7 @@ export async function GET(request: Request) {
       spotCheckPassCount: spotPassCount,
       spotCheckTotalCount: spotTotalCount,
       spotCheckComplianceRate,
-      leaveDaysCount: rawLeaves.length,
+      leaveDaysCount,
       starDistribution,
       dailyTrends,
     };
