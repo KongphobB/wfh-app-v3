@@ -173,8 +173,11 @@ export async function GET(request: Request) {
     // 5. Daily Trends (Last 7 days)
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
     const { getBangkokDayOfWeek } = await import('@/lib/scheduleStore');
+    const { getThaiTime } = await import('@/lib/timeSync');
     const dailyTrends = [];
     const now = new Date();
+    const { hour: currentBkkHour, minute: currentBkkMin } = getThaiTime(now);
+    const isPastMorningDeadline = currentBkkHour > 8 || (currentBkkHour === 8 && currentBkkMin > 0);
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
@@ -209,7 +212,7 @@ export async function GET(request: Request) {
         status = h < 8 || (h === 8 && m === 0) ? 'on-time' : 'late';
       } else if (dailyDetail.location === 'office' || dailyDetail.isExemptFromMissingCheckin) {
         status = 'leave';
-      } else if (bkkDay !== 0 && bkkDay !== 6 && i > 0) {
+      } else if (bkkDay !== 0 && bkkDay !== 6 && (i > 0 || isPastMorningDeadline)) {
         status = 'missing';
       }
 

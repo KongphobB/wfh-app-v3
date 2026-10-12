@@ -97,6 +97,7 @@ export default function NotificationBell() {
         if (!isFirstLoadRef.current) {
           const brandNewUnread = unreadList.filter((n) => !seenNotifIdsRef.current.has(n.id));
           if (brandNewUnread.length > 0) {
+            const hasSpotCheck = brandNewUnread.some((n) => n.type === 'spotcheck');
             const hasTicket = brandNewUnread.some((n) => n.type === 'ticket');
             const latest = brandNewUnread[0];
 
@@ -105,7 +106,7 @@ export default function NotificationBell() {
               title: latest.title,
               body: latest.message,
               url: latest.link || '/dashboard',
-              sound: hasTicket ? 'ticket' : 'chime',
+              sound: hasSpotCheck ? 'spotcheck' : hasTicket ? 'ticket' : 'chime',
               tag: latest.id,
             }).catch(() => {});
           }
@@ -312,7 +313,11 @@ export default function NotificationBell() {
                     !n.is_read ? 'bg-orange-50/40 dark:bg-orange-950/20' : ''
                   }`}
                 >
-                  <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-orange-500" />
+                  <div
+                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                      !n.is_read ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{n.title}</p>
                     <p className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>

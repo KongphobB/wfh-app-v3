@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   CalendarDays, Plus, CheckCircle2, XCircle, Clock, 
   ShieldCheck, RefreshCw, UserCheck,
@@ -24,14 +24,26 @@ export default function LeavePage() {
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null);
+  const hasInitializedTabRef = useRef(false);
 
   const fetchRequests = async () => {
     try {
       const res = await fetch('/api/leave');
       const data = await res.json();
       if (res.ok && data.success) {
-        setRequests(data.data || []);
-        setRole(data.role || 'employee');
+        const fetchedList: LeaveRequest[] = data.data || [];
+        const fetchedRole: string = data.role || 'employee';
+        setRequests(fetchedList);
+        setRole(fetchedRole);
+        if (!hasInitializedTabRef.current) {
+          hasInitializedTabRef.current = true;
+          if (
+            (fetchedRole === 'supervisor' || fetchedRole === 'admin') &&
+            fetchedList.some((r) => r.status === 'Pending')
+          ) {
+            setActiveTab('team_approvals');
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching leaves:', err);

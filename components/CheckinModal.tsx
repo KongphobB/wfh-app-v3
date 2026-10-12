@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, MapPin, X, AlertCircle, CheckCircle2, RefreshCw, ShieldCheck, FileText, SwitchCamera } from 'lucide-react';
-import { CheckinType, CheckinLog } from '@/types';
+import { CheckinType, CheckinLog, TaskItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import DailyTaskModal from '@/components/DailyTaskModal';
 import { calculateHaversineDistanceKm, isValidCoordinate, MAX_MOVEMENT_DISTANCE_KM } from '@/lib/geo';
@@ -21,6 +21,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   const { t, lang } = useLanguage();
   const [logType, setLogType] = useState<CheckinType>(defaultType);
   const [todayTaskSubmitted, setTodayTaskSubmitted] = useState<boolean | null>(null);
+  const [todayTask, setTodayTask] = useState<TaskItem | null>(null);
   const [isDailyTaskModalOpen, setIsDailyTaskModalOpen] = useState(false);
   const [note, setNote] = useState('');
   const [outOfBoundsReason, setOutOfBoundsReason] = useState('');
@@ -119,8 +120,9 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       if (res.ok) {
         const data = await res.json();
         const todayStr = getThaiDateStr();
-        const found = (data.tasks || []).some((t: any) => t.submit_date === todayStr);
-        setTodayTaskSubmitted(found);
+        const matched = (data.tasks || []).find((t: TaskItem) => t.submit_date === todayStr) || null;
+        setTodayTask(matched);
+        setTodayTaskSubmitted(Boolean(matched));
       }
     } catch {}
   };
@@ -134,6 +136,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       setPopupAlert(null);
       setSuccessPopup(null);
       setTodayTaskSubmitted(null);
+      setTodayTask(null);
       return;
     }
 
@@ -756,8 +759,10 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       <DailyTaskModal
         isOpen={isDailyTaskModalOpen}
         onClose={() => setIsDailyTaskModalOpen(false)}
+        existingTask={todayTask}
         onSuccess={() => {
           setTodayTaskSubmitted(true);
+          checkTodayTaskSubmission();
         }}
       />
     </>

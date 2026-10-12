@@ -104,17 +104,22 @@ export default function CheckinPage() {
 
   const getEffectivePhotoUrl = (log: CheckinLog) => {
     if (log.photo_url) return log.photo_url;
-    if (typeof window === 'undefined') return null;
-    try {
-      return (
-        localStorage.getItem(`wfh_selfie_${log.id}`) ||
-        localStorage.getItem(`wfh_selfie_${log.log_date}_${log.log_type}`) ||
-        localStorage.getItem(`wfh_selfie_spot_${log.id}`) ||
-        null
-      );
-    } catch {
-      return null;
+    if (typeof window !== 'undefined') {
+      try {
+        const local =
+          localStorage.getItem(`wfh_selfie_${log.id}`) ||
+          localStorage.getItem(`wfh_selfie_${log.log_date}_${log.log_type}`) ||
+          localStorage.getItem(`wfh_selfie_spot_${log.id}`);
+        if (local) return local;
+      } catch {
+        // Ignore localStorage error
+      }
     }
+    if (log.has_photo && log.id) {
+      const photoType = log.log_type && log.log_type.includes('สุ่มตรวจ') ? 'spotcheck' : 'checkin';
+      return `/api/checkin/photo?uuid=${encodeURIComponent(log.id)}&type=${photoType}`;
+    }
+    return null;
   };
 
   return (

@@ -100,7 +100,12 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       }
       if (!spotTime || isNaN(spotTime)) {
         const today = getThaiDateStr(getSyncedNow());
-        spotTime = new Date(`${today}T${spotCheck.scheduled_time}+07:00`).getTime();
+        const rawTime = String(spotCheck.scheduled_time || '09:30:00').trim();
+        const timeMatch = rawTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const normalizedTime = timeMatch
+          ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3] || '00'}`
+          : '09:30:00';
+        spotTime = new Date(`${today}T${normalizedTime}+07:00`).getTime();
       }
       if (!spotTime || isNaN(spotTime)) {
         spotTime = getSyncedNow();
@@ -121,6 +126,11 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         const mins = Math.floor(diffSecs / 60);
         const secs = diffSecs % 60;
         setTimeLeftStr(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+
+        if (diffSecs < 600 && diffSecs % 60 === 0 && lastChimeSecRef.current !== diffSecs) {
+          lastChimeSecRef.current = diffSecs;
+          playSpotCheckChime(true);
+        }
       }
     };
 
@@ -357,6 +367,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       try {
         localStorage.setItem(`wfh_completed_spot_${spotCheck.id}`, 'true');
         localStorage.removeItem('wfh_active_spotcheck');
+        window.dispatchEvent(new CustomEvent('spotcheck-updated'));
       } catch {}
 
       setLoading(false);

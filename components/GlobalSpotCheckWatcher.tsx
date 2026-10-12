@@ -26,6 +26,21 @@ function getValidCachedSpotCheck(): SpotCheck | null {
   return null;
 }
 
+function parseSpotCheckTriggerTimeMs(s: SpotCheck): number {
+  if (s.created_at) {
+    const t = new Date(s.created_at).getTime();
+    if (t && !isNaN(t)) return t;
+  }
+  const dateStr = s.check_date || getThaiDateStr(getSyncedNow());
+  const rawTime = String(s.scheduled_time || '09:30:00').trim();
+  const timeMatch = rawTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const normalizedTime = timeMatch
+    ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3] || '00'}`
+    : '09:30:00';
+  const fallbackMs = new Date(`${dateStr}T${normalizedTime}+07:00`).getTime();
+  return !isNaN(fallbackMs) ? fallbackMs : getSyncedNow();
+}
+
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   if (typeof window !== 'undefined') {
     if (localStorage.getItem(`wfh_completed_spot_${s.id}`) === 'true') {
@@ -40,14 +55,7 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   if (s.check_date !== todayStr) return false;
 
   const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
-
-  let triggerTimeMs = 0;
-  if (s.created_at) {
-    triggerTimeMs = new Date(s.created_at).getTime();
-  }
-  if (!triggerTimeMs || isNaN(triggerTimeMs)) {
-    triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
-  }
+  const triggerTimeMs = parseSpotCheckTriggerTimeMs(s);
 
   const nowMs = getSyncedNow();
   // สำหรับการสุ่มตรวจเฉพาะกิจ: ถือว่าเริ่มทันที ไม่ต้องรอนาฬิกาเครื่องตรงกัน
@@ -313,6 +321,8 @@ export default function GlobalSpotCheckWatcher() {
   }, []);
 
   const triggeredMilestonesRef = useRef<Set<number>>(new Set());
+  const isModalOpenRef = useRef(isModalOpen);
+  isModalOpenRef.current = isModalOpen;
 
   // Countdown timer calculation for the active spot check
   // and reliable periodic reminder chimes (8m, 6m, 4m, 2m, 1m, 30s)
@@ -322,24 +332,11 @@ export default function GlobalSpotCheckWatcher() {
       return;
     }
 
-    // Reset milestones when checking a new spot check ID
-    if (playedAlertForId.current !== activeCheck.id) {
-      triggeredMilestonesRef.current.clear();
-    }
+    triggeredMilestonesRef.current.clear();
+    let isFirstTick = true;
 
     const calcTimer = () => {
-      let spotTime = 0;
-      if (activeCheck.created_at) {
-        spotTime = new Date(activeCheck.created_at).getTime();
-      }
-      if (!spotTime || isNaN(spotTime)) {
-        const today = getThaiDateStr(getSyncedNow());
-        spotTime = new Date(`${today}T${activeCheck.scheduled_time}+07:00`).getTime();
-      }
-      if (!spotTime || isNaN(spotTime)) {
-        spotTime = getSyncedNow();
-      }
-
+      const spotTime = parseSpotCheckTriggerTimeMs(activeCheck);
       const deadline = spotTime + 10 * 60 * 1000;
       const diffMs = deadline - getSyncedNow();
       const secs = Math.max(0, Math.floor(diffMs / 1000));
@@ -359,12 +356,23 @@ export default function GlobalSpotCheckWatcher() {
         setTimeLeftStr(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
 
         // Milestone reminder chimes: 8m, 6m, 4m, 2m, 1m, and 30s
-        // Works reliably even when tab is throttled in background or modal is open
         const MILESTONES = [480, 360, 240, 120, 60, 30];
+        if (isFirstTick) {
+          isFirstTick = false;
+          for (const milestone of MILESTONES) {
+            if (secs <= milestone) {
+              triggeredMilestonesRef.current.add(milestone);
+            }
+          }
+          return;
+        }
+
         for (const milestone of MILESTONES) {
           if (secs <= milestone && !triggeredMilestonesRef.current.has(milestone)) {
             triggeredMilestonesRef.current.add(milestone);
-            playSpotCheckAlert();
+            if (!isModalOpenRef.current) {
+              playSpotCheckAlert();
+            }
             break;
           }
         }

@@ -67,15 +67,21 @@ export async function GET(request: Request) {
       callGAS('getLogs', { logType: 'checkin', limit: 100 }).catch(() => null),
     ]);
 
+    const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
     const wfhCheckedInSet = new Set<string>();
-    const rawCheckins = (checkinRes?.data || []) as any[];
+    const officeCheckedInSet = new Set<string>();
+    const rawCheckins = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
     for (const c of rawCheckins) {
-      if (
-        c.date === todayStr &&
-        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน') &&
-        !String(c.note || '').includes('[ปฏิบัติงานที่ออฟฟิศ')
-      ) {
-        wfhCheckedInSet.add(String(c.employeeId));
+      if (c.date === todayStr && (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')) {
+        const empId = String(c.employeeId || c.employee_id);
+        const isOffice =
+          String(c.note || '').includes('ปฏิบัติงานที่ออฟฟิศ') ||
+          String(c.verificationStatus || c.verification_status || '').includes('ออฟฟิศ');
+        if (isOffice) {
+          officeCheckedInSet.add(empId);
+        } else {
+          wfhCheckedInSet.add(empId);
+        }
       }
     }
 
@@ -137,12 +143,33 @@ export async function GET(request: Request) {
     // 2. Check scheduled spot check logs from Google Apps Script
     try {
       const rawSpotLogs = (spotRes?.data || []) as any[];
+      const passedEmployeeRounds = new Set<string>();
+      for (const s of rawSpotLogs) {
+        if (s.date === todayStr) {
+          const status = String(s.status || s.resultStatus || '');
+          const isPassed =
+            status === 'Pass' ||
+            status === 'ผ่าน' ||
+            status === 'ผ่านการสุ่มตรวจ' ||
+            Boolean(s.actualScanTime || s.checkInTime);
+          if (isPassed) {
+            passedEmployeeRounds.add(`${String(s.employeeId)}_${s.round || 'ประจำวัน'}`);
+          }
+        }
+      }
+
       for (const s of rawSpotLogs) {
         if (s.date === todayStr) {
           const empIdStr = String(s.employeeId);
+          const roundKey = `${empIdStr}_${s.round || 'ประจำวัน'}`;
+          if (passedEmployeeRounds.has(roundKey)) {
+            continue;
+          }
+
           // Check resolved daily status (Leave, Holiday, Office vs WFH)
           const dailyStatus = resolveEmployeeDailyStatus(empIdStr, todayStr, {
             hasCheckedInWfhToday: wfhCheckedInSet.has(empIdStr),
+            isOfficeCheckin: officeCheckedInSet.has(empIdStr),
           });
           const isRoutine = !s.round || s.round.includes('เช้า') || s.round.includes('บ่าย') || s.round.includes('ประจำวัน');
           if (dailyStatus.isExemptFromRoutineSpotCheck && isRoutine) {
@@ -152,11 +179,15 @@ export async function GET(request: Request) {
           const status = s.status || s.resultStatus || 'Scheduled';
           const isPending = status === 'Scheduled' || status === 'Pending' || status === 'รอการยืนยัน';
           if (isPending && !s.actualScanTime && !s.checkInTime) {
-            const scheduledTime = s.triggeredTime || s.scheduledTime || s.time;
-            if (scheduledTime) {
-              const triggerTimeMs = new Date(`${s.date}T${scheduledTime}+07:00`).getTime();
+            const rawScheduledTime = String(s.triggeredTime || s.scheduledTime || s.time || '').trim();
+            if (rawScheduledTime) {
+              const timeMatch = rawScheduledTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+              const normalizedTime = timeMatch
+                ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3] || '00'}`
+                : rawScheduledTime;
+              const triggerTimeMs = new Date(`${s.date}T${normalizedTime}+07:00`).getTime();
               if (!isNaN(triggerTimeMs) && nowMs > triggerTimeMs + 10 * 60 * 1000) {
-                const alertKey = `alerted_missed_spot_${s.employeeId}_${s.date}_${s.round || scheduledTime}`;
+                const alertKey = `alerted_missed_spot_${s.employeeId}_${s.date}_${s.round || rawScheduledTime}`;
                 if (!(global as any)[alertKey]) {
                   (global as any)[alertKey] = true;
 
@@ -188,7 +219,7 @@ export async function GET(request: Request) {
                       employeeId: String(s.employeeId),
                       department: emp?.dept,
                       round: s.round || 'ประจำวัน',
-                      scheduledTime: scheduledTime,
+                      scheduledTime: rawScheduledTime,
                       supervisorEmail,
                       adminEmail,
                       employeeEmail: emp?.email,

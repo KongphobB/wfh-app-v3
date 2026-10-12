@@ -38,7 +38,7 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
           Math.max(0, (existingTask.tasks_assigned || 0) - comp);
         setTasksCompleted(comp);
         setTasksRemaining(rem);
-        setDetails(existingTask.details || '');
+        setDetails((existingTask.details || '').replace(/\n?\[สรุปผลงาน:[^\]]*\]\s*$/g, '').trim());
         setSubmissionLink(existingTask.submission_link || '');
       } else {
         setTasksCompleted(1);

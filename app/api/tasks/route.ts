@@ -119,11 +119,12 @@ export async function POST(request: Request) {
     const employeesMap = await getLiveEmployeesMap();
     const empInfo = employeesMap[session.employee_id];
 
-    // Format details with clear full-day breakdown
+    // Format details with clear full-day breakdown (strip any previous summary footer first)
+    const cleanBaseDetails = details.replace(/\n?\[สรุปผลงาน:[^\]]*\]\s*$/g, '').trim();
     const fullDetails =
       remainingCount > 0
-        ? `${details.trim()}\n[สรุปผลงาน: สำเร็จ ${tasks_completed} งาน | ยกยอดต่อพรุ่งนี้ ${remainingCount} งาน]`
-        : details.trim();
+        ? `${cleanBaseDetails}\n[สรุปผลงาน: สำเร็จ ${tasks_completed} งาน | ยกยอดต่อพรุ่งนี้ ${remainingCount} งาน]`
+        : cleanBaseDetails;
 
     // Submit directly to Google Sheets via Google Apps Script
     const gasResult = await callGAS('submitEmployeeTask', {
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
     }
 
     invalidateGasCache('getLogs');
+    invalidateGasCache('getDashboardSummary');
 
     return NextResponse.json({
       success: true,
@@ -221,6 +223,9 @@ export async function PATCH(request: Request) {
     }
 
     invalidateGasCache('getLogs');
+    invalidateGasCache('getDashboardSummary');
+    invalidateGasCache('inspectTab');
+    invalidateGasCache('getSystemConfig');
 
     // Send in-app notification to employee
     try {

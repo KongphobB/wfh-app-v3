@@ -262,6 +262,8 @@ export default function AnalyticsPage() {
                     ? 'bg-amber-50/80 border-amber-200 text-amber-950'
                     : day.checkinStatus === 'leave'
                     ? 'bg-blue-50/80 border-blue-200 text-blue-950'
+                    : day.checkinStatus === 'missing'
+                    ? 'bg-rose-50/80 border-rose-200 text-rose-950'
                     : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
@@ -281,7 +283,13 @@ export default function AnalyticsPage() {
                       <Badge variant="destructive" className="text-[10px] px-1.5 py-0">ไม่ลงเวลา</Badge>
                     )}
                     {day.checkinStatus === 'none' && (
-                      <span className="text-[10px] text-slate-400">วันหยุด</span>
+                      <span className="text-[10px] text-slate-400">
+                        {idx === data.dailyTrends.length - 1 &&
+                        !day.dayLabel.startsWith('ส.') &&
+                        !day.dayLabel.startsWith('อา.')
+                          ? 'รอลงเวลา'
+                          : 'วันหยุด'}
+                      </span>
                     )}
                   </div>
                 </div>

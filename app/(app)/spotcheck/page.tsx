@@ -13,6 +13,21 @@ import { useLanguage } from '@/lib/i18n';
 
 const SPOTCHECK_STORAGE_KEY = 'wfh_active_spotcheck';
 
+function parseSpotCheckTriggerTimeMs(s: SpotCheck): number {
+  if (s.created_at) {
+    const t = new Date(s.created_at).getTime();
+    if (t && !isNaN(t)) return t;
+  }
+  const dateStr = s.check_date || getThaiDateStr(getSyncedNow());
+  const rawTime = String(s.scheduled_time || '09:30:00').trim();
+  const timeMatch = rawTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const normalizedTime = timeMatch
+    ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}:${timeMatch[3] || '00'}`
+    : '09:30:00';
+  const fallbackMs = new Date(`${dateStr}T${normalizedTime}+07:00`).getTime();
+  return !isNaN(fallbackMs) ? fallbackMs : getSyncedNow();
+}
+
 function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
   if (!isPending) return false;
@@ -21,14 +36,7 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   if (s.check_date !== todayStr) return false;
 
   const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
-
-  let triggerTimeMs = 0;
-  if (s.created_at) {
-    triggerTimeMs = new Date(s.created_at).getTime();
-  }
-  if (!triggerTimeMs || isNaN(triggerTimeMs)) {
-    triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
-  }
+  const triggerTimeMs = parseSpotCheckTriggerTimeMs(s);
 
   const nowMs = getSyncedNow();
   // สำหรับการสุ่มตรวจเฉพาะกิจ: ถือว่าเริ่มทันที ไม่ต้องรอนาฬิกาเครื่องตรงกัน
@@ -247,9 +255,7 @@ export default function SpotCheckPage() {
             const historyChecks = spotChecks.filter((s) => {
               const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
               const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
-              let triggerTimeMs = 0;
-              if (s.created_at) triggerTimeMs = new Date(s.created_at).getTime();
-              if (!triggerTimeMs || isNaN(triggerTimeMs)) triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
+              const triggerTimeMs = parseSpotCheckTriggerTimeMs(s);
               const isUpcoming = isPending && !isManual && nowMs < triggerTimeMs - 5000;
               // Don't show future un-triggered scheduled checks in the history list
               return !isUpcoming;
@@ -345,10 +351,12 @@ export default function SpotCheckPage() {
                         )}
 
                         {(() => {
-                          const localPhoto = typeof window !== 'undefined'
-                            ? localStorage.getItem(`wfh_selfie_spot_${s.id}`) ||
-                              localStorage.getItem(`wfh_selfie_${s.check_date}_สุ่มตรวจ`)
-                            : null;
+                          const hasCompletedScan = isPassed || Boolean(s.actual_scan_time);
+                          const localPhoto =
+                            typeof window !== 'undefined' && hasCompletedScan
+                              ? localStorage.getItem(`wfh_selfie_spot_${s.id}`) ||
+                                localStorage.getItem(`wfh_selfie_${s.check_date}_สุ่มตรวจ`)
+                              : null;
                           const effectivePhoto = s.photo_url || localPhoto;
                           if (effectivePhoto) {
                             return (
