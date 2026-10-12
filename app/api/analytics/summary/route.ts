@@ -15,7 +15,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const employeesMap = await getLiveEmployeesMap();
+    const { searchParams } = new URL(request.url);
+    const requestedId = searchParams.get('employee_id');
+    const canPreDetermineTarget = !requestedId || session.role === 'admin' || session.role === 'employee';
+    const initialTargetId =
+      requestedId && session.role === 'admin' ? requestedId : String(session.employee_id);
+
+    const [employeesMap, preFetchedSummary] = await Promise.all([
+      getLiveEmployeesMap(),
+      canPreDetermineTarget
+        ? callGAS('getDashboardSummary', { employeeId: initialTargetId })
+        : Promise.resolve(null),
+    ]);
 
     // Determine list of accessible employees for this user
     let accessibleEmployees: {
@@ -58,8 +69,6 @@ export async function GET(request: Request) {
       ];
     }
 
-    const { searchParams } = new URL(request.url);
-    const requestedId = searchParams.get('employee_id');
     let targetEmployeeId = String(session.employee_id);
 
     if (requestedId && (session.role === 'admin' || session.role === 'supervisor')) {
@@ -69,8 +78,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fetch unified dashboard data for this employee
-    const res = await callGAS('getDashboardSummary', { employeeId: targetEmployeeId });
+    // Fetch unified dashboard data for this employee (reuse preFetchedSummary if target matches)
+    const res =
+      canPreDetermineTarget && targetEmployeeId === initialTargetId && preFetchedSummary
+        ? preFetchedSummary
+        : await callGAS('getDashboardSummary', { employeeId: targetEmployeeId });
     if (!res || !res.success) {
       return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลสถิติได้' }, { status: 500 });
     }
@@ -159,10 +171,13 @@ export async function GET(request: Request) {
       const dayName = d.toLocaleDateString('th-TH', { weekday: 'short', timeZone: 'Asia/Bangkok' });
 
       const checkinToday = rawCheckins.find((c) => c.date === dateStr);
+      const hasCheckedInWfhToday = Boolean(
+        checkinToday && !String(checkinToday.note || '').includes('[ปฏิบัติงานที่ออฟฟิศ')
+      );
       const isLeaveToday = rawLeaves.some((l) => l.start_date <= dateStr && dateStr <= l.end_date);
       const taskToday = rawTasks.find((t) => (t.date || t.submitDate) === dateStr);
       const star = taskToday ? parseInt(taskToday.starRating || taskToday.rating, 10) || null : null;
-      const dailyDetail = resolveEmployeeDailyStatus(targetEmployeeId, dateStr);
+      const dailyDetail = resolveEmployeeDailyStatus(targetEmployeeId, dateStr, { hasCheckedInWfhToday });
 
       let status: 'on-time' | 'late' | 'leave' | 'missing' | 'none' = 'none';
       if (dailyDetail.status === 'holiday') {

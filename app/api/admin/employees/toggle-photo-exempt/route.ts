@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS, invalidateGasCache } from '@/lib/gas';
-import { getLocalExemptIds, saveLocalExemptIds } from '@/lib/photoExempt';
+import { getLocalExemptIds, saveLocalExemptIds, invalidateExemptConfigCache } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 
 export async function POST(request: Request) {
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     }
 
     saveLocalExemptIds(localIds);
+    invalidateExemptConfigCache();
 
     // Sync to GAS in background
     try {
@@ -56,7 +57,8 @@ export async function POST(request: Request) {
       console.warn('Background GAS sync error:', gasErr);
     }
 
-    invalidateGasCache();
+    invalidateGasCache('getSystemConfig');
+    invalidateExemptConfigCache();
 
     createAuditLog({
       admin_id: session.employee_id,

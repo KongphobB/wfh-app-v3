@@ -47,6 +47,7 @@ export async function GET() {
 
     if (Array.isArray(targetRows) && targetRows.length > 1) {
       const dataRows = targetRows.slice(1);
+      const liveMap: Record<string, any> = {};
 
       const employeesList: Employee[] = dataRows
         .filter((r) => r && r[0] != null && String(r[0]).trim() !== '')
@@ -60,6 +61,16 @@ export async function GET() {
           const oneStarCount = parseInt(r[7] || 0, 10);
           const wfhStatus: WfhStatus = r[8] === 'ระงับสิทธิ์' ? 'ระงับสิทธิ์' : 'เปิดสิทธิ์';
           const role = determineRole(position || undefined, dept || undefined, empId);
+
+          liveMap[empId] = {
+            name,
+            email: email || '',
+            dept: dept || '',
+            position: position || '',
+            supervisorId: supervisorId || undefined,
+            oneStarCount: isNaN(oneStarCount) ? 0 : oneStarCount,
+            wfhStatus,
+          };
 
           const dailyDetail = resolveEmployeeDailyStatus(empId);
           const locRecord = getDailyLocationRecord(empId);
@@ -85,6 +96,11 @@ export async function GET() {
             updated_at: new Date().toISOString(),
           };
         });
+
+      if (Object.keys(liveMap).length > 0) {
+        global.__lastKnownEmployeesMap = liveMap;
+        global.__lastKnownEmployeesMapTime = Date.now();
+      }
 
       const finalEmployees = session.role === 'supervisor'
         ? employeesList.filter((e) => String(e.supervisor_id) === String(session.employee_id))
@@ -278,7 +294,9 @@ export async function PATCH(request: Request) {
         adminPin: '9999',
       });
 
-      invalidateGasCache();
+      invalidateGasCache('inspectTab');
+      invalidateGasCache('getSystemConfig');
+      invalidateGasCache('getDashboardSummary');
 
       if (gasResult && !gasResult.success) {
         return NextResponse.json({ error: gasResult.message || 'ปรับสิทธิ์ WFH ไม่สำเร็จ' }, { status: 400 });
@@ -327,7 +345,9 @@ export async function PATCH(request: Request) {
       adminPin: '9999',
     });
 
-    invalidateGasCache();
+    invalidateGasCache('inspectTab');
+    invalidateGasCache('getSystemConfig');
+    invalidateGasCache('getDashboardSummary');
 
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'แก้ไขข้อมูลใน Google Sheet ไม่สำเร็จ' }, { status: 400 });

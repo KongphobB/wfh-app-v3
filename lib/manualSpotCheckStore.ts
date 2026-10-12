@@ -94,7 +94,12 @@ export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
     if (c.check_date !== todayStr) return false;
 
     // If completed (Pass or Fail or scanned), it is NEVER active!
-    const isCompleted = c.result_status === 'Pass' || c.result_status === 'Fail' || Boolean(c.actual_scan_time);
+    const statusStr = String(c.result_status || '');
+    const isCompleted =
+      statusStr === 'Pass' ||
+      statusStr === 'Fail' ||
+      statusStr.includes('ไม่ผ่าน') ||
+      Boolean(c.actual_scan_time);
     if (isCompleted) return false;
 
     // Active pending check: not expired (created within 11 minutes)

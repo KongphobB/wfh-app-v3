@@ -59,7 +59,25 @@ export async function GET(request: Request) {
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { createNotification, createNotificationForSupervisor } = await import('@/lib/notifications');
     const { sendMissedSpotCheckAlertEmail } = await import('@/lib/email');
-    const employeesMap = await getLiveEmployeesMap();
+    const { updateManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
+
+    const [employeesMap, spotRes, checkinRes] = await Promise.all([
+      getLiveEmployeesMap(),
+      callGAS('getLogs', { logType: 'spotcheck', limit: 50 }).catch(() => null),
+      callGAS('getLogs', { logType: 'checkin', limit: 100 }).catch(() => null),
+    ]);
+
+    const wfhCheckedInSet = new Set<string>();
+    const rawCheckins = (checkinRes?.data || []) as any[];
+    for (const c of rawCheckins) {
+      if (
+        c.date === todayStr &&
+        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน') &&
+        !String(c.note || '').includes('[ปฏิบัติงานที่ออฟฟิศ')
+      ) {
+        wfhCheckedInSet.add(String(c.employeeId));
+      }
+    }
 
     // 1. Check active test / manual spot checks
     if (global.__activeTestSpotChecks && global.__activeTestSpotChecks.length > 0) {
@@ -68,6 +86,9 @@ export async function GET(request: Request) {
           const triggerTimeMs = check.created_at ? new Date(check.created_at).getTime() : 0;
           if (triggerTimeMs > 0 && nowMs > triggerTimeMs + 10 * 60 * 1000) {
             check.result_status = 'ไม่ผ่าน (ขาดการติดต่อ)';
+            if (check.id) {
+              updateManualSpotCheck(check.id, { result_status: 'ไม่ผ่าน (ขาดการติดต่อ)' });
+            }
 
             const emp = employeesMap[check.employee_id];
             const empName = emp?.name || check.employee_name || check.employee_id;
@@ -110,12 +131,14 @@ export async function GET(request: Request) {
 
     // 2. Check scheduled spot check logs from Google Apps Script
     try {
-      const spotRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 50 });
       const rawSpotLogs = (spotRes?.data || []) as any[];
       for (const s of rawSpotLogs) {
         if (s.date === todayStr) {
+          const empIdStr = String(s.employeeId);
           // Check resolved daily status (Leave, Holiday, Office vs WFH)
-          const dailyStatus = resolveEmployeeDailyStatus(String(s.employeeId), todayStr);
+          const dailyStatus = resolveEmployeeDailyStatus(empIdStr, todayStr, {
+            hasCheckedInWfhToday: wfhCheckedInSet.has(empIdStr),
+          });
           const isRoutine = !s.round || s.round.includes('เช้า') || s.round.includes('บ่าย') || s.round.includes('ประจำวัน');
           if (dailyStatus.isExemptFromRoutineSpotCheck && isRoutine) {
             continue;

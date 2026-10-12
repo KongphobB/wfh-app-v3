@@ -221,9 +221,11 @@ export default function AdminPage() {
         throw new Error(data.error || 'เกิดข้อผิดพลาดในการอัปเดตสถานะ');
       }
 
+      if (data.data) {
+        setSuggestions((prev) => prev.map((s) => (s.id === data.data.id ? data.data : s)));
+      }
       setMessage(data.message || 'บันทึกสถานะข้อเสนอแนะสำเร็จ');
       setSelectedSuggestion(null);
-      await fetchAdminData();
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -256,13 +258,17 @@ export default function AdminPage() {
         throw new Error(data.error || 'เพิ่มวันหยุดไม่สำเร็จ');
       }
 
+      if (data.data) {
+        setAdminHolidays((prev) =>
+          [...prev, data.data].sort((a, b) => a.date.localeCompare(b.date))
+        );
+      }
       setMessage(data.message || 'เพิ่มวันหยุดเรียบร้อย');
       setIsAddHolOpen(false);
       setNewHolDate('');
       setNewHolName('');
       setNewHolNameEn('');
       setNewHolNotes('');
-      await fetchAdminData();
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -271,21 +277,30 @@ export default function AdminPage() {
   };
 
   const handleToggleHoliday = async (hol: CompanyHoliday) => {
+    const nextState = !hol.is_active;
+    setAdminHolidays((prev) =>
+      prev.map((h) => (h.id === hol.id ? { ...h, is_active: nextState } : h))
+    );
     try {
       const res = await fetch('/api/holidays', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: hol.id,
-          is_active: !hol.is_active,
+          is_active: nextState,
         }),
       });
 
-      if (res.ok) {
-        await fetchAdminData();
+      if (!res.ok) {
+        setAdminHolidays((prev) =>
+          prev.map((h) => (h.id === hol.id ? { ...h, is_active: hol.is_active } : h))
+        );
       }
     } catch (err) {
       console.error('Toggle holiday error:', err);
+      setAdminHolidays((prev) =>
+        prev.map((h) => (h.id === hol.id ? { ...h, is_active: hol.is_active } : h))
+      );
     }
   };
 
@@ -298,8 +313,8 @@ export default function AdminPage() {
       });
 
       if (res.ok) {
+        setAdminHolidays((prev) => prev.filter((h) => h.id !== id));
         setMessage('ลบวันหยุดเรียบร้อยแล้ว');
-        await fetchAdminData();
       }
     } catch (err) {
       console.error('Delete holiday error:', err);
@@ -334,9 +349,11 @@ export default function AdminPage() {
         throw new Error(data.error || 'อัปเดตไฟล์ประกาศไม่สำเร็จ');
       }
 
+      if (data.policyDoc) {
+        setAdminPolicyDoc(data.policyDoc);
+      }
       setMessage(data.message || 'บันทึกไฟล์ประกาศวันหยุดสำเร็จ');
       setIsUploadPolicyOpen(false);
-      await fetchAdminData();
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -542,7 +559,6 @@ export default function AdminPage() {
       }
 
       setMessage(data.message || 'บันทึกสำเร็จ');
-      await fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
       fetchAdminData();
@@ -737,6 +753,7 @@ export default function AdminPage() {
     setMessage('');
 
     const targetId = selectedTicket.id;
+    const targetEmployeeId = selectedTicket.employee_id;
     const noteToSave = adminNote.trim() || 'แก้ไขเรียบร้อย';
 
     // Instant optimistic update
@@ -750,6 +767,7 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticket_id: targetId,
+          employee_id: targetEmployeeId,
           status: 'Resolved',
           admin_notes: noteToSave,
         }),
@@ -765,7 +783,6 @@ export default function AdminPage() {
       setMessage(data.message || 'บันทึกสถานะ Ticket ใน Google Sheet สำเร็จ');
       setSelectedTicket(null);
       setAdminNote('');
-      await fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
       fetchAdminData();
@@ -791,9 +808,13 @@ export default function AdminPage() {
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message || 'บันทึกการตั้งค่าเรียบร้อย');
+      } else {
+        setError(data.error || 'บันทึกการตั้งค่าไม่สำเร็จ');
       }
     } catch {
       setError('บันทึกการตั้งค่าไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
     }
   };
 

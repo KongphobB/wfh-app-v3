@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     try {
       const { invalidateGasCache } = await import('@/lib/gas');
       const { createNotificationForAdmins } = await import('@/lib/notifications');
-      invalidateGasCache();
+      invalidateGasCache('getLogs');
       await createNotificationForAdmins({
         type: 'ticket',
         title: `🎫 มีการแจ้งปัญหาใหม่: ${problem_type}`,
@@ -94,7 +94,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { ticket_id, status, admin_notes } = body;
+    const { ticket_id, status, admin_notes, employee_id } = body;
 
     if (!ticket_id || !status) {
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
@@ -110,7 +110,8 @@ export async function PATCH(request: Request) {
       pin: '9999',
     });
 
-    invalidateGasCache();
+    invalidateGasCache('getLogs');
+    invalidateGasCache('getDashboardSummary');
 
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'อัปเดต Ticket ใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
@@ -119,12 +120,18 @@ export async function PATCH(request: Request) {
     // Notify employee that their ticket has been resolved
     try {
       const { createNotification } = await import('@/lib/notifications');
-      const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 200 });
-      const rawTickets = (gasRes?.data || []) as any[];
-      const target = rawTickets.find((t) => t.uuid === ticket_id || t.ticketId === ticket_id || t.id === ticket_id);
-      if (target?.employeeId) {
+      let targetEmpId = employee_id ? String(employee_id) : '';
+      if (!targetEmpId) {
+        const gasRes = await callGAS('getLogs', { logType: 'ticket', limit: 200 });
+        const rawTickets = (gasRes?.data || []) as any[];
+        const target = rawTickets.find((t) => t.uuid === ticket_id || t.ticketId === ticket_id || t.id === ticket_id);
+        if (target?.employeeId) {
+          targetEmpId = String(target.employeeId);
+        }
+      }
+      if (targetEmpId) {
         await createNotification({
-          employee_id: String(target.employeeId),
+          employee_id: targetEmpId,
           type: 'ticket',
           title: '✅ ตั๋วแจ้งปัญหาของคุณได้รับการแก้ไขแล้ว',
           message: admin_notes ? `แอดมินตอบกลับ: "${admin_notes}"` : 'แอดมินได้ตรวจสอบและแก้ไขปัญหาให้เรียบร้อยแล้ว',
