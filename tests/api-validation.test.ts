@@ -74,10 +74,11 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
       expect(res.success).toBe(true);
     });
 
-    it('Guards against reserved IDs 9999 and 8888 in registration handler', () => {
-      const isReservedId = (id: string) => ['9999', '8888'].includes(id.trim());
+    it('Guards against reserved IDs 9999, 8888, and 9988 in registration handler', () => {
+      const isReservedId = (id: string) => ['9999', '8888', '9988'].includes(id.trim());
       expect(isReservedId('9999')).toBe(true);
       expect(isReservedId('8888')).toBe(true);
+      expect(isReservedId('9988')).toBe(true);
       expect(isReservedId('1111')).toBe(false);
       expect(isReservedId('1304')).toBe(false);
     });

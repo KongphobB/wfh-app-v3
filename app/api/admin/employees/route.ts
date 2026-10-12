@@ -208,6 +208,13 @@ export async function POST(request: Request) {
     }
 
     const newEmpData = validation.data;
+    if (['9999', '8888', '9988'].includes(newEmpData.employee_id)) {
+      return NextResponse.json(
+        { error: 'รหัสพนักงานนี้สงวนไว้สำหรับระบบ ไม่สามารถใช้ลงทะเบียนได้' },
+        { status: 400 }
+      );
+    }
+
     const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');
     const existingEmpsMap = await getLiveEmployeesMap().catch(() => ({} as Record<string, any>));
     if (existingEmpsMap[newEmpData.employee_id]) {

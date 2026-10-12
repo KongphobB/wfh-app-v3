@@ -286,6 +286,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสการสุ่มตรวจ' }, { status: 400 });
     }
 
+    // Validate photo exemption
+    const { getLiveEmployeesMap } = await import('@/lib/gas');
+    const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
+    const employeesMap = await getLiveEmployeesMap().catch(() => ({} as Record<string, any>));
+    const currentEmp = employeesMap[session.employee_id] || {};
+    const position = currentEmp.position || '';
+    const isPhotoExempt = await isEmployeePhotoExempt({
+      employee_id: session.employee_id,
+      position: position,
+      role: session.role,
+    });
+
+    if (!photo_base64 && !isPhotoExempt) {
+      return NextResponse.json(
+        { error: 'จำเป็นต้องถ่ายภาพ Selfie สดเพื่อยืนยันตัวตน' },
+        { status: 400 }
+      );
+    }
+
     const todayStr = getThaiDateStr();
 
     if (String(spot_check_id).startsWith('TEST-') || String(spot_check_id).startsWith('SPOT-MANUAL-')) {
