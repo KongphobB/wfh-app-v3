@@ -62,6 +62,21 @@ export async function POST(request: Request) {
       force_pin_change: false,
     });
 
+    try {
+      const { createAuditLog } = await import('@/lib/auditStore');
+      createAuditLog({
+        admin_id: session.employee_id,
+        admin_name: session.name,
+        action_type: 'CHANGE_PIN',
+        action_title: 'เปลี่ยนรหัส PIN ส่วนตัว',
+        target_employee_id: session.employee_id,
+        target_employee_name: session.name,
+        details: `${session.name} (${session.employee_id}) เปลี่ยนรหัส PIN บัญชีผู้ใช้ของตนเองสำเร็จ`,
+      });
+    } catch (auditErr) {
+      console.warn('Failed to write change-pin audit log:', auditErr);
+    }
+
     const redirectPath =
       session.role === 'admin'
         ? '/admin'

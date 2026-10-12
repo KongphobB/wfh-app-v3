@@ -186,6 +186,7 @@ export type AuditActionType =
   | 'UPDATE_POLICY_DOC'
   | 'APPROVE_LEAVE'
   | 'REJECT_LEAVE'
+  | 'CHANGE_PIN'
   | 'SYSTEM_ACTION';
 
 export interface AuditLogItem {
