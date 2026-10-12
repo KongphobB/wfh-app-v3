@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { CompanyHoliday, HolidayPolicyDoc } from '@/types';
 
 // Official Holidays from SNU Supply and Service Co., Ltd. (ประกาศบริษัท ที่ 005/2568)
@@ -28,12 +31,104 @@ const snuPolicyDoc: HolidayPolicyDoc = {
   uploaded_by: 'SNU Supply and Service Co., Ltd. (Managing Director)',
 };
 
-// Initialize global storage for memory persistence across reloads
-if (!(global as any).__memoryHolidays) {
-  (global as any).__memoryHolidays = [...snuHolidays2026];
+interface PersistedHolidayData {
+  holidays: CompanyHoliday[];
+  policyDoc: HolidayPolicyDoc | null;
 }
-if (!(global as any).__memoryHolidayPolicy) {
-  (global as any).__memoryHolidayPolicy = { ...snuPolicyDoc };
+
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOCAL_STORE_FILE = path.join(DATA_DIR, 'company_holidays.json');
+const TMP_STORE_FILE = '/tmp/company_holidays.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_company_holidays.json`);
+
+function getStoragePath(): string {
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
+  return LOCAL_STORE_FILE;
+}
+
+function ensureDir(filePath: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+function loadFromDisk(): PersistedHolidayData {
+  if (isTestEnv) {
+    try {
+      if (fs.existsSync(TEST_STORE_FILE)) {
+        const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+        if (content && content.trim()) {
+          const parsed = JSON.parse(content);
+          if (parsed && Array.isArray(parsed.holidays)) {
+            return {
+              holidays: parsed.holidays,
+              policyDoc: parsed.policyDoc !== undefined ? parsed.policyDoc : { ...snuPolicyDoc },
+            };
+          }
+        }
+      }
+    } catch {}
+    return { holidays: [...snuHolidays2026], policyDoc: { ...snuPolicyDoc } };
+  }
+
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (parsed && Array.isArray(parsed.holidays)) {
+          return {
+            holidays: parsed.holidays,
+            policyDoc: parsed.policyDoc !== undefined ? parsed.policyDoc : { ...snuPolicyDoc },
+          };
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    if (fs.existsSync(LOCAL_STORE_FILE)) {
+      const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (parsed && Array.isArray(parsed.holidays)) {
+          return {
+            holidays: parsed.holidays,
+            policyDoc: parsed.policyDoc !== undefined ? parsed.policyDoc : { ...snuPolicyDoc },
+          };
+        }
+      }
+    }
+  } catch {}
+
+  return { holidays: [...snuHolidays2026], policyDoc: { ...snuPolicyDoc } };
+}
+
+function saveToDisk() {
+  const filePath = getStoragePath();
+  try {
+    ensureDir(filePath);
+    const payload: PersistedHolidayData = {
+      holidays: (global as any).__memoryHolidays || snuHolidays2026,
+      policyDoc: (global as any).__memoryHolidayPolicy ?? snuPolicyDoc,
+    };
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save company holidays to disk:', err);
+  }
+}
+
+// Initialize global storage for memory persistence across reloads
+if (!(global as any).__memoryHolidays || !(global as any).__memoryHolidayPolicyInitialized) {
+  const initial = loadFromDisk();
+  (global as any).__memoryHolidays = initial.holidays;
+  (global as any).__memoryHolidayPolicy = initial.policyDoc;
+  (global as any).__memoryHolidayPolicyInitialized = true;
 }
 
 export function getAllHolidays(): CompanyHoliday[] {
@@ -42,7 +137,9 @@ export function getAllHolidays(): CompanyHoliday[] {
 }
 
 export function getHolidayPolicyDoc(): HolidayPolicyDoc | null {
-  return (global as any).__memoryHolidayPolicy || snuPolicyDoc;
+  return (global as any).__memoryHolidayPolicy !== undefined
+    ? (global as any).__memoryHolidayPolicy
+    : snuPolicyDoc;
 }
 
 export function isHolidayDate(dateStr: string): boolean {
@@ -73,6 +170,7 @@ export function addCustomHoliday(params: {
   };
 
   holidays.push(newHol);
+  saveToDisk();
   return newHol;
 }
 
@@ -94,6 +192,7 @@ export function updateHoliday(params: {
   if (params.is_active !== undefined) holidays[idx].is_active = params.is_active;
   if (params.notes !== undefined) holidays[idx].notes = params.notes?.trim() || undefined;
 
+  saveToDisk();
   return holidays[idx];
 }
 
@@ -102,10 +201,12 @@ export function deleteHoliday(id: string): boolean {
   const idx = holidays.findIndex((h) => h.id === id);
   if (idx === -1) return false;
   holidays.splice(idx, 1);
+  saveToDisk();
   return true;
 }
 
 export function updateHolidayPolicyDoc(doc: HolidayPolicyDoc | null): HolidayPolicyDoc | null {
   (global as any).__memoryHolidayPolicy = doc;
+  saveToDisk();
   return doc;
 }

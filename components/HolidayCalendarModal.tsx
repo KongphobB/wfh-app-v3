@@ -29,7 +29,7 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
 
   useEffect(() => {
     if (!isOpen) return;
-    if (holidays.length > 0 && Date.now() - lastFetchedRef.current < 60_000) {
+    if (holidays.length > 0 && Date.now() - lastFetchedRef.current < 10_000) {
       setLoading(false);
       return;
     }
@@ -63,10 +63,10 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
   const yearDisplay = lang === 'en' ? `${currentYear}` : `พ.ศ. ${currentYear + 543}`;
   const todayStr = getThaiDateStr();
 
-  // Calendar matrix computation
+  // Calendar matrix computation (timezone-safe via Date.UTC)
   const { daysInMonth, firstDayOfWeek, monthHolidays, monthHolidayMap } = useMemo(() => {
-    const days = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const days = new Date(Date.UTC(currentYear, currentMonth + 1, 0)).getUTCDate();
+    const firstDay = new Date(Date.UTC(currentYear, currentMonth, 1)).getUTCDay();
 
     const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
     const mHols = holidays.filter((h) => h.is_active && h.date.startsWith(monthPrefix));
@@ -538,9 +538,9 @@ function DocumentViewerModal({ policyDoc, previewDocUrl, holidays, lang, onClose
 
               <div className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
                 {holidays.filter((h) => h.is_active).map((h, index) => {
-                  const dateObj = new Date(`${h.date}T00:00:00+07:00`);
+                  const dateObj = new Date(`${h.date}T12:00:00Z`);
                   const dayNames = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
-                  const dayTh = dayNames[dateObj.getDay()];
+                  const dayTh = dayNames[dateObj.getUTCDay()];
                   const monthThNames = [
                     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
                     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'

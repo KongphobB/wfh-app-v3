@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { AuditLogItem, AuditActionType } from '@/types';
 
 const defaultAuditLogs: AuditLogItem[] = [
@@ -35,7 +38,75 @@ const defaultAuditLogs: AuditLogItem[] = [
   },
 ];
 
-(global as any).__memoryAuditLogs = (global as any).__memoryAuditLogs || [...defaultAuditLogs];
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOCAL_STORE_FILE = path.join(DATA_DIR, 'audit_logs.json');
+const TMP_STORE_FILE = '/tmp/audit_logs.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_audit_logs.json`);
+
+function getStoragePath(): string {
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
+  return LOCAL_STORE_FILE;
+}
+
+function ensureDir(filePath: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+function loadFromDisk(): AuditLogItem[] {
+  if (isTestEnv) {
+    try {
+      if (fs.existsSync(TEST_STORE_FILE)) {
+        const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+        if (content && content.trim()) {
+          const list = JSON.parse(content);
+          if (Array.isArray(list)) return list;
+        }
+      }
+    } catch {}
+    return [...defaultAuditLogs];
+  }
+
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
+      }
+    } catch {}
+  }
+
+  try {
+    if (fs.existsSync(LOCAL_STORE_FILE)) {
+      const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
+      }
+    }
+  } catch {}
+
+  return [...defaultAuditLogs];
+}
+
+function saveToDisk(items: AuditLogItem[]) {
+  const filePath = getStoragePath();
+  try {
+    ensureDir(filePath);
+    fs.writeFileSync(filePath, JSON.stringify(items.slice(0, 300), null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save audit logs to disk:', err);
+  }
+}
+
+(global as any).__memoryAuditLogs = (global as any).__memoryAuditLogs || loadFromDisk();
 
 export function getAllAuditLogs(): AuditLogItem[] {
   const logs: AuditLogItem[] = (global as any).__memoryAuditLogs || defaultAuditLogs;
@@ -53,7 +124,7 @@ export function createAuditLog(params: {
   ip_address?: string | null;
 }): AuditLogItem {
   if (!(global as any).__memoryAuditLogs) {
-    (global as any).__memoryAuditLogs = [...defaultAuditLogs];
+    (global as any).__memoryAuditLogs = loadFromDisk();
   }
   const logs: AuditLogItem[] = (global as any).__memoryAuditLogs;
   const newLog: AuditLogItem = {
@@ -70,5 +141,9 @@ export function createAuditLog(params: {
   };
 
   logs.unshift(newLog);
+  if (logs.length > 300) {
+    logs.length = 300;
+  }
+  saveToDisk(logs);
   return newLog;
 }

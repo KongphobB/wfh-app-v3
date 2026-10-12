@@ -5,13 +5,17 @@ import { callGAS } from '@/lib/gas';
 
 const changePinSchema = z
   .object({
-    oldPin: z.string().length(4, 'PIN เดิมต้องมี 4 หลัก'),
-    newPin: z.string().length(4, 'PIN ใหม่ต้องมี 4 หลัก'),
-    confirmPin: z.string().length(4, 'ยืนยัน PIN ต้องมี 4 หลัก'),
+    oldPin: z.string().regex(/^\d{4}$/, 'PIN เดิมต้องเป็นตัวเลข 4 หลัก'),
+    newPin: z.string().regex(/^\d{4}$/, 'PIN ใหม่ต้องเป็นตัวเลข 4 หลัก'),
+    confirmPin: z.string().regex(/^\d{4}$/, 'ยืนยัน PIN ต้องเป็นตัวเลข 4 หลัก'),
   })
   .refine((data) => data.newPin === data.confirmPin, {
     message: 'รหัส PIN ใหม่ และ ยืนยัน PIN ไม่ตรงกัน',
     path: ['confirmPin'],
+  })
+  .refine((data) => data.newPin !== data.oldPin, {
+    message: 'รหัส PIN ใหม่ต้องไม่ซ้ำกับรหัส PIN เดิม',
+    path: ['newPin'],
   });
 
 export async function POST(request: Request) {

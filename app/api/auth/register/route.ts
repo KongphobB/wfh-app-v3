@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { setSessionCookie, formatPositionForRole } from '@/lib/auth';
-import { callGAS } from '@/lib/gas';
+import { callGAS, getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
 
 const registerSchema = z.object({
-  employee_id: z.string().min(4, 'รหัสพนักงานต้องมีอย่างน้อย 4 หลัก').max(6, 'รหัสพนักงานไม่เกิน 6 หลัก'),
-  name: z.string().min(2, 'กรุณาระบุชื่อ-นามสกุล'),
+  employee_id: z.string().trim().min(4, 'รหัสพนักงานต้องมีอย่างน้อย 4 หลัก').max(6, 'รหัสพนักงานไม่เกิน 6 หลัก'),
+  name: z.string().trim().min(2, 'กรุณาระบุชื่อ-นามสกุล'),
   email: z.string().email('รูปแบบอีเมลไม่ถูกต้อง').optional().or(z.literal('')),
   department: z.string().optional().or(z.literal('')),
   position: z.string().optional().or(z.literal('')),
-  pin: z.string().length(4, 'รหัส PIN ต้องเป็นตัวเลข 4 หลัก'),
+  pin: z.string().regex(/^\d{4}$/, 'รหัส PIN ต้องเป็นตัวเลข 4 หลัก'),
 });
 
 export async function POST(request: Request) {
@@ -35,6 +35,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Prevent overwriting an already-registered employee ID
+    const existingEmployees = await getLiveEmployeesMap();
+    if (existingEmployees[cleanEmpId]) {
+      return NextResponse.json(
+        { error: 'รหัสพนักงานนี้ถูกลงทะเบียนในระบบแล้ว กรุณาเข้าสู่ระบบ' },
+        { status: 400 }
+      );
+    }
+
     const cleanPosition = formatPositionForRole(position?.trim() || 'พนักงาน', 'employee');
 
     // 1. Add employee directly to Google Sheet 'ข้อมูลพนักงาน' via Google Apps Script (Always as Employee)
@@ -55,6 +64,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    invalidateGasCache();
 
     // 2. Auto Login (set HTTP-only session cookie)
     await setSessionCookie({

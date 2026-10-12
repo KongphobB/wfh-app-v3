@@ -43,6 +43,11 @@ export default function ChangePinPage() {
       return;
     }
 
+    if (newPin === oldPin) {
+      setError(lang === 'en' ? 'New PIN must be different from Current PIN.' : 'รหัส PIN ใหม่ต้องไม่ซ้ำกับรหัส PIN เดิม');
+      return;
+    }
+
     setLoading(true);
 
     try {

@@ -1,7 +1,9 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { SuggestionItem, SuggestionCategory, SuggestionStatus } from '@/types';
 
-// In-memory persistent suggestion store attached to global
-const globalSuggestions = (global as any).__memorySuggestions || [
+const defaultSuggestions: SuggestionItem[] = [
   {
     id: 'sug_1787530001_demo1',
     topic: 'อยากให้เพิ่มระบบบันทึกเวลาพักเที่ยงและกล่องรับฟังความคิดเห็น',
@@ -32,6 +34,76 @@ const globalSuggestions = (global as any).__memorySuggestions || [
   },
 ];
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOCAL_STORE_FILE = path.join(DATA_DIR, 'suggestions.json');
+const TMP_STORE_FILE = '/tmp/suggestions.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_suggestions.json`);
+
+function getStoragePath(): string {
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
+  return LOCAL_STORE_FILE;
+}
+
+function ensureDir(filePath: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch {}
+}
+
+function loadFromDisk(): SuggestionItem[] {
+  if (isTestEnv) {
+    try {
+      if (fs.existsSync(TEST_STORE_FILE)) {
+        const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+        if (content && content.trim()) {
+          const list = JSON.parse(content);
+          if (Array.isArray(list)) return list;
+        }
+      }
+    } catch {}
+    return [...defaultSuggestions];
+  }
+
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
+      }
+    } catch {}
+  }
+
+  try {
+    if (fs.existsSync(LOCAL_STORE_FILE)) {
+      const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
+      }
+    }
+  } catch {}
+
+  return [...defaultSuggestions];
+}
+
+function saveToDisk(items: SuggestionItem[]) {
+  const filePath = getStoragePath();
+  try {
+    ensureDir(filePath);
+    fs.writeFileSync(filePath, JSON.stringify(items, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Failed to save suggestions to disk:', err);
+  }
+}
+
+// In-memory persistent suggestion store attached to global
+const globalSuggestions: SuggestionItem[] = (global as any).__memorySuggestions || loadFromDisk();
 (global as any).__memorySuggestions = globalSuggestions;
 
 export function getAllSuggestions(): SuggestionItem[] {
@@ -74,7 +146,9 @@ export function createSuggestion(params: {
     updated_at: null,
   };
 
-  (global as any).__memorySuggestions.unshift(newSuggestion);
+  const list: SuggestionItem[] = (global as any).__memorySuggestions;
+  list.unshift(newSuggestion);
+  saveToDisk(list);
   return newSuggestion;
 }
 
@@ -93,5 +167,6 @@ export function updateSuggestionStatus(params: {
   }
   suggestions[idx].updated_at = new Date().toISOString();
 
+  saveToDisk(suggestions);
   return suggestions[idx];
 }
