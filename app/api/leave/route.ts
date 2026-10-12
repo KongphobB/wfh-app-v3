@@ -3,21 +3,26 @@ import { getSession } from '@/lib/auth';
 import { getLeaveRequestsForUser, createLeaveRequest, updateLeaveStatus } from '@/lib/leaveStore';
 import { createNotification, createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
 import { createAuditLog } from '@/lib/auditStore';
-import { getLiveEmployeesMap } from '@/lib/gas';
+import { getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
 import { LeaveType, LeaveStatus } from '@/types';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const CreateLeaveSchema = z.object({
-  leave_type: z.enum(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'ปฏิบัติงานที่ออฟฟิศ (Onsite)', 'ขอปฏิบัติงานที่บ้าน (WFH)']),
-  start_date: z.string().min(10),
-  end_date: z.string().min(10),
-  reason: z.string().min(3),
-  attachment_url: z.string().optional(),
-  attachment_name: z.string().optional(),
-  attachment_type: z.enum(['image', 'pdf']).optional(),
-});
+const CreateLeaveSchema = z
+  .object({
+    leave_type: z.enum(['ลาป่วย', 'ลากิจ', 'ลาพักร้อน', 'ปฏิบัติงานที่ออฟฟิศ (Onsite)', 'ขอปฏิบัติงานที่บ้าน (WFH)']),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่เริ่มต้นไม่ถูกต้อง (YYYY-MM-DD)'),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่สิ้นสุดไม่ถูกต้อง (YYYY-MM-DD)'),
+    reason: z.string().min(3, 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร'),
+    attachment_url: z.string().optional(),
+    attachment_name: z.string().optional(),
+    attachment_type: z.enum(['image', 'pdf']).optional(),
+  })
+  .refine((data) => data.start_date <= data.end_date, {
+    message: 'วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด',
+    path: ['end_date'],
+  });
 
 const UpdateLeaveSchema = z.object({
   id: z.string().min(1),
@@ -54,7 +59,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = CreateLeaveSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'ข้อมูลคำขอลาไม่ถูกต้อง กรุณาระบุข้อมูลให้ครบถ้วน' }, { status: 400 });
+      const firstIssue = parsed.error.issues[0]?.message;
+      return NextResponse.json(
+        { error: firstIssue || 'ข้อมูลคำขอลาไม่ถูกต้อง กรุณาระบุข้อมูลให้ครบถ้วน' },
+        { status: 400 }
+      );
     }
 
     const newRequest = createLeaveRequest({
@@ -69,6 +78,8 @@ export async function POST(request: Request) {
       attachment_name: parsed.data.attachment_name,
       attachment_type: parsed.data.attachment_type,
     });
+
+    invalidateGasCache('getDashboardSummary');
 
     const isOnsite = newRequest.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
     const isWFH = newRequest.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)';
@@ -140,6 +151,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ข้อมูลการพิจารณาไม่ถูกต้อง' }, { status: 400 });
     }
 
+    // If supervisor, verify that the leave request belongs to their scope
+    if (session.role === 'supervisor') {
+      const allowedRequests = getLeaveRequestsForUser(session.employee_id, session.role);
+      const isAllowed = allowedRequests.some((r) => r.id === parsed.data.id);
+      if (!isAllowed) {
+        return NextResponse.json(
+          { error: 'ไม่มีสิทธิ์พิจารณาคำขอลาของพนักงานนอกสายบังคับบัญชา' },
+          { status: 403 }
+        );
+      }
+    }
+
     const updated = updateLeaveStatus({
       id: parsed.data.id,
       status: parsed.data.status as LeaveStatus,
@@ -150,6 +173,8 @@ export async function PATCH(request: Request) {
     if (!updated) {
       return NextResponse.json({ error: 'ไม่พบรายการคำขอดังกล่าว' }, { status: 404 });
     }
+
+    invalidateGasCache('getDashboardSummary');
 
     // Record Audit Log
     createAuditLog({

@@ -31,17 +31,18 @@ export async function GET() {
 
     const rawSpotChecks = (gasRes?.data || []) as any[];
     const rawCheckins = applyCheckinAdjustments((checkinGasRes?.data || []) as any[]);
-    const hasCheckedInWfhToday = rawCheckins.some((c: any) => {
-      if (String(c.employeeId) !== String(session.employee_id) || c.date !== todayStr) return false;
-      const typeStr = String(c.type || '');
-      const noteStr = String(c.note || '');
-      const verifyStr = String(c.verificationStatus || c.verification_status || '');
-      return (
-        (typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน') &&
-        !noteStr.includes('ปฏิบัติงานที่ออฟฟิศ') &&
-        !verifyStr.includes('ออฟฟิศ')
-      );
+    const todayMorningLog = rawCheckins.find((c: any) => {
+      if (String(c.employeeId || c.employee_id) !== String(session.employee_id) || c.date !== todayStr) return false;
+      const typeStr = String(c.type || c.log_type || '');
+      return typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน';
     });
+    const isOfficeCheckin = Boolean(
+      todayMorningLog &&
+        (String(todayMorningLog.note || '').includes('ปฏิบัติงานที่ออฟฟิศ') ||
+          String(todayMorningLog.verificationStatus || todayMorningLog.verification_status || '').includes('ออฟฟิศ') ||
+          String(todayMorningLog.verificationStatus || todayMorningLog.verification_status || '').includes('Office'))
+    );
+    const hasCheckedInWfhToday = Boolean(todayMorningLog && !isOfficeCheckin);
 
     const normalizeSpotTimeStr = (rawTime: unknown, fallback = '09:30:00'): string => {
       if (!rawTime || typeof rawTime !== 'string') return fallback;
@@ -155,10 +156,15 @@ export async function GET() {
     }
     const dedupedFormatted = Array.from(dedupedMap.values());
 
+    const currentEmp = (employeesMap as Record<string, any>)[session.employee_id] || {};
+    const position = currentEmp.position || '';
+
     // Check resolved daily status (Leave, Holiday, Office vs WFH)
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
     const dailyStatus = resolveEmployeeDailyStatus(String(session.employee_id), todayStr, {
       hasCheckedInWfhToday,
+      isOfficeCheckin,
+      wfhStatus: currentEmp.wfhStatus,
     });
     const isExemptFromRoutine = dailyStatus.isExemptFromRoutineSpotCheck;
     const isWorkingAtOfficeToday = dailyStatus.status === 'office';
@@ -187,8 +193,6 @@ export async function GET() {
     }
 
     const combined = [...finalTestChecks, ...finalSpotChecks];
-    const currentEmp = (employeesMap as Record<string, any>)[session.employee_id] || {};
-    const position = currentEmp.position || '';
     const isPhotoExempt = await isEmployeePhotoExempt({
       employee_id: session.employee_id,
       position: position,
@@ -218,14 +222,20 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
+    }
+
+    const targetEmpId = String(session.employee_id || '1111');
     const todayStr = getThaiDateStr();
     const timeStr = getThaiTime().timeStr;
 
     const testSpotCheck: SpotCheck = {
       id: `TEST-${Date.now()}`,
-      employee_id: '1111',
+      employee_id: targetEmpId,
       check_date: todayStr,
       round: 'ทดสอบสด',
       scheduled_time: timeStr,
@@ -243,12 +253,12 @@ export async function PUT(request: Request) {
     // Remove previous pending test checks and add this one
     global.__activeTestSpotChecks = [
       testSpotCheck,
-      ...global.__activeTestSpotChecks.filter((t) => t.employee_id !== '1111'),
+      ...global.__activeTestSpotChecks.filter((t) => t.employee_id !== targetEmpId),
     ];
 
     return NextResponse.json({
       success: true,
-      message: 'สร้างรอบสุ่มตรวจจำลองสำหรับรหัส 1111 สำเร็จแล้ว',
+      message: `สร้างรอบสุ่มตรวจจำลองสำหรับรหัส ${targetEmpId} สำเร็จแล้ว`,
       spotCheck: testSpotCheck,
     });
   } catch (error: any) {

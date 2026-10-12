@@ -177,6 +177,15 @@ export async function POST(request: Request) {
     }
 
     const newEmpData = validation.data;
+    const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');
+    const existingEmpsMap = await getLiveEmployeesMap().catch(() => ({} as Record<string, any>));
+    if (existingEmpsMap[newEmpData.employee_id]) {
+      return NextResponse.json(
+        { error: `รหัสพนักงาน ${newEmpData.employee_id} มีอยู่ในระบบแล้ว` },
+        { status: 400 }
+      );
+    }
+
     const finalPosition = formatPositionForRole(newEmpData.position || 'พนักงาน', newEmpData.role);
 
     const gasResult = await callGAS('adminAddNewEmployee', {
@@ -193,6 +202,8 @@ export async function POST(request: Request) {
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'บันทึกข้อมูลพนักงานลง Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
+
+    invalidateGasCache();
 
     createAuditLog({
       admin_id: session.employee_id,
@@ -228,10 +239,30 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสพนักงาน' }, { status: 400 });
     }
 
+    const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');
+
+    // If supervisor, verify that the target employee is either themselves or in their subordinate team
+    if (
+      session.role === 'supervisor' &&
+      (action === 'update_work_location' || work_location || action === 'update_weekly_schedule')
+    ) {
+      if (String(employee_id) !== String(session.employee_id)) {
+        const empsMap = await getLiveEmployeesMap().catch(() => ({} as Record<string, any>));
+        const targetEmp = empsMap[String(employee_id)];
+        if (targetEmp && String(targetEmp.supervisorId) !== String(session.employee_id)) {
+          return NextResponse.json(
+            { error: 'พนักงานคนนี้ไม่ได้อยู่ในสายบังคับบัญชาของคุณ' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // 0. If action is updating daily work location (Office vs WFH)
     if (action === 'update_work_location' || work_location) {
       const location = (work_location || body.location) === 'office' ? 'office' : 'wfh';
-      const record = setDailyWorkLocation(employee_id, location, name || employee_id, session.name);
+      setDailyWorkLocation(employee_id, location, name || employee_id, session.name);
+      invalidateGasCache('getDashboardSummary');
 
       createAuditLog({
         admin_id: session.employee_id,
@@ -255,6 +286,7 @@ export async function PATCH(request: Request) {
     if (action === 'update_weekly_schedule') {
       const days = Array.isArray(body.days) ? body.days : [];
       const updatedDays = setEmployeeWeeklySchedule(employee_id, days);
+      invalidateGasCache('getDashboardSummary');
 
       const dayNamesMap: Record<number, string> = { 1: 'จ.', 2: 'อ.', 3: 'พ.', 4: 'พฤ.', 5: 'ศ.' };
       const formattedDays = updatedDays.length > 0
@@ -284,8 +316,6 @@ export async function PATCH(request: Request) {
     if (session.role !== 'admin') {
       return NextResponse.json({ error: 'เฉพาะแอดมินเท่านั้น' }, { status: 403 });
     }
-
-    const { getLiveEmployeesMap, invalidateGasCache } = await import('@/lib/gas');
 
     // 1. If action is updating WFH status specifically
     if (action === 'update_wfh' || (wfh_status && !name && !department && !position)) {
@@ -402,6 +432,22 @@ export async function DELETE(request: Request) {
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'ลบข้อมูลพนักงานใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
+
+    // Clean up local schedule and photo exemption overrides for deleted employee
+    try {
+      setEmployeeWeeklySchedule(employee_id, []);
+      const { getLocalExemptIds, saveLocalExemptIds } = await import('@/lib/photoExempt');
+      const localExempt = getLocalExemptIds();
+      const hadExempt =
+        localExempt.delete(employee_id) ||
+        localExempt.delete(`ID:${employee_id}`) ||
+        localExempt.delete(`OFF:${employee_id}`);
+      if (hadExempt) {
+        saveLocalExemptIds(localExempt);
+      }
+      const { invalidateGasCache } = await import('@/lib/gas');
+      invalidateGasCache();
+    } catch {}
 
     createAuditLog({
       admin_id: session.employee_id,

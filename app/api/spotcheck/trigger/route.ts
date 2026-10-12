@@ -54,7 +54,8 @@ export async function POST(request: Request) {
     const isOfficeCheckin = Boolean(
       todayMorningLog &&
         (todayMorningLog.verificationStatus?.includes('ออฟฟิศ') ||
-          todayMorningLog.verification_status?.includes('ออฟฟิศ'))
+          todayMorningLog.verification_status?.includes('ออฟฟิศ') ||
+          todayMorningLog.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
     );
     const hasCheckedInWfhToday = Boolean(todayMorningLog && !isOfficeCheckin);
 

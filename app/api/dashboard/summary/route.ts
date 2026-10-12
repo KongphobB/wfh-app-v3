@@ -110,22 +110,84 @@ export async function GET() {
     const selfSpots = rawSpots.filter(
       (s) => String(s.employeeId) === String(session.employee_id) && s.date === todayStr
     );
-    const formattedSpots: SpotCheck[] = selfSpots.map((s) => {
-      const scheduledTime = normalizeTimeStr(s.scheduledTime || '10:00:00', '10:00:00');
+    const rawFormattedSpots: SpotCheck[] = selfSpots.map((s) => {
+      const fallbackTime = s.round === 'เช้า' ? '09:30:00' : '14:30:00';
+      const scheduledTime = normalizeTimeStr(
+        s.triggeredTime || s.scheduledTime || s.time || fallbackTime,
+        fallbackTime
+      );
+      const rawStatus = s.status || s.resultStatus || 'Scheduled';
+      const scanTimeRaw = s.checkInTime || s.actualScanTime || null;
+      let actualScanTimeFormatted: string | null = null;
+      if (scanTimeRaw) {
+        actualScanTimeFormatted =
+          typeof scanTimeRaw === 'string' && scanTimeRaw.includes('T')
+            ? scanTimeRaw
+            : `${s.date || todayStr}T${normalizeTimeStr(scanTimeRaw, scheduledTime)}+07:00`;
+      }
+      const isCompletedSpot =
+        Boolean(scanTimeRaw) ||
+        rawStatus === 'Pass' ||
+        rawStatus === 'ผ่าน' ||
+        rawStatus === 'ผ่านการสุ่มตรวจ' ||
+        s.hasPhoto === true ||
+        Boolean(s.photo);
+
+      let photoUrl: string | null = null;
+      if (isCompletedSpot) {
+        photoUrl = getSelfiePhoto([
+          s.photo,
+          s.photoUrl,
+          s.uuid,
+          s.uuid ? `spot_${s.employeeId}_${s.date}_${s.uuid}` : undefined,
+          `${s.employeeId}_${s.date}_${s.round}`,
+        ]);
+        if (!photoUrl && s.uuid && (s.hasPhoto === true || Boolean(s.photo))) {
+          photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(s.uuid)}&type=spotcheck`;
+        }
+      }
+
       return {
         id: s.uuid || `${s.employeeId}_${s.date}_${s.round}`,
         employee_id: String(s.employeeId),
         check_date: s.date || todayStr,
         round: s.round || 'เช้า',
         scheduled_time: scheduledTime,
-        actual_scan_time: s.actualScanTime || null,
+        actual_scan_time: actualScanTimeFormatted,
         gps_lat: null,
         gps_lng: null,
-        photo_url: s.photo || null,
-        result_status: s.resultStatus || 'Scheduled',
+        photo_url: photoUrl,
+        result_status: isCompletedSpot && (rawStatus === 'Scheduled' || rawStatus === 'Pending' || rawStatus === 'รอการยืนยัน') ? 'Pass' : rawStatus,
         created_at: `${s.date || todayStr}T${scheduledTime}+07:00`,
       };
     });
+
+    // Deduplicate spot checks by date + round (prefer completed/passed over pending)
+    const dedupedSpotMap = new Map<string, SpotCheck>();
+    for (const item of rawFormattedSpots) {
+      const key = `${item.check_date}_${item.round}`;
+      const existing = dedupedSpotMap.get(key);
+      if (!existing) {
+        dedupedSpotMap.set(key, item);
+      } else {
+        const isCurrentCompleted =
+          item.result_status === 'Pass' ||
+          item.result_status === 'ผ่าน' ||
+          item.result_status === 'ผ่านการสุ่มตรวจ' ||
+          item.result_status === 'Fail' ||
+          Boolean(item.actual_scan_time);
+        const isExistingCompleted =
+          existing.result_status === 'Pass' ||
+          existing.result_status === 'ผ่าน' ||
+          existing.result_status === 'ผ่านการสุ่มตรวจ' ||
+          existing.result_status === 'Fail' ||
+          Boolean(existing.actual_scan_time);
+        if (isCurrentCompleted && !isExistingCompleted) {
+          dedupedSpotMap.set(key, item);
+        }
+      }
+    }
+    const formattedSpots = Array.from(dedupedSpotMap.values());
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
@@ -175,7 +237,9 @@ export async function GET() {
     // If employee is exempt from routine spot checks (Office, Holiday, Leave), omit routine checks
     const activeRoutine = dailyDetail.isExemptFromRoutineSpotCheck
       ? null
-      : formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled');
+      : formattedSpots.find(
+          (s) => s.result_status === 'Pending' || s.result_status === 'Scheduled' || s.result_status === 'รอการยืนยัน'
+        );
     const activeSpotCheck = activeManual || activeRoutine || null;
 
     const filteredRoutineSpots = dailyDetail.isExemptFromRoutineSpotCheck

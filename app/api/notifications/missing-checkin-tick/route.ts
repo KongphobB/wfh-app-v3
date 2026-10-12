@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
-import { createNotification, createNotificationForSupervisor } from '@/lib/notifications';
+import { createNotification, createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
 import { sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 import { getHolidayByDate } from '@/lib/holidayStore';
@@ -111,6 +111,13 @@ export async function GET(request: Request) {
                 link: '/supervisor',
               })
             : Promise.resolve(),
+          // 2.1 In-app notification to admin
+          createNotificationForAdmins({
+            type: 'warning',
+            title: `🚫 พนักงานขาดงาน: ${emp.name} (${empId})`,
+            message: `พนักงานยังไม่ลงเวลาปฏิบัติงานตลอดช่วงเช้า (เกินเวลา 12:00 น. ช่วงพักเที่ยง)`,
+            link: '/admin',
+          }),
           // 3. Email alert to BOTH supervisor and admin (and CC employee)
           sendAbsentAlertEmail({
             employeeName: emp.name || empId,
@@ -141,6 +148,13 @@ export async function GET(request: Request) {
                 link: '/supervisor',
               })
             : Promise.resolve(),
+          // 2.1 In-app notification to admin
+          createNotificationForAdmins({
+            type: 'warning',
+            title: `⚠️ พนักงานยังไม่ลงเวลาเข้างาน: ${emp.name} (${empId})`,
+            message: `พนักงานยังไม่ได้ลงเวลาเข้างานช่วงเช้า (เกินกำหนด 08:00 น.)`,
+            link: '/admin',
+          }),
           // 3. Email alert to BOTH supervisor and admin (and CC employee)
           sendMissingCheckinAlertEmail({
             employeeName: emp.name || empId,

@@ -6,7 +6,7 @@ import { isEmployeePhotoExempt } from '@/lib/photoExempt';
 import { saveSelfiePhoto, getSelfiePhoto } from '@/lib/photoStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
 import { sendLateCheckinNotificationEmail } from '@/lib/email';
-import { createNotificationForSupervisor } from '@/lib/notifications';
+import { createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
 import { calculateHaversineDistanceMeters, isValidCoordinate } from '@/lib/geo';
 import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationStore';
 import { createAuditLog } from '@/lib/auditStore';
@@ -479,7 +479,7 @@ export async function POST(request: Request) {
           }),
         ];
 
-        // In-app notification to supervisor
+        // In-app notification to supervisor and admin
         if (supervisorId) {
           lateTasks.push(
             createNotificationForSupervisor({
@@ -491,6 +491,14 @@ export async function POST(request: Request) {
             })
           );
         }
+        lateTasks.push(
+          createNotificationForAdmins({
+            type: 'warning',
+            title: `⏰ พนักงานเข้างานสาย: ${session.name} (${session.employee_id})`,
+            message: `ลงเวลาเข้างานเวลา ${checkinTimeFormatted} น. เหตุผล: "${effectiveReason || 'ไม่ได้ระบุเหตุผล'}"`,
+            link: '/admin',
+          })
+        );
 
         await Promise.allSettled(lateTasks);
       } catch (emailErr) {

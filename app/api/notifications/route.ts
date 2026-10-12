@@ -19,10 +19,45 @@ export async function GET() {
     }
 
     const todayStr = getThaiDateStr();
-    const isOfficeToday = isEmployeeAtOfficeToday(session.employee_id);
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-    const todayDailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
-    const isExemptRoutineToday = isOfficeToday || todayDailyStatus.isExemptFromRoutineSpotCheck;
+    const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
+
+    // Fetch spotcheck and checkin logs in parallel so daily status accurately reflects ad-hoc WFH/Office check-ins
+    const [spotGasRes, checkinGasRes] = await Promise.all([
+      callGAS('getLogs', { logType: 'spotcheck', limit: 300 }).catch(() => ({ data: [] })),
+      callGAS('getLogs', { logType: 'checkin', limit: 200 }).catch(() => ({ data: [] })),
+    ]);
+
+    const rawSpotChecks = (spotGasRes?.data || []) as any[];
+    const checkinLogs = applyCheckinAdjustments((checkinGasRes?.data || []) as any[]);
+
+    const todayMorningCheckin = checkinLogs.find(
+      (c) =>
+        String(c.employeeId || c.employee_id) === String(session.employee_id) &&
+        c.date === todayStr &&
+        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
+    );
+    const isOfficeCheckin = Boolean(
+      todayMorningCheckin &&
+        (todayMorningCheckin.verificationStatus?.includes('ออฟฟิศ') ||
+          todayMorningCheckin.verificationStatus?.includes('Office') ||
+          todayMorningCheckin.verification_status?.includes('ออฟฟิศ') ||
+          todayMorningCheckin.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
+    );
+    const hasCheckedInWfhToday = Boolean(todayMorningCheckin && !isOfficeCheckin);
+    const hasVerifiedAfternoonToday = checkinLogs.some(
+      (c) =>
+        String(c.employeeId || c.employee_id) === String(session.employee_id) &&
+        c.date === todayStr &&
+        (c.type === 'ยืนยันตัวตน' || c.log_type === 'ยืนยันตัวตน')
+    );
+
+    const todayDailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr, {
+      hasCheckedInWfhToday,
+      isOfficeCheckin,
+    });
+    const isOfficeToday = todayDailyStatus.location === 'office' || isEmployeeAtOfficeToday(session.employee_id);
+    const isExemptRoutineToday = todayDailyStatus.isExemptFromRoutineSpotCheck;
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];
 
@@ -50,10 +85,8 @@ export async function GET() {
       }
     } catch {}
 
-    // Fetch spotcheck logs to generate real-time notification items
+    // Process spotcheck logs to generate real-time notification items
     try {
-      const gasRes = await callGAS('getLogs', { logType: 'spotcheck', limit: 300 });
-      const rawSpotChecks = (gasRes?.data || []) as any[];
       const userChecks = rawSpotChecks.filter(
         (s) => String(s.employeeId) === String(session.employee_id) && s.date === todayStr
       );
@@ -76,7 +109,7 @@ export async function GET() {
 
         const isRoundPassed = checksInRound.some((s) => {
           const status = s.status || s.resultStatus || '';
-          return status === 'Pass' || status === 'ผ่าน' || status === 'ผ่านการสุ่มตรวจ' || Boolean(s.actualScanTime);
+          return status === 'Pass' || status === 'ผ่าน' || status === 'ผ่านการสุ่มตรวจ' || Boolean(s.actualScanTime || s.checkInTime);
         });
 
         // If employee has already PASSED this round today, skip any active/failed notifications for this round!
@@ -99,8 +132,9 @@ export async function GET() {
         const rawTriggerMs = new Date(`${latestCheck.date || todayStr}T${normalizedTime}+07:00`).getTime();
         const triggerTimeMs = Number.isFinite(rawTriggerMs) ? rawTriggerMs : nowMs;
 
+        const latestStatus = latestCheck.status || latestCheck.resultStatus || 'Scheduled';
         const isCurrentlyActive =
-          (latestCheck.status === 'Scheduled' || latestCheck.status === 'Pending' || latestCheck.status === 'รอการยืนยัน') &&
+          (latestStatus === 'Scheduled' || latestStatus === 'Pending' || latestStatus === 'รอการยืนยัน') &&
           nowMs >= triggerTimeMs &&
           nowMs <= triggerTimeMs + 10 * 60 * 1000;
 
@@ -143,56 +177,26 @@ export async function GET() {
     try {
       const { hour: thHour, minute: thMin } = getThaiTime();
 
-      // Only query check-in logs if NOT at office and currently within the 13:00 - 13:20 afternoon window!
-      if (!isOfficeToday && thHour === 13 && thMin >= 0 && thMin <= 20) {
-        let isCheckedInWfhToday = false;
-        let hasVerifiedAfternoonToday = false;
-        try {
-          const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
-          const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
-          const checkinLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
-          const todayMorningCheckin = checkinLogs.find(
-            (c) =>
-              String(c.employeeId) === String(session.employee_id) &&
-              c.date === todayStr &&
-              (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
-          );
-          hasVerifiedAfternoonToday = checkinLogs.some(
-            (c) =>
-              String(c.employeeId) === String(session.employee_id) &&
-              c.date === todayStr &&
-              (c.type === 'ยืนยันตัวตน' || c.log_type === 'ยืนยันตัวตน')
-          );
-          if (
-            todayMorningCheckin &&
-            !(
-              todayMorningCheckin.verificationStatus &&
-              (todayMorningCheckin.verificationStatus.includes('ออฟฟิศ') || todayMorningCheckin.verificationStatus.includes('Office'))
-            )
-          ) {
-            isCheckedInWfhToday = true;
-          }
-        } catch {}
-
-        if (isCheckedInWfhToday && !hasVerifiedAfternoonToday) {
-          const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-          const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr, {
-            hasCheckedInWfhToday: true,
-          });
-          if (dailyStatus.status === 'wfh') {
-            const notifId = `verify_afternoon_${todayStr}_${session.employee_id}`;
-            dynamicNotifs.unshift({
-              id: notifId,
-              employee_id: session.employee_id,
-              type: 'checkin',
-              title: '📍 ถึงเวลายืนยันตัวตนช่วงบ่าย (13:00 น.)',
-              message: 'กรุณาบันทึกพิกัด GPS และถ่ายภาพ Selfie ยืนยันการปฏิบัติงานช่วงบ่าย (13:00 - 13:20 น.)',
-              link: '/checkin',
-              is_read: isNotifRead(notifId),
-              created_at: `${todayStr}T13:00:00+07:00`,
-            });
-          }
-        }
+      if (
+        !isOfficeToday &&
+        todayDailyStatus.status === 'wfh' &&
+        hasCheckedInWfhToday &&
+        !hasVerifiedAfternoonToday &&
+        thHour === 13 &&
+        thMin >= 0 &&
+        thMin <= 20
+      ) {
+        const notifId = `verify_afternoon_${todayStr}_${session.employee_id}`;
+        dynamicNotifs.unshift({
+          id: notifId,
+          employee_id: session.employee_id,
+          type: 'checkin',
+          title: '📍 ถึงเวลายืนยันตัวตนช่วงบ่าย (13:00 น.)',
+          message: 'กรุณาบันทึกพิกัด GPS และถ่ายภาพ Selfie ยืนยันการปฏิบัติงานช่วงบ่าย (13:00 - 13:20 น.)',
+          link: '/checkin',
+          is_read: isNotifRead(notifId),
+          created_at: `${todayStr}T13:00:00+07:00`,
+        });
       }
     } catch {}
 
