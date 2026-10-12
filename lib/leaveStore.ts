@@ -1,16 +1,18 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { LeaveRequest, LeaveType, LeaveStatus } from '@/types';
 import { callGAS } from './gas';
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_LEAVE_FILE = path.join(DATA_DIR, 'leave_requests.json');
 const TMP_LEAVE_FILE = '/tmp/leave_requests.json';
+const TEST_LEAVE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_leave_requests.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_LEAVE_FILE;
-  }
+  if (isTestEnv) return TEST_LEAVE_FILE;
+  if (process.env.VERCEL) return TMP_LEAVE_FILE;
   return LOCAL_LEAVE_FILE;
 }
 
@@ -23,47 +25,38 @@ function ensureDir(filePath: string) {
   } catch {}
 }
 
-const INITIAL_LEAVES: LeaveRequest[] = [
-  {
-    id: 'leave_init_1',
-    employee_id: '1304',
-    employee_name: 'ก้องภพ บุญชู',
-    department: 'Project',
-    leave_type: 'ปฏิบัติงานที่ออฟฟิศ (Onsite)',
-    start_date: '2026-08-15',
-    end_date: '2026-08-15',
-    reason: 'เข้าประชุมวางแผนระบบ ณ สำนักงานใหญ่',
-    status: 'Approved',
-    reviewed_by: '8888 (เขมิกา)',
-    reviewed_at: '2026-08-14T17:00:00+07:00',
-    review_note: 'อนุมัติเรียบร้อย',
-    created_at: '2026-08-14T10:30:00+07:00',
-  },
-  {
-    id: 'leave_init_2',
-    employee_id: '1111',
-    employee_name: 'ก้องภพ',
-    department: 'IT',
-    leave_type: 'ลาป่วย',
-    start_date: '2026-08-18',
-    end_date: '2026-08-18',
-    reason: 'มีไข้หวัด พักรักษาตัว',
-    status: 'Approved',
-    reviewed_by: '8888 (เขมิกา)',
-    reviewed_at: '2026-08-18T07:45:00+07:00',
-    review_note: 'อนุมัติ ขอให้หายไวๆ ครับ',
-    created_at: '2026-08-18T07:30:00+07:00',
-  },
-];
-
 function loadFromDisk(): LeaveRequest[] {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
+  if (isTestEnv) {
+    try {
+      if (fs.existsSync(TEST_LEAVE_FILE)) {
+        const content = fs.readFileSync(TEST_LEAVE_FILE, 'utf-8');
+        if (content && content.trim()) {
+          const list = JSON.parse(content);
+          if (Array.isArray(list)) return list;
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  // 1. If running on Vercel and /tmp file exists, read /tmp first
+  if (process.env.VERCEL && fs.existsSync(TMP_LEAVE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_LEAVE_FILE, 'utf-8');
       if (content && content.trim()) {
         const list = JSON.parse(content);
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) return list;
+      }
+    } catch {}
+  }
+
+  // 2. Fall back to bundled repository file
+  try {
+    if (fs.existsSync(LOCAL_LEAVE_FILE)) {
+      const content = fs.readFileSync(LOCAL_LEAVE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) {
           return list;
         }
       }
@@ -71,7 +64,7 @@ function loadFromDisk(): LeaveRequest[] {
   } catch (err) {
     console.warn('Failed to load leave requests from disk:', err);
   }
-  return INITIAL_LEAVES;
+  return [];
 }
 
 function saveToDisk(records: LeaveRequest[]) {
@@ -85,14 +78,14 @@ function saveToDisk(records: LeaveRequest[]) {
 }
 
 // In-memory persistent store for Leave Requests
-let memoryLeaveRequests: LeaveRequest[] = (global as any).__memoryLeaveRequests;
-if (!memoryLeaveRequests) {
+let memoryLeaveRequests: LeaveRequest[] | undefined = (global as any).__memoryLeaveRequests;
+if (!Array.isArray(memoryLeaveRequests)) {
   memoryLeaveRequests = loadFromDisk();
   (global as any).__memoryLeaveRequests = memoryLeaveRequests;
 }
 
 export function getAllLeaveRequests(): LeaveRequest[] {
-  if (!memoryLeaveRequests || memoryLeaveRequests.length === 0) {
+  if (!Array.isArray(memoryLeaveRequests)) {
     memoryLeaveRequests = loadFromDisk();
     (global as any).__memoryLeaveRequests = memoryLeaveRequests;
   }

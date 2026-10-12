@@ -1,15 +1,17 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { NotificationType, NotificationItem } from '@/types';
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'notifications.json');
 const TMP_STORE_FILE = '/tmp/notifications.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_notifications.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_STORE_FILE;
-  }
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
   return LOCAL_STORE_FILE;
 }
 

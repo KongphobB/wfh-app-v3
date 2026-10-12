@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 export interface PushSubscriptionData {
@@ -27,14 +28,15 @@ declare global {
   var __pushSubscriptions: StoredPushSubscription[] | undefined;
 }
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'push_subscriptions.json');
 const TMP_STORE_FILE = '/tmp/push_subscriptions.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_push_subscriptions.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_STORE_FILE;
-  }
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
   return LOCAL_STORE_FILE;
 }
 

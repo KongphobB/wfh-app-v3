@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 export interface WeeklyScheduleEntry {
@@ -12,14 +13,15 @@ declare global {
   var __weeklyScheduleStore: Map<string, number[]> | undefined;
 }
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'wfh_weekly_schedules.json');
 const TMP_STORE_FILE = '/tmp/wfh_weekly_schedules.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_weekly_schedules.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_STORE_FILE;
-  }
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
   return LOCAL_STORE_FILE;
 }
 
@@ -33,6 +35,16 @@ function ensureDir(filePath: string) {
 }
 
 function loadFromDisk(): Record<string, number[]> {
+  if (isTestEnv && fs.existsSync(TEST_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+  }
+
   // 1. If running on Vercel and /tmp file exists, read /tmp first
   if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
     try {
@@ -67,7 +79,7 @@ function loadFromDisk(): Record<string, number[]> {
 }
 
 function saveToDisk(data: Record<string, number[]>) {
-  const filePath = process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
+  const filePath = getStoragePath();
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');

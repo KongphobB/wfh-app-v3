@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { getThaiDateStr } from './timeSync';
 import { createLeaveRequest, getAllLeaveRequests, updateLeaveStatus } from './leaveStore';
@@ -21,14 +22,15 @@ declare global {
   var __dailyLocationStore: Map<string, DailyLocationRecord> | undefined;
 }
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'daily_work_locations.json');
 const TMP_STORE_FILE = '/tmp/daily_work_locations.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_daily_locations.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_STORE_FILE;
-  }
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
   return LOCAL_STORE_FILE;
 }
 
@@ -42,6 +44,19 @@ function ensureDir(filePath: string) {
 }
 
 function loadFromDisk(): DailyLocationRecord[] {
+  if (isTestEnv) {
+    try {
+      if (fs.existsSync(TEST_STORE_FILE)) {
+        const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+        if (content && content.trim()) {
+          const list = JSON.parse(content);
+          if (Array.isArray(list)) return list;
+        }
+      }
+    } catch {}
+    return [];
+  }
+
   // 1. If running on Vercel and /tmp file exists, read /tmp first
   if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
     try {
@@ -72,7 +87,7 @@ function loadFromDisk(): DailyLocationRecord[] {
 }
 
 function saveToDisk(records: DailyLocationRecord[]) {
-  const filePath = process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
+  const filePath = getStoragePath();
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');

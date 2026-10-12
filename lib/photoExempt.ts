@@ -1,23 +1,50 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { callGAS } from './gas';
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
-const EXEMPT_FILE = path.join(DATA_DIR, 'photo_exempt_employees.json');
+const LOCAL_EXEMPT_FILE = path.join(DATA_DIR, 'photo_exempt_employees.json');
+const TMP_EXEMPT_FILE = '/tmp/photo_exempt_employees.json';
+const TEST_EXEMPT_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_photo_exempt.json`);
 
-function ensureDataDir() {
+function getStoragePath(): string {
+  if (isTestEnv) return TEST_EXEMPT_FILE;
+  if (process.env.VERCEL) return TMP_EXEMPT_FILE;
+  return LOCAL_EXEMPT_FILE;
+}
+
+function ensureDir(filePath: string) {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
   } catch {}
 }
 
+let cachedExemptConfig: {
+  config: {
+    exemptKeywords: string[];
+    exemptEmployeeIds: Set<string>;
+    autoExemptSupervisors: boolean;
+  };
+  expiresAt: number;
+} | null = null;
+
 export function getLocalExemptIds(): Set<string> {
+  const filePath = getStoragePath();
   try {
-    ensureDataDir();
-    if (fs.existsSync(EXEMPT_FILE)) {
-      const data = fs.readFileSync(EXEMPT_FILE, 'utf-8');
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const list = JSON.parse(data);
+      if (Array.isArray(list)) {
+        return new Set(list.map(String));
+      }
+    }
+    if (!isTestEnv && process.env.VERCEL && fs.existsSync(LOCAL_EXEMPT_FILE)) {
+      const data = fs.readFileSync(LOCAL_EXEMPT_FILE, 'utf-8');
       const list = JSON.parse(data);
       if (Array.isArray(list)) {
         return new Set(list.map(String));
@@ -30,22 +57,15 @@ export function getLocalExemptIds(): Set<string> {
 }
 
 export function saveLocalExemptIds(ids: Set<string>): void {
+  const filePath = getStoragePath();
+  cachedExemptConfig = null; // Invalidate memory cache when local exempt IDs change
   try {
-    ensureDataDir();
-    fs.writeFileSync(EXEMPT_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+    ensureDir(filePath);
+    fs.writeFileSync(filePath, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
   } catch (err) {
     console.warn('Error saving local exempt file:', err);
   }
 }
-
-let cachedExemptConfig: {
-  config: {
-    exemptKeywords: string[];
-    exemptEmployeeIds: Set<string>;
-    autoExemptSupervisors: boolean;
-  };
-  expiresAt: number;
-} | null = null;
 
 export async function getExemptConfig(): Promise<{
   exemptKeywords: string[];

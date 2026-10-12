@@ -13,7 +13,12 @@ export const photoStore = global.__wfhPhotoStore;
 
 export const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'selfies');
 
-const isReadOnlyFs = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const isReadOnlyFs = Boolean(
+  process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.VITEST ||
+    process.env.NODE_ENV === 'test'
+);
 
 if (!isReadOnlyFs) {
   try {
@@ -35,6 +40,10 @@ export function saveSelfiePhoto(primaryKey: string, photoBase64: string, altKeys
   altKeys.forEach((k) => {
     if (k) photoStore.set(k, photoBase64);
   });
+
+  if (isReadOnlyFs) {
+    return photoBase64;
+  }
 
   try {
     const base64Data = photoBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -72,11 +81,24 @@ export function getSelfiePhoto(candidateKeys: (string | null | undefined)[]): st
     if (photoStore.has(key)) {
       return photoStore.get(key) || null;
     }
+    if (
+      key.startsWith('data:image/') ||
+      key.startsWith('/uploads/') ||
+      key.startsWith('/api/') ||
+      key.startsWith('http://') ||
+      key.startsWith('https://')
+    ) {
+      return key;
+    }
   }
 
-  // Check disk
+  if (isReadOnlyFs) {
+    return null;
+  }
+
+  // Check disk (only for short key identifiers, never full base64 strings)
   for (const key of candidateKeys) {
-    if (!key) continue;
+    if (!key || key.length > 128) continue;
     const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
     const diskFile = path.join(uploadsDir, `${safeKey}.jpg`);
     if (fs.existsSync(diskFile)) {

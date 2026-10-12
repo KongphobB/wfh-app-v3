@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { SpotCheck } from '@/types';
 import { getThaiDateStr } from './timeSync';
@@ -7,14 +8,15 @@ declare global {
   var __manualSpotChecks: SpotCheck[] | undefined;
 }
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'manual_spotchecks.json');
 const TMP_STORE_FILE = '/tmp/manual_spotchecks.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_manual_spotchecks.json`);
 
 function getStoragePath(): string {
-  if (process.env.VERCEL) {
-    return TMP_STORE_FILE;
-  }
+  if (isTestEnv) return TEST_STORE_FILE;
+  if (process.env.VERCEL) return TMP_STORE_FILE;
   return LOCAL_STORE_FILE;
 }
 
@@ -54,18 +56,10 @@ function saveChecksToDisk(checks: SpotCheck[]) {
 }
 
 function getMemoryStore(): SpotCheck[] {
-  const diskChecks = loadChecksFromDisk();
-  const memChecks = global.__manualSpotChecks || [];
-
-  const map = new Map<string, SpotCheck>();
-  diskChecks.forEach((c) => map.set(c.id, c));
-  memChecks.forEach((c) => {
-    map.set(c.id, c);
-  });
-
-  const merged = Array.from(map.values());
-  global.__manualSpotChecks = merged;
-  return merged;
+  if (!Array.isArray(global.__manualSpotChecks)) {
+    global.__manualSpotChecks = loadChecksFromDisk();
+  }
+  return global.__manualSpotChecks;
 }
 
 export function addManualSpotCheck(check: SpotCheck): SpotCheck {

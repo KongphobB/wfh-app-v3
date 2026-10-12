@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 export interface CheckinAdjustment {
@@ -19,9 +20,11 @@ declare global {
   var __checkinAdjustmentStore: Map<string, CheckinAdjustment> | undefined;
 }
 
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const LOCAL_STORE_FILE = path.join(DATA_DIR, 'checkin_adjustments.json');
 const TMP_STORE_FILE = '/tmp/checkin_adjustments.json';
+const TEST_STORE_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_checkin_adjustments.json`);
 
 function ensureDir(filePath: string) {
   try {
@@ -33,6 +36,16 @@ function ensureDir(filePath: string) {
 }
 
 function loadFromDisk(): CheckinAdjustment[] {
+  if (isTestEnv && fs.existsSync(TEST_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TEST_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) return list;
+      }
+    } catch {}
+  }
+
   // 1. If running on Vercel and /tmp file exists, read /tmp first
   if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
     try {
@@ -63,7 +76,7 @@ function loadFromDisk(): CheckinAdjustment[] {
 }
 
 function saveToDisk(records: CheckinAdjustment[]) {
-  const filePath = process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
+  const filePath = isTestEnv ? TEST_STORE_FILE : process.env.VERCEL ? TMP_STORE_FILE : LOCAL_STORE_FILE;
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
