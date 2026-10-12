@@ -260,12 +260,6 @@ export default function MobileNavigation({ user }: MobileNavigationProps) {
                   onClick={async () => {
                     if (isTestingAlert) return;
                     setIsTestingAlert(true);
-                    playSpotCheckChime(true);
-                    if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
-                      try {
-                        navigator.vibrate([300, 150, 300, 150, 400]);
-                      } catch {}
-                    }
                     try {
                       const res = await testDeviceNotification();
                       if (res.nativeBannerShown) {

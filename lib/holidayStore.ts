@@ -46,12 +46,12 @@ export function getHolidayPolicyDoc(): HolidayPolicyDoc | null {
 }
 
 export function isHolidayDate(dateStr: string): boolean {
-  const holidays = getAllHolidays();
+  const holidays: CompanyHoliday[] = (global as any).__memoryHolidays || snuHolidays2026;
   return holidays.some((h) => h.is_active && h.date === dateStr);
 }
 
 export function getHolidayByDate(dateStr: string): CompanyHoliday | null {
-  const holidays = getAllHolidays();
+  const holidays: CompanyHoliday[] = (global as any).__memoryHolidays || snuHolidays2026;
   return holidays.find((h) => h.is_active && h.date === dateStr) || null;
 }
 

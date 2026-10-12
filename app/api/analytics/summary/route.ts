@@ -138,8 +138,8 @@ export async function GET(request: Request) {
     let totalCompleted = 0;
 
     rawTasks.forEach((t) => {
-      const assigned = parseInt(t.tasksAssigned || t.assigned || 1, 10) || 1;
-      const completed = parseInt(t.tasksCompleted || t.completed || 0, 10) || 0;
+      const assigned = parseInt(t.assignedTasks || t.tasksAssigned || t.assigned || 1, 10) || 1;
+      const completed = parseInt(t.completedTasks || t.tasksCompleted || t.completed || 0, 10) || 0;
       totalAssigned += assigned;
       totalCompleted += completed;
     });
@@ -161,6 +161,7 @@ export async function GET(request: Request) {
 
     // 5. Daily Trends (Last 7 days)
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+    const { getBangkokDayOfWeek } = await import('@/lib/scheduleStore');
     const dailyTrends = [];
     const now = new Date();
 
@@ -171,13 +172,20 @@ export async function GET(request: Request) {
       const dayName = d.toLocaleDateString('th-TH', { weekday: 'short', timeZone: 'Asia/Bangkok' });
 
       const checkinToday = rawCheckins.find((c) => c.date === dateStr);
-      const hasCheckedInWfhToday = Boolean(
-        checkinToday && !String(checkinToday.note || '').includes('[ปฏิบัติงานที่ออฟฟิศ')
+      const isOfficeCheckin = Boolean(
+        checkinToday &&
+          (String(checkinToday.note || '').includes('ปฏิบัติงานที่ออฟฟิศ') ||
+            String(checkinToday.verificationStatus || checkinToday.verification_status || '').includes('ออฟฟิศ'))
       );
+      const hasCheckedInWfhToday = Boolean(checkinToday && !isOfficeCheckin);
       const isLeaveToday = rawLeaves.some((l) => l.start_date <= dateStr && dateStr <= l.end_date);
       const taskToday = rawTasks.find((t) => (t.date || t.submitDate) === dateStr);
       const star = taskToday ? parseInt(taskToday.starRating || taskToday.rating, 10) || null : null;
-      const dailyDetail = resolveEmployeeDailyStatus(targetEmployeeId, dateStr, { hasCheckedInWfhToday });
+      const dailyDetail = resolveEmployeeDailyStatus(targetEmployeeId, dateStr, {
+        hasCheckedInWfhToday,
+        isOfficeCheckin,
+      });
+      const bkkDay = getBangkokDayOfWeek(dateStr);
 
       let status: 'on-time' | 'late' | 'leave' | 'missing' | 'none' = 'none';
       if (dailyDetail.status === 'holiday') {
@@ -188,9 +196,9 @@ export async function GET(request: Request) {
         const timeStr = checkinToday.time || '';
         const [h, m] = timeStr.split(':').map((x: string) => parseInt(x, 10));
         status = h < 8 || (h === 8 && m === 0) ? 'on-time' : 'late';
-      } else if (dailyDetail.location === 'office') {
+      } else if (dailyDetail.location === 'office' || dailyDetail.isExemptFromMissingCheckin) {
         status = 'leave';
-      } else if (d.getDay() !== 0 && d.getDay() !== 6 && i > 0) {
+      } else if (bkkDay !== 0 && bkkDay !== 6 && i > 0) {
         status = 'missing';
       }
 
@@ -200,7 +208,9 @@ export async function GET(request: Request) {
         checkinStatus: status,
         checkinTime: checkinToday?.time || null,
         starRating: star,
-        tasksCount: taskToday ? parseInt(taskToday.tasksCompleted || taskToday.completed || 0, 10) : 0,
+        tasksCount: taskToday
+          ? parseInt(taskToday.completedTasks || taskToday.tasksCompleted || taskToday.completed || 0, 10)
+          : 0,
       });
     }
 

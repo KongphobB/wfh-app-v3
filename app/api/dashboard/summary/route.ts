@@ -57,17 +57,24 @@ export async function GET() {
     const selfTasks = rawTasks.filter((t) => String(t.employeeId) === String(session.employee_id));
     const formattedTasks: TaskItem[] = selfTasks.map((t) => {
       const starRating = t.starRating || t.rating ? parseInt(t.starRating || t.rating, 10) : null;
+      const assigned = parseInt(t.assignedTasks || t.tasksAssigned || t.assigned || 1, 10);
+      const completed = parseInt(t.completedTasks || t.tasksCompleted || t.completed || 0, 10);
+      const remaining =
+        t.remainingTasks != null || t.tasksRemaining != null
+          ? parseInt(t.remainingTasks || t.tasksRemaining, 10)
+          : Math.max(0, assigned - completed);
       return {
         id: t.uuid || `${t.employeeId}_${t.date}`,
         submit_date: t.date || t.submitDate,
         employee_id: String(t.employeeId),
         employee_name: t.name || session.name,
-        tasks_assigned: parseInt(t.tasksAssigned || t.assigned || 1, 10),
-        tasks_completed: parseInt(t.tasksCompleted || t.completed || 0, 10),
+        tasks_assigned: assigned,
+        tasks_completed: completed,
+        tasks_remaining: remaining,
         details: t.details || t.taskDetails || '',
         submission_link: t.submissionLink || t.link || null,
         star_rating: starRating && !isNaN(starRating) ? starRating : null,
-        supervisor_note: t.supervisorNote || t.note || null,
+        supervisor_note: t.supervisorNote || t.supervisorNotes || t.note || null,
         created_at: `${t.date || todayStr}T09:00:00+07:00`,
       };
     });
@@ -153,7 +160,7 @@ export async function GET() {
         wfhStatus: wfhStatus,
         workLocationToday: dailyDetail.location,
         resolvedDailyStatus: dailyDetail.status,
-        dailyStatusReason: locRecord?.reason || dailyDetail.reason,
+        dailyStatusReason: dailyDetail.reason || locRecord?.reason,
         isExemptFromMissingCheckin: dailyDetail.isExemptFromMissingCheckin,
         isExemptFromRoutineSpotCheck: dailyDetail.isExemptFromRoutineSpotCheck,
         checkinLogs: formattedCheckins,

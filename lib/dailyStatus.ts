@@ -1,7 +1,7 @@
 import { getHolidayByDate } from './holidayStore';
 import { getAllLeaveRequests, isEmployeeOnApprovedLeave } from './leaveStore';
 import { getDailyWorkLocation, getDailyLocationRecord, WorkLocationMode } from './dailyLocationStore';
-import { isEmployeeScheduledWfhToday } from './scheduleStore';
+import { isEmployeeScheduledWfhToday, getBangkokDayOfWeek } from './scheduleStore';
 import { getThaiDateStr } from './timeSync';
 
 export type ResolvedDailyStatus =
@@ -46,12 +46,9 @@ export function resolveEmployeeDailyStatus(
   const date = dateStr || getThaiDateStr();
 
   // 1. ตรวจสอบวันหยุดสุดสัปดาห์ (เสาร์ - อาทิตย์)
-  const dayName = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Bangkok',
-    weekday: 'short',
-  }).format(new Date(`${date}T12:00:00+07:00`));
+  const dayOfWeek = getBangkokDayOfWeek(date);
 
-  if (dayName === 'Sat' || dayName === 'Sun') {
+  if (dayOfWeek === 6 || dayOfWeek === 0) {
     return {
       status: 'holiday',
       location: 'office',

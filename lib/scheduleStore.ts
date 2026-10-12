@@ -102,16 +102,18 @@ function getMemoryStore(): Map<string, number[]> {
   return global.__weeklyScheduleStore;
 }
 
+const bangkokWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Bangkok',
+  weekday: 'short',
+});
+
 /**
  * แปลงวันที่หรือวันปัจจุบันเป็นวันในสัปดาห์ตามเวลาประเทศไทย (Bangkok GMT+7)
  * 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat, 0 = Sun
  */
 export function getBangkokDayOfWeek(dateStr?: string): number {
   const date = dateStr ? new Date(`${dateStr}T12:00:00+07:00`) : new Date();
-  const dayStr = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Bangkok',
-    weekday: 'short',
-  }).format(date);
+  const dayStr = bangkokWeekdayFormatter.format(date);
 
   switch (dayStr) {
     case 'Mon': return 1;

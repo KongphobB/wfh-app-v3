@@ -27,6 +27,18 @@ export function isServerTimeSynced(): boolean {
   return hasSyncedWithServer;
 }
 
+const thaiDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Bangkok',
+});
+
+const thaiTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Bangkok',
+  hour12: false,
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 /**
  * Format a date object, timestamp, or ISO string to Bangkok date (YYYY-MM-DD).
  * Defaults to current trusted synced time if no input is provided.
@@ -34,7 +46,7 @@ export function isServerTimeSynced(): boolean {
 export function getThaiDateStr(dateInput?: Date | number | string): string {
   const d = dateInput !== undefined ? new Date(dateInput) : new Date(getSyncedNow());
   try {
-    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    return thaiDateFormatter.format(d);
   } catch {
     const thaiTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
     return thaiTime.toISOString().split('T')[0];
@@ -53,9 +65,11 @@ export function getThaiTime(dateInput?: Date | number | string): {
 } {
   const d = dateInput !== undefined ? new Date(dateInput) : new Date(getSyncedNow());
   try {
-    const timeStr = d.toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false });
-    const [h, m, s] = timeStr.split(':').map((v) => parseInt(v, 10) || 0);
-    return { hour: h, minute: m, second: s || 0, timeStr };
+    const timeStr = thaiTimeFormatter.format(d);
+    const [rawH, m, s] = timeStr.split(':').map((v) => parseInt(v, 10) || 0);
+    const h = rawH === 24 ? 0 : rawH;
+    const normalizedTimeStr = rawH === 24 ? `00:${timeStr.slice(3)}` : timeStr;
+    return { hour: h, minute: m, second: s || 0, timeStr: normalizedTimeStr };
   } catch {
     const thaiTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
     const h = thaiTime.getUTCHours();
