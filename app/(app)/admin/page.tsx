@@ -379,6 +379,39 @@ export default function AdminPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      !isAddHolOpen &&
+      !isUploadPolicyOpen &&
+      !isAddModalOpen &&
+      !editEmployee &&
+      !selectedTicket &&
+      !selectedSuggestion
+    ) {
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) {
+        if (isAddHolOpen) setIsAddHolOpen(false);
+        if (isUploadPolicyOpen) setIsUploadPolicyOpen(false);
+        if (isAddModalOpen) setIsAddModalOpen(false);
+        if (editEmployee) setEditEmployee(null);
+        if (selectedTicket) setSelectedTicket(null);
+        if (selectedSuggestion) setSelectedSuggestion(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isAddHolOpen,
+    isUploadPolicyOpen,
+    isAddModalOpen,
+    editEmployee,
+    selectedTicket,
+    selectedSuggestion,
+    submitting,
+  ]);
+
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -2379,8 +2412,14 @@ export default function AdminPage() {
 
       {/* Add Custom Holiday Modal */}
       {isAddHolOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <Card className="w-full max-w-md p-6 relative border-emerald-300 bg-white shadow-2xl space-y-4">
+        <div
+          onClick={() => !submitting && setIsAddHolOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md p-6 relative border-emerald-300 bg-white shadow-2xl space-y-4"
+          >
             <button
               onClick={() => !submitting && setIsAddHolOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
@@ -2459,8 +2498,14 @@ export default function AdminPage() {
 
       {/* Upload / Edit Policy Document Modal */}
       {isUploadPolicyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <Card className="w-full max-w-md p-6 relative border-orange-300 bg-white shadow-2xl space-y-4">
+        <div
+          onClick={() => !submitting && setIsUploadPolicyOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md p-6 relative border-orange-300 bg-white shadow-2xl space-y-4"
+          >
             <button
               onClick={() => !submitting && setIsUploadPolicyOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
@@ -2563,9 +2608,18 @@ export default function AdminPage() {
 
       {/* Add Employee Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <Card className="w-full max-w-lg p-6 relative border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setIsAddModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900">
+        <div
+          onClick={() => !submitting && setIsAddModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg p-6 relative border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <button
+              onClick={() => !submitting && setIsAddModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
+            >
               <X className="w-5 h-5" />
             </button>
 
@@ -2685,9 +2739,18 @@ export default function AdminPage() {
 
       {/* Edit Employee Modal */}
       {editEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <Card className="w-full max-w-lg p-6 relative border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
-            <button onClick={() => !submitting && setEditEmployee(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900">
+        <div
+          onClick={() => !submitting && setEditEmployee(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg p-6 relative border-slate-200 bg-white shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <button
+              onClick={() => !submitting && setEditEmployee(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
+            >
               <X className="w-5 h-5" />
             </button>
 
@@ -2835,11 +2898,17 @@ export default function AdminPage() {
 
       {/* Resolve Ticket Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <Card className="w-full max-w-md p-6 relative border-emerald-300 bg-white shadow-2xl space-y-4">
+        <div
+          onClick={() => !submitting && setSelectedTicket(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md p-6 relative border-emerald-300 bg-white shadow-2xl space-y-4"
+          >
             <button
               onClick={() => !submitting && setSelectedTicket(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2902,12 +2971,18 @@ export default function AdminPage() {
 
       {/* Respond to Suggestion Modal */}
       {selectedSuggestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <Card className="w-full max-w-md p-6 relative border-teal-300 bg-white shadow-2xl space-y-4">
+        <div
+          onClick={() => !submitting && setSelectedSuggestion(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <Card
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md p-6 relative border-teal-300 bg-white shadow-2xl space-y-4"
+          >
             <button
               type="button"
               onClick={() => !submitting && setSelectedSuggestion(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100"
             >
               <X className="w-5 h-5" />
             </button>
