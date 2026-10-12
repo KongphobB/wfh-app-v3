@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { useLanguage } from '@/lib/i18n';
 import LanguageToggle from '@/components/LanguageToggle';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function LoginPage() {
   const { t } = useLanguage();
@@ -162,28 +163,29 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 transition-colors">
       <div className="w-full max-w-md">
-        {/* Language Switcher Bar at Top */}
-        <div className="flex justify-end mb-3">
+        {/* Language & Theme Switcher Bar at Top */}
+        <div className="flex justify-end items-center gap-2 mb-3">
+          <ThemeToggle />
           <LanguageToggle />
         </div>
 
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white border border-slate-200 p-2.5 mb-4 shadow-sm">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2.5 mb-4 shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/snu-logo.png" alt="SNU Supply & Service" className="w-full h-full object-contain rounded-2xl" />
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">SNU WFH</h1>
-          <p className="text-slate-500 text-sm mt-1 font-medium">{t.auth.loginSubtitle}</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">SNU WFH</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">{t.auth.loginSubtitle}</p>
         </div>
 
         {/* Login Card */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 bg-white">
+        <div className="glass-card rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-sm font-medium">
                 <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -191,7 +193,7 @@ export default function LoginPage() {
 
             {/* Employee ID Input */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                 {t.auth.empIdLabel}
               </label>
               <div className="relative">
@@ -204,14 +206,14 @@ export default function LoginPage() {
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
                   placeholder={t.auth.empIdPlaceholder}
-                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-base font-semibold transition-colors"
+                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-base font-semibold transition-colors"
                 />
               </div>
             </div>
 
             {/* PIN Password Input */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                 {t.auth.pinLabel}
               </label>
               <div className="relative">
@@ -228,7 +230,7 @@ export default function LoginPage() {
                     if (val.length <= 4) setPin(val);
                   }}
                   placeholder="• • • •"
-                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 tracking-widest font-mono text-xl font-bold focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  className="w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tracking-widest font-mono text-xl font-bold focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                 />
               </div>
             </div>
@@ -251,11 +253,11 @@ export default function LoginPage() {
           </form>
 
           {/* Register & Quick Guide Links */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
             <button
               type="button"
               onClick={() => setIsOnboardingOpen(true)}
-              className="text-slate-500 hover:text-orange-600 font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="text-slate-500 dark:text-slate-400 hover:text-orange-600 font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <Info className="w-4 h-4 text-orange-500 shrink-0" />
               <span>{t.onboarding.quickGuideBtn}</span>
@@ -287,24 +289,24 @@ export default function LoginPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white relative max-h-[90vh] overflow-y-auto"
+            className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative max-h-[90vh] overflow-y-auto"
           >
             <button
               type="button"
               disabled={regSubmitting}
               onClick={() => setIsRegisterOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 disabled:opacity-50"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:hover:text-white p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center font-bold shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 flex items-center justify-center font-bold shrink-0">
                 <UserPlus className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">{t.auth.registerModalTitle}</h2>
-                <p className="text-xs text-slate-500">{t.auth.registerModalDesc}</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t.auth.registerModalTitle}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t.auth.registerModalDesc}</p>
               </div>
             </div>
 
@@ -335,14 +337,14 @@ export default function LoginPage() {
             </div>
 
             {regError && (
-              <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <div className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
                 <span>{regError}</span>
               </div>
             )}
 
             {regSuccess && (
-              <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2">
+              <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{regSuccess}</span>
               </div>
@@ -351,7 +353,7 @@ export default function LoginPage() {
             <form onSubmit={handleRegisterSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.empIdLabel} *</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.empIdLabel} *</label>
                   <input
                     type="text"
                     required
@@ -359,61 +361,61 @@ export default function LoginPage() {
                     value={regEmpId}
                     onChange={(e) => setRegEmpId(e.target.value)}
                     placeholder={t.auth.regIdPlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.nameLabel}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.nameLabel}</label>
                   <input
                     type="text"
                     required
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder={t.auth.namePlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-orange-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">{t.auth.emailLabel}</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.emailLabel}</label>
                 <input
                   type="email"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   placeholder={t.auth.emailPlaceholder}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:border-orange-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.positionLabel}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.positionLabel}</label>
                   <input
                     type="text"
                     value={regPosition}
                     onChange={(e) => setRegPosition(e.target.value)}
                     placeholder={t.auth.positionPlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.deptLabel}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.deptLabel}</label>
                   <input
                     type="text"
                     value={regDepartment}
                     onChange={(e) => setRegDepartment(e.target.value)}
                     placeholder={t.auth.deptPlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:border-orange-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.regPinLabel}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.regPinLabel}</label>
                   <input
                     type="password"
                     inputMode="numeric"
@@ -422,12 +424,12 @@ export default function LoginPage() {
                     value={regPin}
                     onChange={(e) => setRegPin(e.target.value.replace(/\D/g, ''))}
                     placeholder="• • • •"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold tracking-widest text-center focus:outline-none focus:border-orange-500 text-sm"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold tracking-widest text-center focus:outline-none focus:border-orange-500 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">{t.auth.regConfirmPinLabel}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t.auth.regConfirmPinLabel}</label>
                   <input
                     type="password"
                     inputMode="numeric"
@@ -436,13 +438,13 @@ export default function LoginPage() {
                     value={regConfirmPin}
                     onChange={(e) => setRegConfirmPin(e.target.value.replace(/\D/g, ''))}
                     placeholder="• • • •"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold tracking-widest text-center focus:outline-none focus:border-orange-500 text-sm"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold tracking-widest text-center focus:outline-none focus:border-orange-500 text-sm"
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-3 pt-3">
-                <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)} className="w-1/2">
+                <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)} className="w-1/2 dark:border-slate-700 dark:text-slate-200">
                   {t.common.cancel}
                 </Button>
                 <Button type="submit" disabled={regSubmitting} className="w-1/2 bg-orange-500 hover:bg-orange-600 text-white font-bold">
