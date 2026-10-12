@@ -19,14 +19,6 @@ export function OnboardingModal({ isOpen, onClose, employeeId }: OnboardingModal
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
 
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentStep(0);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   const handleFinish = () => {
     if (employeeId) {
       try {
@@ -35,6 +27,29 @@ export function OnboardingModal({ isOpen, onClose, employeeId }: OnboardingModal
     }
     onClose();
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleFinish();
+      } else if (e.key === 'ArrowRight') {
+        setCurrentStep((prev) => Math.min(prev + 1, 3));
+      } else if (e.key === 'ArrowLeft') {
+        setCurrentStep((prev) => Math.max(prev - 1, 0));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, employeeId, onClose]);
+
+  if (!isOpen) return null;
 
   const steps = [
     {
