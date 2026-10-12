@@ -131,7 +131,9 @@ export function updateManualSpotCheck(id: string, updates: Partial<SpotCheck>): 
     return c;
   });
 
-  global.__manualSpotChecks = updated;
-  saveChecksToDisk(updated);
+  if (found) {
+    global.__manualSpotChecks = updated;
+    saveChecksToDisk(updated);
+  }
   return found;
 }

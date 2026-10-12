@@ -163,6 +163,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   useEffect(() => {
     if (!spotCheck) {
       stopCamera();
+      setLoading(false);
       setPhotoDataUrl(null);
       setPopupAlert(null);
       setFirstCheckInGps(null);
@@ -170,6 +171,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       return;
     }
 
+    setLoading(false);
     setPhotoDataUrl(null);
     setPopupAlert(null);
     setOutOfBoundsReason('');
@@ -357,6 +359,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         localStorage.removeItem('wfh_active_spotcheck');
       } catch {}
 
+      setLoading(false);
       onSuccess();
       onClose();
     } catch {

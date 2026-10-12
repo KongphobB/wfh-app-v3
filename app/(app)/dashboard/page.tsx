@@ -739,7 +739,7 @@ export default function DashboardPage() {
       <SuggestionModal
         isOpen={isSuggestionOpen}
         onClose={() => setIsSuggestionOpen(false)}
-        onSuccess={() => fetchData(false, true)}
+        onSuccess={() => {}}
       />
 
       {/* Holiday Calendar Modal */}

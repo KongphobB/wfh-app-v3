@@ -33,36 +33,48 @@ let cachedExemptConfig: {
   expiresAt: number;
 } | null = null;
 
+let memoryExemptIds: Set<string> | null = null;
+
 export function getLocalExemptIds(): Set<string> {
+  if (memoryExemptIds) {
+    return new Set(memoryExemptIds);
+  }
   const filePath = getStoragePath();
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8');
       const list = JSON.parse(data);
       if (Array.isArray(list)) {
-        return new Set(list.map(String));
+        const set = new Set(list.map(String));
+        memoryExemptIds = new Set(set);
+        return set;
       }
     }
     if (!isTestEnv && process.env.VERCEL && fs.existsSync(LOCAL_EXEMPT_FILE)) {
       const data = fs.readFileSync(LOCAL_EXEMPT_FILE, 'utf-8');
       const list = JSON.parse(data);
       if (Array.isArray(list)) {
-        return new Set(list.map(String));
+        const set = new Set(list.map(String));
+        memoryExemptIds = new Set(set);
+        return set;
       }
     }
   } catch (err) {
     console.warn('Error reading local exempt file:', err);
   }
+  memoryExemptIds = new Set<string>();
   return new Set<string>();
 }
 
 export function invalidateExemptConfigCache(): void {
   cachedExemptConfig = null;
+  memoryExemptIds = null;
 }
 
 export function saveLocalExemptIds(ids: Set<string>): void {
   const filePath = getStoragePath();
   cachedExemptConfig = null; // Invalidate memory cache when local exempt IDs change
+  memoryExemptIds = new Set(ids);
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, JSON.stringify(Array.from(ids), null, 2), 'utf-8');

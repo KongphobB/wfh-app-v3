@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ExternalLink, MapPin, Clock, User, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,8 @@ export default function SelfieLightboxModal({ photo, onClose }: SelfieLightboxMo
   const [brightness, setBrightness] = useState<number>(100);
   const [hasError, setHasError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     setHasError(false);
@@ -37,12 +39,13 @@ export default function SelfieLightboxModal({ photo, onClose }: SelfieLightboxMo
   }, [photo]);
 
   useEffect(() => {
+    if (!photo) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [photo]);
 
   if (!photo) return null;
 

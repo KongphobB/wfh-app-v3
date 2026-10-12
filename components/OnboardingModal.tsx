@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Sparkles, BellRing, FileText, CalendarDays, 
@@ -18,6 +18,12 @@ interface OnboardingModalProps {
 export function OnboardingModal({ isOpen, onClose, employeeId }: OnboardingModalProps) {
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

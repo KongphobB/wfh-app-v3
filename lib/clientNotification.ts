@@ -79,6 +79,10 @@ export async function getReadyServiceWorker(timeoutMs = 2000): Promise<ServiceWo
   }
 }
 
+let cachedVapidPublicKey: string | null = null;
+let lastSubscribedEndpoint: string | null = null;
+let inFlightSubscribePromise: Promise<boolean> | null = null;
+
 /**
  * Register PushSubscription with service worker and server
  */
@@ -91,46 +95,81 @@ export async function subscribeToWebPush(): Promise<boolean> {
     return false;
   }
 
-  try {
-    const reg = await getReadyServiceWorker(2000);
-    if (!reg || !reg.pushManager) return false;
-
-    // Fetch VAPID public key with abort timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-    const res = await fetch('/api/push/public-key', { signal: controller.signal }).catch(() => null);
-    clearTimeout(timeoutId);
-    if (!res || !res.ok) return false;
-    const { publicKey } = await res.json().catch(() => ({}));
-    if (!publicKey) return false;
-
-    let subscription = await reg.pushManager.getSubscription().catch(() => null);
-    if (!subscription) {
-      const appServerKey = urlBase64ToUint8Array(publicKey);
-      subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: appServerKey as any,
-      }).catch(() => null);
-    }
-
-    if (!subscription) return false;
-
-    const subJson = subscription.toJSON();
-    const saveController = new AbortController();
-    const saveTimeout = setTimeout(() => saveController.abort(), 10000);
-    const saveRes = await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subJson }),
-      signal: saveController.signal,
-    }).catch(() => null);
-    clearTimeout(saveTimeout);
-
-    return Boolean(saveRes && saveRes.ok);
-  } catch (err) {
-    console.warn('subscribeToWebPush error:', err);
-    return false;
+  if (inFlightSubscribePromise) {
+    return inFlightSubscribePromise;
   }
+
+  inFlightSubscribePromise = (async () => {
+    try {
+      const reg = await getReadyServiceWorker(2000);
+      if (!reg || !reg.pushManager) return false;
+
+      if (!cachedVapidPublicKey) {
+        // Fetch VAPID public key with abort timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch('/api/push/public-key', { signal: controller.signal }).catch(() => null);
+        clearTimeout(timeoutId);
+        if (!res || !res.ok) return false;
+        const { publicKey } = await res.json().catch(() => ({}));
+        if (!publicKey) return false;
+        cachedVapidPublicKey = publicKey;
+      }
+
+      let subscription = await reg.pushManager.getSubscription().catch(() => null);
+      if (!subscription && cachedVapidPublicKey) {
+        const appServerKey = urlBase64ToUint8Array(cachedVapidPublicKey);
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: appServerKey as any,
+        }).catch(() => null);
+      }
+
+      if (!subscription) return false;
+
+      const subJson = subscription.toJSON();
+      const endpoint = subJson?.endpoint || subscription.endpoint || '';
+      const sessionKey = 'wfh_push_subscribed_endpoint';
+      let alreadySynced = Boolean(endpoint && lastSubscribedEndpoint === endpoint);
+      if (!alreadySynced && endpoint) {
+        try {
+          alreadySynced = sessionStorage.getItem(sessionKey) === endpoint;
+        } catch {}
+      }
+
+      if (alreadySynced) {
+        lastSubscribedEndpoint = endpoint;
+        return true;
+      }
+
+      const saveController = new AbortController();
+      const saveTimeout = setTimeout(() => saveController.abort(), 10000);
+      const saveRes = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: subJson }),
+        signal: saveController.signal,
+      }).catch(() => null);
+      clearTimeout(saveTimeout);
+
+      const ok = Boolean(saveRes && saveRes.ok);
+      if (ok && endpoint) {
+        lastSubscribedEndpoint = endpoint;
+        try {
+          sessionStorage.setItem(sessionKey, endpoint);
+        } catch {}
+      }
+
+      return ok;
+    } catch (err) {
+      console.warn('subscribeToWebPush error:', err);
+      return false;
+    } finally {
+      inFlightSubscribePromise = null;
+    }
+  })();
+
+  return inFlightSubscribePromise;
 }
 
 /**
@@ -294,13 +333,13 @@ export async function testDeviceNotification(): Promise<{
     }
   }
 
-  // Ensure push subscription is active in background without blocking
-  subscribeToWebPush().catch(() => {});
-
   // Try Server-side Web Push first to test real background push delivery (with 8s timeout)
   try {
     const reg = await getReadyServiceWorker(2000);
     const existingSub = reg && reg.pushManager ? await reg.pushManager.getSubscription().catch(() => null) : null;
+    if (!existingSub) {
+      subscribeToWebPush().catch(() => {});
+    }
     const subJson = existingSub ? existingSub.toJSON() : undefined;
 
     const controller = new AbortController();

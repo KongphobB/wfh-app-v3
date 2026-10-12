@@ -128,22 +128,26 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
+      setLoading(false);
       setPhotoDataUrl(null);
       setFirstCheckInGps(null);
       setPopupAlert(null);
+      setSuccessPopup(null);
+      setTodayTaskSubmitted(null);
       return;
     }
 
+    setLoading(false);
     setLogType(defaultType);
     setNote('');
     setOutOfBoundsReason('');
     setPopupAlert(null);
+    setSuccessPopup(null);
     setFacingMode('user');
     facingModeRef.current = 'user';
     getGpsLocation();
     startCamera('user');
     fetchFirstCheckIn();
-    checkTodayTaskSubmission();
 
     const handleVisibility = () => {
       if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current) {
@@ -159,6 +163,12 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       stopCamera();
     };
   }, [isOpen, defaultType]);
+
+  useEffect(() => {
+    if (isOpen && logType === 'ออกงาน' && todayTaskSubmitted === null) {
+      checkTodayTaskSubmission();
+    }
+  }, [isOpen, logType, todayTaskSubmitted]);
 
   const getGpsLocation = () => {
     setGpsStatus('loading');
@@ -748,7 +758,6 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
         onClose={() => setIsDailyTaskModalOpen(false)}
         onSuccess={() => {
           setTodayTaskSubmitted(true);
-          checkTodayTaskSubmission();
         }}
       />
     </>

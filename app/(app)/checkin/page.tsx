@@ -322,8 +322,8 @@ export default function CheckinPage() {
                   </div>
 
                   {(() => {
-                    const candidatePhotoUrl = log.photo_url || getEffectivePhotoUrl(log) || '';
-                    const hasAnyPhoto = Boolean(log.photo_url) || Boolean(log.has_photo) || Boolean(getEffectivePhotoUrl(log));
+                    const candidatePhotoUrl = getEffectivePhotoUrl(log) || '';
+                    const hasAnyPhoto = Boolean(candidatePhotoUrl) || Boolean(log.has_photo);
 
                     if (hasAnyPhoto && candidatePhotoUrl) {
                       return (
