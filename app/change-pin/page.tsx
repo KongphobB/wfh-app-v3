@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, Lock, AlertCircle, CheckCircle2, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { KeyRound, Lock, AlertCircle, CheckCircle2, ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -206,6 +206,21 @@ export default function ChangePinPage() {
                 <ArrowLeft className="w-4 h-4" />
                 <span>{lang === 'en' ? 'Back' : 'ย้อนกลับ'}</span>
               </Button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                  } catch {}
+                  router.push('/login');
+                  router.refresh();
+                }}
+                className="w-full pt-2 text-xs text-slate-500 hover:text-rose-600 transition-colors font-medium flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{lang === 'en' ? 'Log out / Switch account' : 'ออกจากระบบ / สลับบัญชี'}</span>
+              </button>
             </div>
           </form>
         </Card>

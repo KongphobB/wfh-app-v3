@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { setSessionCookie, formatPositionForRole } from '@/lib/auth';
 import { callGAS, getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
+import { createAuditLog } from '@/lib/auditStore';
+import { createNotification, createNotificationForAdmins } from '@/lib/notifications';
 
 const registerSchema = z.object({
   employee_id: z.string().trim().min(4, 'รหัสพนักงานต้องมีอย่างน้อย 4 หลัก').max(6, 'รหัสพนักงานไม่เกิน 6 หลัก'),
@@ -67,7 +69,39 @@ export async function POST(request: Request) {
 
     invalidateGasCache();
 
-    // 2. Auto Login (set HTTP-only session cookie)
+    // 2. Audit Trail Log
+    createAuditLog({
+      admin_id: cleanEmpId,
+      admin_name: name.trim(),
+      action_type: 'CREATE_EMPLOYEE',
+      action_title: 'ลงทะเบียนพนักงานใหม่',
+      target_employee_id: cleanEmpId,
+      target_employee_name: name.trim(),
+      details: `พนักงานลงทะเบียนใหม่ด้วยตนเอง: ${name.trim()} (${cleanEmpId}) แผนก: ${department?.trim() || 'ทั่วไป'}`,
+    });
+
+    // 3. Welcome Notification for employee & Admin Alert
+    try {
+      await Promise.all([
+        createNotification({
+          employee_id: cleanEmpId,
+          type: 'system',
+          title: 'ยินดีต้อนรับสู่ระบบ WFH',
+          message: `สวัสดีคุณ ${name.trim()} บัญชีของคุณพร้อมใช้งานแล้ว เริ่มต้นลงเวลาทำงานและตรวจสอบสิทธิ์ได้ทันที`,
+          link: '/dashboard',
+        }),
+        createNotificationForAdmins({
+          type: 'system',
+          title: 'พนักงานใหม่ลงทะเบียน',
+          message: `มีพนักงานลงทะเบียนใหม่: ${name.trim()} (${cleanEmpId}) แผนก: ${department?.trim() || 'ทั่วไป'}`,
+          link: '/admin',
+        }),
+      ]);
+    } catch (e) {
+      console.warn('Failed to dispatch welcome notifications:', e);
+    }
+
+    // 4. Auto Login (set HTTP-only session cookie)
     await setSessionCookie({
       employee_id: cleanEmpId,
       name: name.trim(),
