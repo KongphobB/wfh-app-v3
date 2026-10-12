@@ -12,15 +12,10 @@ import {
 } from 'lucide-react';
 import { Employee, Ticket, AppConfig, CheckinLog, SuggestionItem, SuggestionStatus, CompanyHoliday, HolidayPolicyDoc, AuditLogItem } from '@/types';
 import { useLanguage } from '@/lib/i18n';
+import { getThaiDateStr } from '@/lib/timeSync';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 
-const getDailyLocationsKey = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `wfh_daily_locations_${y}-${m}-${day}`;
-};
+const getDailyLocationsKey = () => `wfh_daily_locations_${getThaiDateStr()}`;
 
 const getClientDailyLocations = (): Record<string, 'office' | 'wfh'> => {
   if (typeof window === 'undefined') return {};
@@ -412,6 +407,25 @@ export default function AdminPage() {
         return;
       }
 
+      const createdEmp: Employee = {
+        employee_id: newEmpId.trim(),
+        name: newName.trim(),
+        email: newEmail.trim() || null,
+        department: newDepartment.trim() || 'ทั่วไป',
+        position: newPosition.trim() || 'พนักงาน',
+        supervisor_id: newSupervisorId.trim() || '9999',
+        role: newRole,
+        wfh_status: 'เปิดสิทธิ์',
+        one_star_count: 0,
+        force_pin_change: true,
+        is_photo_exempt: false,
+        work_location_today: 'office',
+        resolved_daily_status: 'office',
+        wfh_weekly_days: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setEmployees((prev) => [...prev, createdEmp]);
       setMessage(data.message || 'สร้างพนักงานสำเร็จ');
       setIsAddModalOpen(false);
       setNewEmpId('');
@@ -420,7 +434,6 @@ export default function AdminPage() {
       setNewDepartment('');
       setNewPosition('');
       setNewSupervisorId('');
-      fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -471,10 +484,11 @@ export default function AdminPage() {
       }
 
       // Also persist weekly schedule preset ONLY if changed
+      let nextLocToday = editEmployee.work_location_today;
       const origDays = [...(editEmployee.wfh_weekly_days || [])].sort((a, b) => a - b).join(',');
       const nextDays = [...editWeeklyDays].sort((a, b) => a - b).join(',');
       if (origDays !== nextDays) {
-        await fetch('/api/admin/employees', {
+        const schedRes = await fetch('/api/admin/employees', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -484,11 +498,35 @@ export default function AdminPage() {
             name: editName.trim() || editEmployee.name,
           }),
         });
+        if (schedRes.ok) {
+          const schedData = await schedRes.json();
+          if (schedData.work_location_today) {
+            nextLocToday = schedData.work_location_today;
+          }
+        }
       }
+
+      const targetEmpId = editEmployee.employee_id;
+      setEmployees((prev) =>
+        prev.map((emp) =>
+          emp.employee_id === targetEmpId
+            ? {
+                ...emp,
+                name: editName.trim(),
+                email: editEmail.trim() || null,
+                department: editDepartment.trim() || null,
+                position: editPosition.trim() || null,
+                supervisor_id: editSupervisorId.trim() || null,
+                role: editRole,
+                wfh_weekly_days: editWeeklyDays,
+                work_location_today: nextLocToday,
+              }
+            : emp
+        )
+      );
 
       setMessage(data.message || 'แก้ไขข้อมูลพนักงานและตาราง WFH สำเร็จ');
       setEditEmployee(null);
-      fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -516,8 +554,8 @@ export default function AdminPage() {
         return;
       }
 
+      setEmployees((prev) => prev.filter((e) => e.employee_id !== emp.employee_id));
       setMessage(data.message || 'ลบพนักงานสำเร็จ');
-      fetchAdminData();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
@@ -723,6 +761,16 @@ export default function AdminPage() {
           )
         );
         return;
+      }
+
+      if (data.work_location_today) {
+        setEmployees((prev) =>
+          prev.map((e) =>
+            e.employee_id === emp.employee_id
+              ? { ...e, wfh_weekly_days: nextDays, work_location_today: data.work_location_today }
+              : e
+          )
+        );
       }
 
       setMessage(data.message || `บันทึกตาราง WFH ของ ${emp.name} สำเร็จ`);

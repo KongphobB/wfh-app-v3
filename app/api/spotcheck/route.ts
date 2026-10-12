@@ -79,17 +79,27 @@ export async function GET() {
         }
       }
 
-      let photoUrl = getSelfiePhoto([
-        s.photo,
-        s.photoUrl,
-        s.uuid,
-        `${s.employeeId}_${s.date}`,
-        `${s.employeeId}_${s.date}_${s.round}`,
-        String(s.employeeId),
-      ]);
+      const isCompletedSpot =
+        Boolean(scanTimeRaw) ||
+        status === 'Pass' ||
+        status === 'ผ่าน' ||
+        status === 'ผ่านการสุ่มตรวจ' ||
+        s.hasPhoto === true ||
+        Boolean(s.photo);
 
-      if (!photoUrl && (s.hasPhoto === true || Boolean(s.photo))) {
-        photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(s.uuid)}&type=spotcheck`;
+      let photoUrl: string | null = null;
+      if (isCompletedSpot) {
+        photoUrl = getSelfiePhoto([
+          s.photo,
+          s.photoUrl,
+          s.uuid,
+          s.uuid ? `spot_${s.employeeId}_${s.date}_${s.uuid}` : undefined,
+          `${s.employeeId}_${s.date}_${s.round}`,
+        ]);
+
+        if (!photoUrl && s.uuid && (s.hasPhoto === true || Boolean(s.photo))) {
+          photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(s.uuid)}&type=spotcheck`;
+        }
       }
 
       return {
@@ -299,7 +309,7 @@ export async function POST(request: Request) {
       try {
         const { getLiveEmployeesMap } = await import('@/lib/gas');
         const { createNotification } = await import('@/lib/notifications');
-        const empsMap = await getLiveEmployeesMap();
+        const empsMap = (global as any).__lastKnownEmployeesMap || (await getLiveEmployeesMap());
         const supervisorId = empsMap[session.employee_id]?.supervisorId || '8888';
         const empName = session.name || empsMap[session.employee_id]?.name || session.employee_id;
 
@@ -398,7 +408,7 @@ export async function POST(request: Request) {
     try {
       const { getLiveEmployeesMap } = await import('@/lib/gas');
       const { createNotification } = await import('@/lib/notifications');
-      const empsMap = await getLiveEmployeesMap();
+      const empsMap = (global as any).__lastKnownEmployeesMap || (await getLiveEmployeesMap());
       const supervisorId = empsMap[session.employee_id]?.supervisorId || '8888';
       const empName = session.name || empsMap[session.employee_id]?.name || session.employee_id;
 

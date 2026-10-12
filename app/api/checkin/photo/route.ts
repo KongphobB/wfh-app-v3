@@ -7,6 +7,8 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+const missingPhotoCache = new Map<string, number>();
+
 export async function GET(request: Request) {
   try {
     const session = await getSession();
@@ -16,9 +18,10 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const uuid = searchParams.get('uuid');
-    const type = searchParams.get('type') || searchParams.get('logType') || 'checkin';
+    const explicitType = searchParams.get('type') || searchParams.get('logType');
+    const type = explicitType || 'checkin';
 
-    if (!uuid) {
+    if (!uuid || uuid === 'undefined' || uuid === 'null') {
       return NextResponse.json({ error: 'Missing uuid parameter' }, { status: 400 });
     }
 
@@ -55,6 +58,12 @@ export async function GET(request: Request) {
       }
     }
 
+    // Check short-lived negative cache (60s) to prevent hammering GAS for missing Drive photos
+    const missedAt = missingPhotoCache.get(uuid);
+    if (missedAt && Date.now() - missedAt < 60_000) {
+      return NextResponse.json({ error: 'Photo not found in Google Drive' }, { status: 404 });
+    }
+
     // 3. Fetch from Google Drive via GAS adminGetLogPhoto
     const gasLogType = type.includes('สุ่มตรวจ') || type === 'spotcheck' ? 'spotcheck' : 'checkin';
     let gasRes = await callGAS('adminGetLogPhoto', {
@@ -63,8 +72,8 @@ export async function GET(request: Request) {
       adminPin: '9999',
     });
 
-    if (!gasRes?.photo && gasLogType === 'checkin') {
-      // Fallback try spotcheck logType
+    if (!gasRes?.photo && !explicitType && gasLogType === 'checkin') {
+      // Fallback try spotcheck logType only when caller did not specify explicit type
       try {
         gasRes = await callGAS('adminGetLogPhoto', {
           logType: 'spotcheck',
@@ -75,6 +84,7 @@ export async function GET(request: Request) {
     }
 
     if (gasRes?.photo && typeof gasRes.photo === 'string') {
+      missingPhotoCache.delete(uuid);
       const base64Data = gasRes.photo.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
 
@@ -91,6 +101,7 @@ export async function GET(request: Request) {
       });
     }
 
+    missingPhotoCache.set(uuid, Date.now());
     return NextResponse.json({ error: 'Photo not found in Google Drive' }, { status: 404 });
   } catch (error: any) {
     console.error('Error fetching photo from Google Drive:', error);

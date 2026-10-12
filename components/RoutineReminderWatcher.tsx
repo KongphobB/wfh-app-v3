@@ -12,20 +12,7 @@ import { toast } from 'sonner';
  * 3. Evening Report & Clock-out: 16:55 - 17:15
  */
 export default function RoutineReminderWatcher() {
-  const holidaysRef = useRef<Set<string>>(new Set());
   const isFetchingRef = useRef(false);
-
-  // Load holidays once on mount
-  useEffect(() => {
-    fetch('/api/holidays')
-      .then((res) => res.json())
-      .then((data) => {
-        const list: any[] = data.holidays || [];
-        const set = new Set(list.filter((h) => h.is_active).map((h) => h.date));
-        holidaysRef.current = set;
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const checkRoutineReminders = async () => {
@@ -37,9 +24,6 @@ export default function RoutineReminderWatcher() {
       if (bkkDay === 'Sat' || bkkDay === 'Sun') return;
 
       const todayStr = getThaiDateStr(now);
-      // Skip on official company holidays
-      if (holidaysRef.current.has(todayStr)) return;
-
       const { hour, minute } = getThaiTime(now);
 
       // 1. Morning Check-in Window (08:00 - 08:30)
@@ -58,7 +42,7 @@ export default function RoutineReminderWatcher() {
         return;
       }
 
-      // Check if this specific window has already alerted today on this device
+      // Check if this specific window has already alerted or been verified today on this device
       if (isMorningWindow && localStorage.getItem(morningKey) === 'true') return;
       if (isAfternoonWindow && localStorage.getItem(afternoonKey) === 'true') return;
       if (isEveningWindow && localStorage.getItem(eveningKey) === 'true') return;
@@ -85,8 +69,8 @@ export default function RoutineReminderWatcher() {
         // Process Morning Reminder
         if (isMorningWindow && localStorage.getItem(morningKey) !== 'true') {
           const hasMorningCheckin = todayLogs.some((l) => (l.type === 'เข้างาน' || l.log_type === 'เข้างาน'));
+          localStorage.setItem(morningKey, 'true');
           if (!hasMorningCheckin) {
-            localStorage.setItem(morningKey, 'true');
             await showNativeNotification({
               title: '⏰ แจ้งเตือนเวลาเข้างาน (Clock In)',
               body: 'ถึงเวลาลงเวลาปฏิบัติงานช่วงเช้าแล้ว (08:00 น.) กรุณาเปิดกล้อง Selfie สดเพื่อลงเวลาเข้างาน',
@@ -103,8 +87,8 @@ export default function RoutineReminderWatcher() {
         // Process Afternoon Verification Reminder
         if (isAfternoonWindow && localStorage.getItem(afternoonKey) !== 'true') {
           const hasAfternoonVerify = todayLogs.some((l) => (l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน'));
+          localStorage.setItem(afternoonKey, 'true');
           if (!hasAfternoonVerify) {
-            localStorage.setItem(afternoonKey, 'true');
             await showNativeNotification({
               title: '⏰ แจ้งเตือนยืนยันตัวตนรอบบ่าย (13:00 - 13:20 น.)',
               body: 'ถึงช่วงเวลายืนยันตัวตนระหว่างวันแล้ว กรุณาถ่ายภาพ Selfie ยืนยันตัวตนก่อนเวลา 13:20 น.',
@@ -121,8 +105,8 @@ export default function RoutineReminderWatcher() {
         // Process Evening Clock-out & Daily Report Reminder
         if (isEveningWindow && localStorage.getItem(eveningKey) !== 'true') {
           const hasEveningCheckout = todayLogs.some((l) => (l.type === 'ออกงาน' || l.log_type === 'ออกงาน'));
+          localStorage.setItem(eveningKey, 'true');
           if (!hasEveningCheckout) {
-            localStorage.setItem(eveningKey, 'true');
             await showNativeNotification({
               title: '📝 แจ้งเตือนส่งรายงานประจำวัน & ลงเวลาออกงาน',
               body: 'ใกล้ถึงเวลาสิ้นสุดการทำงาน (17:00 น.) กรุณาสรุปรายงานผลงานประจำวันและลงเวลาออกงาน',

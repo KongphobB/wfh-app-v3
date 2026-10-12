@@ -39,8 +39,8 @@ export default async function AppGroupLayout({
         </main>
       </div>
 
-      {session && <GlobalSpotCheckWatcher />}
-      {session && <RoutineReminderWatcher />}
+      {session && session.role !== 'admin' && <GlobalSpotCheckWatcher />}
+      {session && session.role !== 'admin' && <RoutineReminderWatcher />}
       <Toaster />
     </div>
   );

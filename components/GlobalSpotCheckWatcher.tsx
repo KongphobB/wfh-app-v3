@@ -139,6 +139,11 @@ export default function GlobalSpotCheckWatcher() {
       if (data.server_timestamp) {
         syncServerTime(data.server_timestamp);
       }
+      if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('spotcheck-data-synced', { detail: data }));
+        } catch {}
+      }
 
       const currentActive = activeCheckRef.current;
 
@@ -387,7 +392,6 @@ export default function GlobalSpotCheckWatcher() {
       localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
       window.dispatchEvent(new CustomEvent('spotcheck-updated'));
     } catch {}
-    checkPendingSpotCheck(true);
   };
 
   if (!activeCheck) return null;

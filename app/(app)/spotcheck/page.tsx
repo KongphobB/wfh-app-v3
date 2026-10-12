@@ -108,9 +108,15 @@ export default function SpotCheckPage() {
       fetchSpotChecks(false);
     }, 35000);
 
-    const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && !document.hidden) {
-        fetchSpotChecks(false);
+    const handleDataSynced = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail) {
+        lastFetchTimeRef.current = Date.now();
+        if (detail.spotChecks) {
+          setSpotChecks(detail.spotChecks);
+        }
+        setIsWorkingAtOfficeToday(Boolean(detail.is_working_at_office_today));
+        setLoading(false);
       }
     };
 
@@ -120,12 +126,12 @@ export default function SpotCheckPage() {
       fetchSpotChecks(false, true);
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('spotcheck-data-synced', handleDataSynced);
     window.addEventListener('spotcheck-updated', handleSpotCheckUpdated);
 
     return () => {
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('spotcheck-data-synced', handleDataSynced);
       window.removeEventListener('spotcheck-updated', handleSpotCheckUpdated);
     };
   }, []);

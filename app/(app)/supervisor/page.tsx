@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { TaskItem, CheckinLog } from '@/types';
 import { useLanguage } from '@/lib/i18n';
+import { getThaiDateStr } from '@/lib/timeSync';
 import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 
 interface TriggerSpotCheckState {
@@ -74,13 +75,7 @@ export default function SupervisorPage() {
   const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'unrated' | 'rated'>('all');
   const [checkinTypeFilter, setCheckinTypeFilter] = useState<'all' | 'in' | 'out' | 'spotcheck' | 'late'>('all');
 
-  const todayStr = useMemo(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }, []);
+  const todayStr = getThaiDateStr();
 
   // Human-friendly date formatter
   const formatDisplayDate = (dateInput?: string | null, isTodayCheck = true) => {
@@ -476,7 +471,11 @@ export default function SupervisorPage() {
 
   const handleRateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask || submitting) return;
+    if (!selectedTask || submitting || !!message) return;
+
+    const targetTaskId = selectedTask.id;
+    const nextRating = Number(rating);
+    const nextNote = note.trim() || null;
 
     setSubmitting(true);
     setMessage('');
@@ -487,10 +486,10 @@ export default function SupervisorPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          task_id: selectedTask.id,
+          task_id: targetTaskId,
           employee_id: selectedTask.employee_id,
-          star_rating: Number(rating),
-          supervisor_note: note.trim() || undefined,
+          star_rating: nextRating,
+          supervisor_note: nextNote || undefined,
         }),
       });
 
@@ -502,14 +501,20 @@ export default function SupervisorPage() {
         return;
       }
 
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === targetTaskId
+            ? { ...t, star_rating: nextRating, supervisor_note: nextNote }
+            : t
+        )
+      );
       setMessage(data.message || 'ประเมินผลงานเรียบร้อยแล้ว');
       setTimeout(() => {
+        setSubmitting(false);
         setSelectedTask(null);
-        fetchSupervisorData(false, true);
       }, 1000);
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -535,11 +540,12 @@ export default function SupervisorPage() {
     setTriggerNote('');
     setTriggerSuccess('');
     setTriggerError('');
+    setTriggerLoading(false);
   };
 
   const handleTriggerSpotCheckSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!triggerTarget || triggerLoading) return;
+    if (!triggerTarget || triggerLoading || !!triggerSuccess) return;
 
     setTriggerLoading(true);
     setTriggerSuccess('');
@@ -565,12 +571,11 @@ export default function SupervisorPage() {
 
       setTriggerSuccess(data.message || 'ส่งคำสั่งสุ่มตรวจสำเร็จแล้ว (เริ่มนับถอยหลัง 10 นาที)');
       setTimeout(() => {
+        setTriggerLoading(false);
         setTriggerTarget(null);
-        fetchSupervisorData(false, true);
       }, 1500);
     } catch {
       setTriggerError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    } finally {
       setTriggerLoading(false);
     }
   };

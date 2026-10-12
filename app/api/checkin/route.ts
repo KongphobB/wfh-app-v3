@@ -199,7 +199,7 @@ export async function GET(request: Request) {
       ]);
 
       // If photo was saved in Google Drive (hasPhoto is true or photo exists)
-      if (!photoUrl && (l.hasPhoto === true || Boolean(l.photo))) {
+      if (!photoUrl && l.uuid && (l.hasPhoto === true || Boolean(l.photo))) {
         const gasType = l.type?.includes('สุ่มตรวจ') ? 'spotcheck' : 'checkin';
         photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(l.uuid)}&type=${gasType}`;
       }
@@ -404,12 +404,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Store in memory cache & disk for persistent preview
     const typeKey = `${session.employee_id}_${todayStr}_${log_type}`;
-    if (photo_base64 && typeof photo_base64 === 'string') {
-      saveSelfiePhoto(typeKey, photo_base64);
-    }
-
     const effectiveReason = out_of_bounds_reason || note || body.reason || '';
     const effectiveNote = note || out_of_bounds_reason || '';
 
@@ -434,8 +429,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (gasResult?.data?.uuid && photo_base64) {
-      saveSelfiePhoto(gasResult.data.uuid, photo_base64, [typeKey]);
+    // Store in memory cache & disk once after GAS succeeds
+    if (photo_base64 && typeof photo_base64 === 'string') {
+      if (gasResult?.data?.uuid) {
+        saveSelfiePhoto(gasResult.data.uuid, photo_base64, [typeKey]);
+      } else {
+        saveSelfiePhoto(typeKey, photo_base64);
+      }
     }
 
     // If check-in is late (หลัง 08:00 น.), send email notification to BOTH supervisor and admin

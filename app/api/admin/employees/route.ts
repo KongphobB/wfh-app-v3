@@ -273,6 +273,7 @@ export async function PATCH(request: Request) {
         success: true,
         employee_id,
         wfh_weekly_days: updatedDays,
+        work_location_today: getDailyWorkLocation(employee_id),
         message: `บันทึกตาราง WFH ประจำสัปดาห์ของ ${name || employee_id} สำเร็จ: ${formattedDays}`,
       });
     }
