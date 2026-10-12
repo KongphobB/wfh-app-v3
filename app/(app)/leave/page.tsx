@@ -62,6 +62,15 @@ export default function LeavePage() {
     fetchRequests();
   }, []);
 
+  useEffect(() => {
+    if (!previewAttachment) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewAttachment(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewAttachment]);
+
   const handleReview = async (id: string, status: LeaveStatus, note?: string) => {
     setProcessingId(id);
     try {
@@ -447,8 +456,14 @@ export default function LeavePage() {
 
       {/* Attachment Preview Lightbox Modal */}
       {previewAttachment && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
-          <div className="relative max-w-3xl max-h-[90vh] w-full bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+        <div
+          onClick={() => setPreviewAttachment(null)}
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl max-h-[90vh] w-full bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 truncate">
                 <Paperclip className="w-4 h-4 text-orange-600" />

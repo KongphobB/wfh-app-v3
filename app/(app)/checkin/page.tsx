@@ -71,6 +71,15 @@ export default function CheckinPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!alertPopup) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAlertPopup(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [alertPopup]);
+
   const openCheckinModal = (type: CheckinType) => {
     if (type === 'ยืนยันตัวตน') {
       const currentHour = getThaiTime().hour;
@@ -377,8 +386,14 @@ export default function CheckinPage() {
 
       {/* Popup Alert Dialog Modal */}
       {alertPopup && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 bg-white text-center relative animate-scale-up">
+        <div
+          onClick={() => setAlertPopup(null)}
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 bg-white text-center relative animate-scale-up"
+          >
             <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center mx-auto mb-4 font-bold shadow-inner">
               <AlertCircle className="w-7 h-7 text-orange-600" />
             </div>
