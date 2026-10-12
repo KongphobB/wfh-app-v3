@@ -5,7 +5,7 @@ import DailyTaskModal from '@/components/DailyTaskModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Plus, Star, Edit3 } from 'lucide-react';
+import { FileText, Plus, Star, Edit3, Loader2 } from 'lucide-react';
 import { TaskItem } from '@/types';
 
 import { useLanguage } from '@/lib/i18n';
@@ -120,7 +120,12 @@ export default function DailyTasksPage() {
           <CardTitle className="text-base text-slate-900 font-bold">{t.tasks.historyTitle}</CardTitle>
         </CardHeader>
         <CardContent>
-          {tasks.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12 text-slate-400 text-xs font-medium space-y-2">
+              <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto" />
+              <p>{t.common.loading}</p>
+            </div>
+          ) : tasks.length === 0 ? (
             <div className="text-center py-12 text-slate-400 text-xs font-medium">
               {t.common.noData}
             </div>

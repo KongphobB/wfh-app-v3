@@ -6,7 +6,7 @@ import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLight
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { CheckinLog, CheckinType } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
@@ -261,7 +261,12 @@ export default function CheckinPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {displayedLogs.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-10 text-slate-400 text-xs font-medium space-y-2">
+              <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto" />
+              <p>{t.common.loading}</p>
+            </div>
+          ) : displayedLogs.length === 0 ? (
             <div className="text-center py-10 text-slate-400 text-xs font-medium space-y-3">
               <p>
                 {viewFilter === 'today'
