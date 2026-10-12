@@ -89,7 +89,7 @@ export default function LoginPage() {
       setRegError(t.auth.regIdLengthError);
       return;
     }
-    if (regEmpId.trim() === '9999' || regEmpId.trim() === '8888') {
+    if (regEmpId.trim() === '9999' || regEmpId.trim() === '8888' || regEmpId.trim() === '9988') {
       setRegError('รหัสนี้สงวนไว้สำหรับระบบ กรุณาใช้รหัสพนักงานของคุณ');
       return;
     }

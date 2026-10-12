@@ -73,6 +73,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const existingUserLeaves = getLeaveRequestsForUser(session.employee_id, 'employee');
+    const duplicateOverlap = existingUserLeaves.find(
+      (r) =>
+        (r.status === 'Pending' || r.status === 'Approved') &&
+        r.leave_type === parsed.data.leave_type &&
+        r.start_date <= parsed.data.end_date &&
+        parsed.data.start_date <= r.end_date
+    );
+    if (duplicateOverlap) {
+      return NextResponse.json(
+        {
+          error: `คุณมีรายการ "${parsed.data.leave_type}" ในช่วงวันที่ ${duplicateOverlap.start_date} ถึง ${duplicateOverlap.end_date} อยู่แล้ว (${duplicateOverlap.status === 'Approved' ? 'อนุมัติแล้ว' : 'รออนุมัติ'})`,
+        },
+        { status: 400 }
+      );
+    }
+
     const newRequest = createLeaveRequest({
       employee_id: session.employee_id,
       employee_name: session.name,

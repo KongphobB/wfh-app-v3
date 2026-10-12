@@ -64,6 +64,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const existingOnDate = getAllHolidays().find((h) => h.date === parsed.data.date);
+    if (existingOnDate) {
+      return NextResponse.json(
+        { error: `มีวันหยุด "${existingOnDate.name}" ในวันที่ ${parsed.data.date} อยู่แล้ว` },
+        { status: 400 }
+      );
+    }
+
     const newHol = addCustomHoliday({
       date: parsed.data.date,
       name: parsed.data.name,
@@ -139,6 +147,16 @@ export async function PATCH(request: Request) {
     }
 
     // Mode 2: Update individual holiday
+    if (!body.id || typeof body.id !== 'string') {
+      return NextResponse.json({ error: 'ไม่ระบุรหัสวันหยุด' }, { status: 400 });
+    }
+    if (body.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.date))) {
+      return NextResponse.json({ error: 'รูปแบบวันที่ไม่ถูกต้อง (YYYY-MM-DD)' }, { status: 400 });
+    }
+    if (body.name !== undefined && String(body.name).trim().length < 2) {
+      return NextResponse.json({ error: 'ชื่อวันหยุดต้องมีความยาวอย่างน้อย 2 ตัวอักษร' }, { status: 400 });
+    }
+
     const updated = updateHoliday({
       id: body.id,
       name: body.name,

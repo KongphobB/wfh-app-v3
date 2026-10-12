@@ -82,11 +82,15 @@ export async function GET(request: Request) {
 
     let targetEmployeeId = String(session.employee_id);
 
-    if (requestedId && (session.role === 'admin' || session.role === 'supervisor')) {
-      const hasAccess = session.role === 'admin' || accessibleEmployees.some((e) => e.id === requestedId);
-      if (hasAccess) {
-        targetEmployeeId = requestedId;
+    if (requestedId && requestedId !== String(session.employee_id)) {
+      const hasAccess = session.role === 'admin' || (session.role === 'supervisor' && accessibleEmployees.some((e) => e.id === requestedId));
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: 'ไม่มีสิทธิ์เข้าถึงข้อมูลสถิติของพนักงานคนนี้' },
+          { status: 403 }
+        );
       }
+      targetEmployeeId = requestedId;
     }
 
     // Fetch unified dashboard data for this employee (reuse preFetchedSummary if target matches)
@@ -123,25 +127,47 @@ export async function GET(request: Request) {
     const rawLeaves = getLeaveRequestsForUser(targetEmployeeId, 'employee').filter(
       (l) => l.status === 'Approved' && ABSENCE_LEAVE_TYPES.has(l.leave_type)
     );
-    const leaveDaysCount = rawLeaves.reduce((sum, l) => {
+    const uniqueLeaveDates = new Set<string>();
+    for (const l of rawLeaves) {
       const startMs = new Date(`${l.start_date}T00:00:00+07:00`).getTime();
       const endMs = new Date(`${l.end_date}T00:00:00+07:00`).getTime();
       if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
-        return sum + Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
+        const dayCount = Math.min(366, Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1);
+        for (let dIdx = 0; dIdx < dayCount; dIdx++) {
+          const cur = new Date(startMs + dIdx * 86400000);
+          uniqueLeaveDates.add(getThaiDateStr(cur));
+        }
+      } else if (l.start_date) {
+        uniqueLeaveDates.add(l.start_date);
       }
-      return sum + 1;
-    }, 0);
+    }
+    const leaveDaysCount = uniqueLeaveDates.size;
 
-    // 1. Calculate On-Time Attendance
-    let onTimeCount = 0;
-    let lateCount = 0;
-
-    rawCheckins.forEach((c) => {
+    // 1. Calculate On-Time Attendance (respecting office check-ins and admin adjustments)
+    const isCheckinRecordOnTime = (c: any): boolean => {
+      const verStatus = String(c.verificationStatus || c.verification_status || '');
+      const noteStr = String(c.note || '');
+      if (noteStr.includes('ปฏิบัติงานที่ออฟฟิศ') || verStatus.includes('ออฟฟิศ') || verStatus.includes('Office')) {
+        return true;
+      }
+      if (verStatus.includes('สาย')) {
+        return false;
+      }
+      if (verStatus.includes('แก้ไขโดยแอดมิน') || verStatus === 'ปกติ' || verStatus === 'ตรงเวลา') {
+        if (verStatus.includes('แก้ไขโดยแอดมิน')) return true;
+      }
       const timeStr = c.time || '';
       const [hStr, mStr] = timeStr.split(':');
       const hour = parseInt(hStr, 10) || 0;
       const min = parseInt(mStr, 10) || 0;
-      if (hour < 8 || (hour === 8 && min === 0)) {
+      return hour < 8 || (hour === 8 && min === 0);
+    };
+
+    let onTimeCount = 0;
+    let lateCount = 0;
+
+    rawCheckins.forEach((c) => {
+      if (isCheckinRecordOnTime(c)) {
         onTimeCount++;
       } else {
         lateCount++;
@@ -267,9 +293,7 @@ export async function GET(request: Request) {
       } else if (isLeaveToday || dailyDetail.status === 'leave') {
         status = 'leave';
       } else if (checkinToday) {
-        const timeStr = checkinToday.time || '';
-        const [h, m] = timeStr.split(':').map((x: string) => parseInt(x, 10));
-        status = h < 8 || (h === 8 && m === 0) ? 'on-time' : 'late';
+        status = isCheckinRecordOnTime(checkinToday) ? 'on-time' : 'late';
       } else if (dailyDetail.location === 'office' || dailyDetail.isExemptFromMissingCheckin) {
         status = 'leave';
       } else if (bkkDay !== 0 && bkkDay !== 6 && (i > 0 || isPastMorningDeadline)) {

@@ -76,9 +76,12 @@ export default function LeavePage() {
         } else {
           await fetchRequests();
         }
+      } else {
+        alert(data.error || 'เกิดข้อผิดพลาดในการบันทึกผลการพิจารณา');
       }
     } catch (err) {
       console.error('Error updating leave status:', err);
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
     } finally {
       setProcessingId(null);
     }

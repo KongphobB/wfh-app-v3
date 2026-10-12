@@ -62,7 +62,14 @@ export async function GET(request: Request) {
     const isAfternoonAbsent = currentHour >= 12;
 
     for (const [empId, emp] of Object.entries(employeesMap)) {
-      if (empId === '9999' || empId === '9988' || emp?.dept === 'testmail' || checkedInEmpIds.has(empId)) {
+      if (
+        empId === '9999' ||
+        empId === '9988' ||
+        empId.startsWith('qa_') ||
+        empId.startsWith('test_') ||
+        String(emp?.dept || '').toLowerCase() === 'testmail' ||
+        checkedInEmpIds.has(empId)
+      ) {
         continue;
       }
 

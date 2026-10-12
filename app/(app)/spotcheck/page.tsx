@@ -35,7 +35,7 @@ function isSpotCheckCurrentlyActive(s: SpotCheck): boolean {
   const todayStr = getThaiDateStr(getSyncedNow());
   if (s.check_date !== todayStr) return false;
 
-  const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
+  const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.id?.startsWith('TEST-') || s.round?.includes('เฉพาะกิจ'));
   const triggerTimeMs = parseSpotCheckTriggerTimeMs(s);
 
   const nowMs = getSyncedNow();
@@ -152,7 +152,7 @@ export default function SpotCheckPage() {
         localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(pending));
       } catch {}
     } else if (activeCheck) {
-      const isManual = Boolean(activeCheck.id?.startsWith('SPOT-MANUAL') || activeCheck.round?.includes('เฉพาะกิจ'));
+      const isManual = Boolean(activeCheck.id?.startsWith('SPOT-MANUAL') || activeCheck.id?.startsWith('TEST-') || activeCheck.round?.includes('เฉพาะกิจ'));
       const createdMs = activeCheck.created_at ? new Date(activeCheck.created_at).getTime() : 0;
       const nowMs = getSyncedNow();
       const isStillValid = isManual && createdMs > 0 && nowMs <= createdMs + 11 * 60 * 1000;
@@ -254,7 +254,7 @@ export default function SpotCheckPage() {
             const nowMs = getSyncedNow();
             const historyChecks = spotChecks.filter((s) => {
               const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
-              const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
+              const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.id?.startsWith('TEST-') || s.round?.includes('เฉพาะกิจ'));
               const triggerTimeMs = parseSpotCheckTriggerTimeMs(s);
               const isUpcoming = isPending && !isManual && nowMs < triggerTimeMs - 5000;
               // Don't show future un-triggered scheduled checks in the history list

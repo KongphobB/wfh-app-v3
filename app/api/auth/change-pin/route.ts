@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession, setSessionCookie } from '@/lib/auth';
-import { callGAS } from '@/lib/gas';
+import { callGAS, invalidateGasCache } from '@/lib/gas';
 
 const changePinSchema = z
   .object({
@@ -53,6 +53,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    invalidateGasCache();
 
     // 2. Refresh session cookie with force_pin_change = false
     await setSessionCookie({

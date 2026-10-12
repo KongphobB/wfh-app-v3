@@ -188,8 +188,11 @@ export async function PATCH(request: Request) {
     const { task_id, employee_id, star_rating, supervisor_note } = validation.data;
     const employeesMap = await getLiveEmployeesMap();
 
-    let targetEmpId = employee_id || (task_id.includes('_') ? task_id.split('_')[0] : '');
-    if (!targetEmpId) {
+    const idFromTaskId = task_id.includes('_') ? task_id.split('_')[0] : '';
+    let targetEmpId = idFromTaskId || employee_id || '';
+
+    // If task_id is a UUID (no underscore prefix) or employee_id conflicts with idFromTaskId, look up actual task owner when supervisor
+    if (!targetEmpId || (session.role === 'supervisor' && !idFromTaskId) || (employee_id && idFromTaskId && String(employee_id) !== String(idFromTaskId))) {
       try {
         const tasksRes = await callGAS('getLogs', { logType: 'task', limit: 200 });
         const targetTask = ((tasksRes?.data || []) as any[]).find(
@@ -201,14 +204,22 @@ export async function PATCH(request: Request) {
       } catch {}
     }
 
-    if (session.role === 'supervisor' && Object.keys(employeesMap).length > 0) {
-      const isSubordinate =
-        targetEmpId && String(employeesMap[targetEmpId]?.supervisorId) === String(session.employee_id);
-      if (!isSubordinate) {
+    if (session.role === 'supervisor') {
+      if (targetEmpId && String(targetEmpId) === String(session.employee_id)) {
         return NextResponse.json(
-          { error: 'ไม่มีสิทธิ์ประเมินผลงานของพนักงานนอกสายบังคับบัญชา' },
+          { error: 'ไม่สามารถประเมินผลงานของตนเองได้' },
           { status: 403 }
         );
+      }
+      if (Object.keys(employeesMap).length > 0) {
+        const isSubordinate =
+          targetEmpId && String(employeesMap[targetEmpId]?.supervisorId) === String(session.employee_id);
+        if (!isSubordinate) {
+          return NextResponse.json(
+            { error: 'ไม่มีสิทธิ์ประเมินผลงานของพนักงานนอกสายบังคับบัญชา' },
+            { status: 403 }
+          );
+        }
       }
     }
 

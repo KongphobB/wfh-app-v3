@@ -23,6 +23,13 @@ export async function POST(request: Request) {
     const { employee_id, pin } = validation.data;
     const cleanEmpId = employee_id.trim();
 
+    if (cleanEmpId === '9988') {
+      return NextResponse.json(
+        { error: 'รหัสพนักงานนี้สงวนไว้สำหรับระบบ ไม่สามารถใช้เข้าสู่ระบบได้' },
+        { status: 403 }
+      );
+    }
+
     // 1. Rate Limiting Check
     const rateCheck = await checkRateLimit(cleanEmpId);
     if (rateCheck.isLimited) {

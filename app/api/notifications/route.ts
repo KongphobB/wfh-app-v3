@@ -235,13 +235,29 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { notification_id, mark_all, notif_ids } = body;
 
+    const userNotifIds = new Set(
+      getNotificationsForUser(session.employee_id, session.role).map((n) => n.id)
+    );
+    const isAllowedNotifId = (id: string) =>
+      userNotifIds.has(id) ||
+      id.startsWith('spot_active_') ||
+      id.startsWith('spot_fail_') ||
+      id.startsWith('spot_manual_') ||
+      id.startsWith(`verify_afternoon_`);
+
     if (mark_all) {
       markNotificationsAsRead(session.employee_id, undefined, session.role);
       if (Array.isArray(notif_ids)) {
-        notif_ids.forEach((id: string) => markNotifIdAsRead(id));
+        notif_ids.forEach((id: string) => {
+          if (typeof id === 'string' && isAllowedNotifId(id)) {
+            markNotifIdAsRead(id);
+          }
+        });
       }
-    } else if (notification_id) {
-      markNotifIdAsRead(notification_id);
+    } else if (notification_id && typeof notification_id === 'string') {
+      if (isAllowedNotifId(notification_id)) {
+        markNotifIdAsRead(notification_id);
+      }
       markNotificationsAsRead(session.employee_id, notification_id, session.role);
     }
 
