@@ -171,6 +171,15 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   };
 
   useEffect(() => {
+    if (!spotCheck) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [spotCheck, onClose]);
+
+  useEffect(() => {
     if (!spotCheck) {
       stopCamera();
       setLoading(false);

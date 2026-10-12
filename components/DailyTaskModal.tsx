@@ -30,6 +30,15 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
   }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     if (isOpen) {
       if (existingTask) {
         const comp = existingTask.tasks_completed ?? 1;
