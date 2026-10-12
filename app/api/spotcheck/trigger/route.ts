@@ -120,49 +120,44 @@ export async function POST(request: Request) {
       ...global.__activeTestSpotChecks.filter((t) => !(t.employee_id === String(employee_id) && t.result_status === 'Scheduled')),
     ];
 
-    // Send in-app notification to the target subordinate
+    // Dispatch in-app notification, real-time email alert, and Web Push concurrently
     const empName = targetEmployee?.name || employee_id;
-    try {
-      await createNotification({
+    const empEmail = targetEmployee?.email;
+    const deadlineDate = new Date(now.getTime() + 10 * 60 * 1000);
+    const deadlineStr = getThaiTime(deadlineDate).timeStr;
+    const alertBody = `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${timeStr} น.)${note ? ` หมายเหตุ: "${note}"` : ''}`;
+
+    const { sendPushToEmployee } = await import('@/lib/webPush');
+
+    const [, emailSent, pushSent] = await Promise.all([
+      createNotification({
         employee_id: String(employee_id),
         type: 'spotcheck',
         title: '🔔 ได้รับคำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ!',
-        message: `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${timeStr} น.)${note ? ` หมายเหตุ: "${note}"` : ''}`,
+        message: alertBody,
         link: '/spotcheck',
-      });
-    } catch (notifErr) {
-      console.warn('Failed to dispatch spot check notification:', notifErr);
-    }
-
-    // Real-time Email Alert directly to employee so mobile/Outlook gets alerted immediately
-    let emailSent = false;
-    const empEmail = targetEmployee?.email;
-    if (empEmail) {
-      const deadlineDate = new Date(now.getTime() + 10 * 60 * 1000);
-      const deadlineStr = getThaiTime(deadlineDate).timeStr;
-      try {
-        const emailRes = await sendSpotCheckTriggeredEmail({
-          employeeName: empName,
-          employeeId: String(employee_id),
-          employeeEmail: empEmail,
-          round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
-          scheduledTime: timeStr,
-          deadlineTime: deadlineStr,
-          note: note || undefined,
-        });
-        emailSent = Boolean(emailRes);
-      } catch (emailErr) {
-        console.warn('Failed to send spot check email alert:', emailErr);
-      }
-    }
-
-    // Full Web Push Notification to wake up mobile device / lock screen (PWA Background Push)
-    let pushSent = 0;
-    try {
-      const { sendPushToEmployee } = await import('@/lib/webPush');
-      const pushRes = await sendPushToEmployee(String(employee_id), {
+      }).catch((notifErr) => {
+        console.warn('Failed to dispatch spot check notification:', notifErr);
+      }),
+      empEmail
+        ? sendSpotCheckTriggeredEmail({
+            employeeName: empName,
+            employeeId: String(employee_id),
+            employeeEmail: empEmail,
+            round: 'เฉพาะกิจ (หัวหน้าสั่งตรวจ)',
+            scheduledTime: timeStr,
+            deadlineTime: deadlineStr,
+            note: note || undefined,
+          })
+            .then((res) => Boolean(res))
+            .catch((emailErr) => {
+              console.warn('Failed to send spot check email alert:', emailErr);
+              return false;
+            })
+        : Promise.resolve(false),
+      sendPushToEmployee(String(employee_id), {
         title: '🔔 คำสั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ!',
-        body: `หัวหน้างานได้ส่งคำสั่งสุ่มตรวจ กรุณาเปิดกล้องถ่ายภาพ Selfie สดยืนยันตัวตนภายใน 10 นาที (เวลา ${timeStr} น.)${note ? ` หมายเหตุ: "${note}"` : ''}`,
+        body: alertBody,
         url: '/spotcheck',
         tag: `spotcheck_${employee_id}_${Date.now()}`,
         vibrate: [300, 150, 300, 150, 400],
@@ -170,11 +165,13 @@ export async function POST(request: Request) {
         data: {
           spotCheck: newSpotCheck,
         },
-      });
-      pushSent = pushRes?.sent || 0;
-    } catch (pushErr) {
-      console.warn('Failed to dispatch web push alert:', pushErr);
-    }
+      })
+        .then((res) => res?.sent || 0)
+        .catch((pushErr) => {
+          console.warn('Failed to dispatch web push alert:', pushErr);
+          return 0;
+        }),
+    ]);
 
     return NextResponse.json({
       success: true,

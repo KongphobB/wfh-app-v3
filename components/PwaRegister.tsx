@@ -13,9 +13,11 @@ export default function PwaRegister() {
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     // 1. Register Service Worker immediately
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      const registerSW = () => {
+    const registerSW = () => {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker
           .register('/sw.js')
           .then((reg) => {
@@ -24,8 +26,10 @@ export default function PwaRegister() {
           .catch((err) => {
             console.warn('PWA ServiceWorker registration failed:', err);
           });
-      };
+      }
+    };
 
+    if ('serviceWorker' in navigator) {
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
         registerSW();
       } else {
@@ -34,36 +38,35 @@ export default function PwaRegister() {
     }
 
     // 2. Check if already installed & running in standalone mode
-    if (typeof window !== 'undefined') {
-      const isRunningStandalone =
-        window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone === true;
-      setIsStandalone(isRunningStandalone);
+    const isRunningStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    setIsStandalone(isRunningStandalone);
 
-      // Check if dismissed before in session
-      const dismissed = sessionStorage.getItem('snu_pwa_dismissed');
-      if (dismissed === 'true') {
-        setIsDismissed(true);
-      }
-
-      // Check if iOS
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      const isAppleMobile = /iphone|ipad|ipod/.test(userAgent);
-      setIsIOS(isAppleMobile);
-
-      // 3. Android / Chrome / Edge install prompt listener
-      const handleBeforeInstall = (e: Event) => {
-        e.preventDefault();
-        setDeferredPrompt(e);
-        setIsInstallable(true);
-      };
-
-      window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-      return () => {
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-      };
+    // Check if dismissed before in session
+    const dismissed = sessionStorage.getItem('snu_pwa_dismissed');
+    if (dismissed === 'true') {
+      setIsDismissed(true);
     }
+
+    // Check if iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isAppleMobile = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isAppleMobile);
+
+    // 3. Android / Chrome / Edge install prompt listener
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    return () => {
+      window.removeEventListener('load', registerSW);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
   }, []);
 
   const handleInstallClick = async () => {

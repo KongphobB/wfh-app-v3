@@ -48,6 +48,7 @@ const LOG_MUTATION_ACTIONS = new Set([
   'submitEmployeeTask',
   'submitSupervisorRating',
   'submitSpotCheck',
+  'runScheduledSpotChecks',
   'submitTicket',
   'resolveTicket',
 ]);

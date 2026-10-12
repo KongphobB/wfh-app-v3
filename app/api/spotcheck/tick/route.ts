@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { callGAS } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
-import { getThaiDateStr } from '@/lib/timeSync';
-import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
+import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+import { getBangkokDayOfWeek } from '@/lib/scheduleStore';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,7 @@ export async function GET(request: Request) {
   try {
     // Check if current time in Bangkok (ICT / UTC+7) is in lunch break (12:00 - 13:00)
     const now = new Date();
-    const bkkHourStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour12: false, hour: '2-digit' });
-    const bkkHour = parseInt(bkkHourStr, 10);
+    const { hour: bkkHour } = getThaiTime(now);
 
     if (bkkHour === 12) {
       return NextResponse.json({
@@ -27,9 +26,11 @@ export async function GET(request: Request) {
       });
     }
 
+    const todayStr = getThaiDateStr(now);
+
     // Skip spot checks on weekends
-    const bkkDayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'short' }).format(now);
-    if (bkkDayName === 'Sat' || bkkDayName === 'Sun') {
+    const bkkDayNum = getBangkokDayOfWeek(todayStr);
+    if (bkkDayNum === 0 || bkkDayNum === 6) {
       return NextResponse.json({
         success: true,
         message: 'ขณะนี้เป็นวันหยุดสุดสัปดาห์ (เสาร์-อาทิตย์) ยกเว้นการสุ่มตรวจอัตโนมัติ',
@@ -40,7 +41,6 @@ export async function GET(request: Request) {
 
     // Skip spot checks on company/national holidays
     const { getHolidayByDate } = await import('@/lib/holidayStore');
-    const todayStr = getThaiDateStr(now);
     const holidayToday = getHolidayByDate(todayStr);
     if (holidayToday) {
       return NextResponse.json({
@@ -90,40 +90,45 @@ export async function GET(request: Request) {
               updateManualSpotCheck(check.id, { result_status: 'ไม่ผ่าน (ขาดการติดต่อ)' });
             }
 
-            const emp = employeesMap[check.employee_id];
-            const empName = emp?.name || check.employee_name || check.employee_id;
-            const supervisorId = emp?.supervisorId;
-            const supervisorEmail = supervisorId ? employeesMap[supervisorId]?.email : null;
-            const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
+            const manualAlertKey = `alerted_missed_spot_${check.id || `${check.employee_id}_${check.check_date}_${check.scheduled_time}`}`;
+            if (!(global as any)[manualAlertKey]) {
+              (global as any)[manualAlertKey] = true;
 
-            if (supervisorId) {
-              await createNotificationForSupervisor({
-                supervisor_id: supervisorId,
-                type: 'spotcheck',
-                title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${check.employee_id})`,
-                message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${check.round}`,
-                link: '/supervisor',
-              });
+              const emp = employeesMap[check.employee_id];
+              const empName = emp?.name || check.employee_name || check.employee_id;
+              const supervisorId = emp?.supervisorId;
+              const supervisorEmail = supervisorId ? employeesMap[supervisorId]?.email : null;
+              const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
+
+              await Promise.all([
+                supervisorId
+                  ? createNotificationForSupervisor({
+                      supervisor_id: supervisorId,
+                      type: 'spotcheck',
+                      title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${check.employee_id})`,
+                      message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${check.round}`,
+                      link: '/supervisor',
+                    })
+                  : Promise.resolve(),
+                createNotification({
+                  employee_id: check.employee_id,
+                  type: 'spotcheck',
+                  title: '⚠️ คุณไม่ผ่านการสุ่มตรวจยืนยันตัวตน',
+                  message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${check.round}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
+                  link: '/spotcheck',
+                }),
+                sendMissedSpotCheckAlertEmail({
+                  employeeName: empName,
+                  employeeId: check.employee_id,
+                  department: emp?.dept,
+                  round: check.round,
+                  scheduledTime: check.scheduled_time,
+                  supervisorEmail,
+                  adminEmail,
+                  employeeEmail: emp?.email,
+                }),
+              ]);
             }
-
-            await createNotification({
-              employee_id: check.employee_id,
-              type: 'spotcheck',
-              title: '⚠️ คุณไม่ผ่านการสุ่มตรวจยืนยันตัวตน',
-              message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${check.round}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
-              link: '/spotcheck',
-            });
-
-            await sendMissedSpotCheckAlertEmail({
-              employeeName: empName,
-              employeeId: check.employee_id,
-              department: emp?.dept,
-              round: check.round,
-              scheduledTime: check.scheduled_time,
-              supervisorEmail,
-              adminEmail,
-              employeeEmail: emp?.email,
-            });
           }
         }
       }
@@ -161,34 +166,34 @@ export async function GET(request: Request) {
                   const supervisorEmail = supervisorId ? employeesMap[supervisorId]?.email : null;
                   const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
 
-                  if (supervisorId) {
-                    await createNotificationForSupervisor({
-                      supervisor_id: supervisorId,
+                  await Promise.all([
+                    supervisorId
+                      ? createNotificationForSupervisor({
+                          supervisor_id: supervisorId,
+                          type: 'spotcheck',
+                          title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${s.employeeId})`,
+                          message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${s.round || 'ประจำวัน'}`,
+                          link: '/supervisor',
+                        })
+                      : Promise.resolve(),
+                    createNotification({
+                      employee_id: String(s.employeeId),
                       type: 'spotcheck',
-                      title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${s.employeeId})`,
-                      message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${s.round || 'ประจำวัน'}`,
-                      link: '/supervisor',
-                    });
-                  }
-
-                  await createNotification({
-                    employee_id: String(s.employeeId),
-                    type: 'spotcheck',
-                    title: '⚠️ คุณไม่ผ่านการสุ่มตรวจยืนยันตัวตน',
-                    message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${s.round || 'ประจำวัน'}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
-                    link: '/spotcheck',
-                  });
-
-                  await sendMissedSpotCheckAlertEmail({
-                    employeeName: empName,
-                    employeeId: String(s.employeeId),
-                    department: emp?.dept,
-                    round: s.round || 'ประจำวัน',
-                    scheduledTime: scheduledTime,
-                    supervisorEmail,
-                    adminEmail,
-                    employeeEmail: emp?.email,
-                  });
+                      title: '⚠️ คุณไม่ผ่านการสุ่มตรวจยืนยันตัวตน',
+                      message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${s.round || 'ประจำวัน'}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
+                      link: '/spotcheck',
+                    }),
+                    sendMissedSpotCheckAlertEmail({
+                      employeeName: empName,
+                      employeeId: String(s.employeeId),
+                      department: emp?.dept,
+                      round: s.round || 'ประจำวัน',
+                      scheduledTime: scheduledTime,
+                      supervisorEmail,
+                      adminEmail,
+                      employeeEmail: emp?.email,
+                    }),
+                  ]);
                 }
               }
             }

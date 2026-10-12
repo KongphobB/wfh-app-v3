@@ -11,16 +11,25 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('wfh_theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else {
-      setIsDark(false);
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
+    const syncTheme = () => {
+      const savedTheme = localStorage.getItem('wfh_theme');
+      if (savedTheme === 'dark') {
+        setIsDark(true);
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        setIsDark(false);
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+    };
+    syncTheme();
+    window.addEventListener('wfh_theme_toggle', syncTheme);
+    window.addEventListener('storage', syncTheme);
+    return () => {
+      window.removeEventListener('wfh_theme_toggle', syncTheme);
+      window.removeEventListener('storage', syncTheme);
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -35,6 +44,7 @@ export default function ThemeToggle() {
       document.documentElement.classList.add('light');
       localStorage.setItem('wfh_theme', 'light');
     }
+    window.dispatchEvent(new Event('wfh_theme_toggle'));
   };
 
   if (!mounted) {

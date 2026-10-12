@@ -45,8 +45,9 @@ let lastSpotCheckSoundPlayedAt = 0;
 export function playSpotCheckChime(force = false): void {
   if (!isSoundEnabled()) return;
   const nowWall = Date.now();
-  // Debounce guard: avoid duplicate sounds playing within 12 seconds unless forced
-  if (!force && nowWall - lastSpotCheckSoundPlayedAt < 12000) {
+  // Debounce guard: avoid duplicate sounds playing within 12s (or 350ms when forced in the same frame)
+  const minIntervalMs = force ? 350 : 12000;
+  if (nowWall - lastSpotCheckSoundPlayedAt < minIntervalMs) {
     return;
   }
   lastSpotCheckSoundPlayedAt = nowWall;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { callGAS, invalidateGasCache } from '@/lib/gas';
+import { callGAS } from '@/lib/gas';
 import { getLocalExemptIds, saveLocalExemptIds, invalidateExemptConfigCache } from '@/lib/photoExempt';
 import { createAuditLog } from '@/lib/auditStore';
 
@@ -28,7 +28,6 @@ export async function POST(request: Request) {
     }
 
     saveLocalExemptIds(localIds);
-    invalidateExemptConfigCache();
 
     // Sync to GAS in background
     try {
@@ -40,11 +39,9 @@ export async function POST(request: Request) {
       )
         .split(',')
         .map((p: string) => p.trim())
-        .filter((item) => item && !/^\d+$/.test(item) && item !== targetEmpId);
+        .filter((item) => item && !/^\d+$/.test(item) && !item.startsWith('ID:') && item !== targetEmpId);
 
-      if (is_exempt) {
-        rawList.push(targetEmpId);
-      }
+      rawList.push(...Array.from(localIds));
 
       await callGAS('adminUpdateConfig', {
         officeLat: cfg.office_latitude || '12.736929',
@@ -57,7 +54,6 @@ export async function POST(request: Request) {
       console.warn('Background GAS sync error:', gasErr);
     }
 
-    invalidateGasCache('getSystemConfig');
     invalidateExemptConfigCache();
 
     createAuditLog({

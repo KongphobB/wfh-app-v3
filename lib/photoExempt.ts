@@ -68,7 +68,6 @@ export function getLocalExemptIds(): Set<string> {
 
 export function invalidateExemptConfigCache(): void {
   cachedExemptConfig = null;
-  memoryExemptIds = null;
 }
 
 export function saveLocalExemptIds(ids: Set<string>): void {
