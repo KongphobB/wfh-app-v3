@@ -236,7 +236,18 @@ export async function GET() {
     const { getActiveManualSpotChecksAsync, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
     const activeManualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
     const allManualToday = getManualSpotChecksForDate(todayStr, String(session.employee_id));
-    const activeManual = activeManualChecks.find(
+    const activeTestChecks = (((global as any).__activeTestSpotChecks || []) as SpotCheck[]).filter(
+      (t) => String(t.employee_id) === String(session.employee_id)
+    );
+    const combinedManualChecks = [
+      ...activeManualChecks,
+      ...activeTestChecks.filter((t) => !activeManualChecks.some((m) => m.id === t.id)),
+    ];
+    const combinedAllManualToday = [
+      ...allManualToday,
+      ...activeTestChecks.filter((t) => !allManualToday.some((m) => m.id === t.id)),
+    ];
+    const activeManual = combinedManualChecks.find(
       (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
     );
 
@@ -248,7 +259,7 @@ export async function GET() {
           const isPending =
             s.result_status === 'Pending' || s.result_status === 'Scheduled' || s.result_status === 'รอการยืนยัน';
           if (!isPending || s.actual_scan_time) return false;
-          const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
+          const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.id?.startsWith('TEST-') || s.round?.includes('เฉพาะกิจ'));
           const triggerMs = s.created_at ? new Date(s.created_at).getTime() : 0;
           if (!isManual && triggerMs > 0 && nowMs < triggerMs - 5000) return false;
           if (triggerMs > 0 && nowMs > triggerMs + 11 * 60 * 1000) return false;
@@ -257,10 +268,10 @@ export async function GET() {
     const activeSpotCheck = activeManual || activeRoutine || null;
 
     const filteredRoutineSpots = dailyDetail.isExemptFromRoutineSpotCheck
-      ? formattedSpots.filter((s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL'))
+      ? formattedSpots.filter((s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL') || s.id?.startsWith('TEST-'))
       : formattedSpots;
     const finalSpots = [
-      ...allManualToday.filter((m) => !filteredRoutineSpots.some((r) => r.id === m.id)),
+      ...combinedAllManualToday.filter((m) => !filteredRoutineSpots.some((r) => r.id === m.id)),
       ...filteredRoutineSpots,
     ];
 
