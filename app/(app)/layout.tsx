@@ -14,13 +14,13 @@ export default async function AppGroupLayout({
   const session = await getSession();
 
   return (
-    <div className="min-h-screen w-full max-w-full flex bg-slate-50 text-slate-900 overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-full flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-x-hidden">
       {/* Desktop Sidebar */}
       <AppSidebar user={session} />
 
       {/* Main Content Area (Offset by lg:pl-64 on desktop) */}
       <div className="flex-1 flex flex-col min-w-0 w-full max-w-full min-h-screen lg:pl-64 overflow-x-hidden">
-        <header className="h-16 w-full max-w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-xl px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+        <header className="h-16 w-full max-w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
           {/* Left: Mobile Navigation Drawer Trigger (Hidden on Desktop) */}
           <div className="flex items-center">
             {session && <MobileNavigation user={session} />}

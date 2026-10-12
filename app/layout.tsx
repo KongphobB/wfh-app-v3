@@ -55,10 +55,10 @@ export default function RootLayout({
       </head>
       <body 
         suppressHydrationWarning
-        className={`${inter.className} bg-slate-50 text-slate-900 min-h-screen antialiased selection:bg-orange-500 selection:text-white`}
+        className={`${inter.className} bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen antialiased selection:bg-orange-500 selection:text-white`}
       >
         <LanguageProvider>
-          <div className="min-h-screen flex flex-col bg-slate-50">
+          <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
             {children}
           </div>
           <PwaRegister />

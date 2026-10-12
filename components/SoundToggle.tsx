@@ -30,7 +30,7 @@ export default function SoundToggle() {
 
   if (!mounted) {
     return (
-      <div className="w-9 h-9 rounded-xl border border-slate-200 bg-white" />
+      <div className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
     );
   }
 
@@ -40,8 +40,8 @@ export default function SoundToggle() {
       onClick={handleToggle}
       className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
         enabled
-          ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-orange-600'
-          : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400'
+          ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-orange-600'
+          : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700 text-slate-400'
       }`}
       title={
         enabled
