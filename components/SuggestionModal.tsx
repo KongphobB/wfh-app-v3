@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquarePlus, X, Shield, ShieldCheck, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -23,11 +23,19 @@ export function SuggestionModal({ isOpen, onClose, onSuccess }: SuggestionModalP
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setError('');
+      setSuccess('');
+      setSubmitting(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || !!success) return;
 
     setError('');
     setSuccess('');
@@ -65,12 +73,12 @@ export function SuggestionModal({ isOpen, onClose, onSuccess }: SuggestionModalP
       setTimeout(() => {
         setTopic('');
         setContent('');
+        setSubmitting(false);
         onSuccess?.();
         onClose();
       }, 1200);
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    } finally {
       setSubmitting(false);
     }
   };

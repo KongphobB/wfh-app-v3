@@ -146,17 +146,23 @@ export function markNotificationsAsRead(employeeId: string, notifId?: string, ro
   if (notifId) {
     readNotifIds.add(notifId);
   }
+  let changed = false;
   let list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
   list = list.map((n) => {
     const isTargetUser = n.employee_id === employeeId || (role === 'admin' && (n.employee_id === 'ROLE:admin' || n.employee_id === '9999'));
     if (isTargetUser) {
       if (!notifId || n.id === notifId) {
         readNotifIds.add(n.id);
-        return { ...n, is_read: true };
+        if (!n.is_read) {
+          changed = true;
+          return { ...n, is_read: true };
+        }
       }
     }
     return n;
   });
   (global as any).__memoryNotifications = list;
-  saveNotificationsToDisk(list);
+  if (changed) {
+    saveNotificationsToDisk(list);
+  }
 }

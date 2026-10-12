@@ -109,11 +109,15 @@ export function addCheckinAdjustment(adj: CheckinAdjustment) {
 export function applyCheckinAdjustments<T extends Record<string, any>>(logs: T[]): T[] {
   if (!Array.isArray(logs) || logs.length === 0) return logs;
   const adjustments = getAllCheckinAdjustments();
-  if (adjustments.length === 0) return logs;
 
   return logs
     .filter((log) => {
       const logEmpId = String(log.employeeId || log.employee_id || '');
+      // Exclude test/QA records that may have been synced to Google Sheets
+      if (logEmpId.startsWith('qa_') || logEmpId.startsWith('test_')) {
+        return false;
+      }
+
       const logDate = String(log.date || log.log_date || '');
       const logType = String(log.type || log.log_type || '');
 
@@ -130,6 +134,19 @@ export function applyCheckinAdjustments<T extends Record<string, any>>(logs: T[]
       const logEmpId = String(log.employeeId || log.employee_id || '');
       const logDate = String(log.date || log.log_date || '');
       const logType = String(log.type || log.log_type || '');
+      const noteStr = String(log.note || '');
+
+      // Normalize leave request/approval system logs that were previously stored with type 'เข้างาน'
+      if (
+        logType === 'เข้างาน' &&
+        (noteStr.startsWith('[ยื่นคำขอ') || noteStr.startsWith('[ผลการพิจารณา'))
+      ) {
+        const normalized: any = { ...log, type: 'ระบบการลา' };
+        if ('log_type' in normalized) {
+          normalized.log_type = 'ระบบการลา';
+        }
+        return normalized as T;
+      }
 
       if (logType === 'เข้างาน') {
         const adj = adjustments.find((a) => a.date === logDate && a.employee_id === logEmpId);

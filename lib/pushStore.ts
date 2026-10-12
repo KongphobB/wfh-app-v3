@@ -95,11 +95,24 @@ export function savePushSubscription(
   const now = new Date().toISOString();
 
   if (existingIdx >= 0) {
+    const existing = store[existingIdx];
+    const nextEmpId = String(employee_id);
+    const nextUa = userAgent || existing.user_agent;
+    const isUnchanged =
+      existing.employee_id === nextEmpId &&
+      existing.keys?.p256dh === sub.keys?.p256dh &&
+      existing.keys?.auth === sub.keys?.auth &&
+      existing.user_agent === nextUa;
+
+    if (isUnchanged) {
+      return existing;
+    }
+
     store[existingIdx] = {
-      ...store[existingIdx],
-      employee_id: String(employee_id),
+      ...existing,
+      employee_id: nextEmpId,
       keys: sub.keys,
-      user_agent: userAgent || store[existingIdx].user_agent,
+      user_agent: nextUa,
       updated_at: now,
     };
     saveSubscriptionsToDisk(store);

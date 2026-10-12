@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarDays, X, AlertCircle, CheckCircle2, ShieldCheck, Paperclip, Upload, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -27,6 +27,21 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      const currentToday = getThaiDateStr();
+      setStartDate(currentToday);
+      setEndDate(currentToday);
+      setReason('');
+      setAttachmentUrl(null);
+      setAttachmentName(null);
+      setAttachmentType(null);
+      setError('');
+      setSuccess('');
+      setSubmitting(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,7 +70,7 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || !!success) return;
 
     setError('');
     setSuccess('');
@@ -99,12 +114,12 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
 
       setSuccess(data.message || 'ยื่นคำขอลาเรียบร้อยแล้ว');
       setTimeout(() => {
+        setSubmitting(false);
         onSuccess?.();
         onClose();
       }, 1200);
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    } finally {
       setSubmitting(false);
     }
   };

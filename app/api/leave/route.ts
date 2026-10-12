@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getLeaveRequestsForUser, createLeaveRequest, updateLeaveStatus } from '@/lib/leaveStore';
-import { createNotification, createNotificationForAdmins } from '@/lib/notifications';
+import { createNotification, createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
 import { createAuditLog } from '@/lib/auditStore';
+import { getLiveEmployeesMap } from '@/lib/gas';
 import { LeaveType, LeaveStatus } from '@/types';
 import { z } from 'zod';
 
@@ -72,21 +73,38 @@ export async function POST(request: Request) {
     const isOnsite = newRequest.leave_type === 'ปฏิบัติงานที่ออฟฟิศ (Onsite)';
     const isWFH = newRequest.leave_type === 'ขอปฏิบัติงานที่บ้าน (WFH)';
 
+    const notifTitle = isOnsite
+      ? `🏢 แจ้งเข้าออฟฟิศ: ${session.name} (อนุมัติอัตโนมัติ)`
+      : isWFH
+      ? `🏡 ขอปฏิบัติงาน WFH: ${session.name} (รอหัวหน้าอนุมัติ)`
+      : `📅 คำขอลาใหม่: ${session.name} (${parsed.data.leave_type})`;
+    const notifMessage = isOnsite
+      ? `พนักงาน ${session.name} แจ้งเข้าปฏิบัติงานที่ออฟฟิศ วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} (ระบบยกเว้นการแจ้งเตือนขาดงานให้อัตโนมัติ)`
+      : isWFH
+      ? `พนักงาน ${session.name} ขอย้ายไปปฏิบัติงาน WFH วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`
+      : `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`;
+
     // Notify admins / supervisor
     await createNotificationForAdmins({
       type: 'ticket',
-      title: isOnsite
-        ? `🏢 แจ้งเข้าออฟฟิศ: ${session.name} (อนุมัติอัตโนมัติ)`
-        : isWFH
-        ? `🏡 ขอปฏิบัติงาน WFH: ${session.name} (รอหัวหน้าอนุมัติ)`
-        : `📅 คำขอลาใหม่: ${session.name} (${parsed.data.leave_type})`,
-      message: isOnsite
-        ? `พนักงาน ${session.name} แจ้งเข้าปฏิบัติงานที่ออฟฟิศ วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} (ระบบยกเว้นการแจ้งเตือนขาดงานให้อัตโนมัติ)`
-        : isWFH
-        ? `พนักงาน ${session.name} ขอย้ายไปปฏิบัติงาน WFH วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`
-        : `พนักงาน ${session.name} ขอ${parsed.data.leave_type} วันที่ ${parsed.data.start_date} ถึง ${parsed.data.end_date} เหตุผล: ${parsed.data.reason}`,
+      title: notifTitle,
+      message: notifMessage,
       link: '/leave',
     });
+
+    const empMap =
+      (global as any).__lastKnownEmployeesMap ||
+      (process.env.VITEST || process.env.NODE_ENV === 'test' ? {} : await getLiveEmployeesMap());
+    const supervisorId = empMap?.[session.employee_id]?.supervisorId;
+    if (supervisorId && supervisorId !== '9999') {
+      await createNotificationForSupervisor({
+        supervisor_id: supervisorId,
+        type: 'ticket',
+        title: notifTitle,
+        message: notifMessage,
+        link: '/leave',
+      });
+    }
 
     return NextResponse.json({
       success: true,

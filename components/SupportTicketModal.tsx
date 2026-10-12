@@ -115,7 +115,11 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
         playTicketAlertSound();
       } catch {}
       setDescription('');
-      fetchMyTickets();
+      if (data.ticket) {
+        setMyTickets((prev) => [data.ticket, ...prev]);
+      } else {
+        fetchMyTickets();
+      }
       // Switch to history tab after 1.2 seconds
       setTimeout(() => {
         setActiveTab('history');

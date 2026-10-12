@@ -76,9 +76,21 @@ export async function POST(request: Request) {
       console.warn('Failed to create ticket notification:', notifErr);
     }
 
+    const createdTicket: Ticket = {
+      id: (gasResult as any)?.ticketId || (gasResult as any)?.uuid || `tkt_${Date.now()}`,
+      employee_id: String(session.employee_id),
+      employee_name: session.name || session.employee_id,
+      problem_type,
+      description: description || null,
+      status: 'Pending',
+      admin_notes: null,
+      created_at: new Date().toISOString(),
+    };
+
     return NextResponse.json({
       success: true,
       message: 'ส่ง Ticket แจ้งปัญหาลง Google Sheet เรียบร้อยแล้ว',
+      ticket: createdTicket,
     });
   } catch (error: any) {
     console.error('POST ticket error:', error);

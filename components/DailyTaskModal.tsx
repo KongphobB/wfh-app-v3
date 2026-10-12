@@ -47,6 +47,7 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
         setSubmissionLink('');
       }
       setError('');
+      setLoading(false);
     }
   }, [isOpen, existingTask]);
 
@@ -96,6 +97,7 @@ export default function DailyTaskModal({ isOpen, onClose, onSuccess, existingTas
       }
 
       playSuccessChime();
+      setLoading(false);
       onSuccess();
       onClose();
     } catch {

@@ -54,7 +54,11 @@ export default function LeavePage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        await fetchRequests();
+        if (data.data) {
+          setRequests((prev) => prev.map((r) => (r.id === id ? data.data : r)));
+        } else {
+          await fetchRequests();
+        }
       }
     } catch (err) {
       console.error('Error updating leave status:', err);

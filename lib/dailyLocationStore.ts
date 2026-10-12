@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { getThaiDateStr } from './timeSync';
-import { createLeaveRequest, getAllLeaveRequests, updateLeaveStatus } from './leaveStore';
+import { createLeaveRequest, getAllLeaveRequests, updateLeaveStatus, removeLeaveRequestById } from './leaveStore';
 import { isEmployeeScheduledWfhToday, getAllWeeklySchedules, getBangkokDayOfWeek } from './scheduleStore';
 
 export type WorkLocationMode = 'office' | 'wfh';
@@ -208,12 +208,9 @@ export function setDailyWorkLocation(
       });
     }
   } else if (location === 'wfh') {
-    // If set to wfh and there was an admin-generated onsite request for today, remove it
+    // If set to wfh and there was an admin-generated onsite request for today, remove it and persist to disk
     if (existingOnsite && existingOnsite.reason?.includes('แอดมิน')) {
-      const idx = leaves.findIndex((l) => l.id === existingOnsite.id);
-      if (idx !== -1) {
-        leaves.splice(idx, 1);
-      }
+      removeLeaveRequestById(existingOnsite.id);
     }
   }
 

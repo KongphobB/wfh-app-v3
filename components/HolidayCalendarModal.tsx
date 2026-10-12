@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Calendar as CalendarIcon, X, ChevronLeft, ChevronRight, FileText, 
   Download, Clock, Eye, Palmtree
@@ -24,9 +24,14 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth()); // 0-indexed
   const [loading, setLoading] = useState<boolean>(true);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+  const lastFetchedRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isOpen) return;
+    if (holidays.length > 0 && Date.now() - lastFetchedRef.current < 60_000) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetch('/api/holidays')
       .then((res) => res.json())
@@ -34,11 +39,12 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
         if (data.success) {
           setHolidays(data.holidays || []);
           setPolicyDoc(data.policyDoc || null);
+          lastFetchedRef.current = Date.now();
         }
       })
       .catch((err) => console.error('Fetch holidays error:', err))
       .finally(() => setLoading(false));
-  }, [isOpen]);
+  }, [isOpen, holidays.length]);
 
   // Months labels
   const monthNamesTh = [
