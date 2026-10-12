@@ -190,7 +190,10 @@ export function updateLeaveStatus(params: {
         type: 'ระบบการลา',
         employeeId: updatedReq.employee_id,
         note: `[ผลการพิจารณา${updatedReq.leave_type}: ${params.status}] ${updatedReq.start_date} ถึง ${updatedReq.end_date} ผู้พิจารณา: ${params.reviewed_by}${params.review_note ? ` หมายเหตุ: ${params.review_note}` : ''}`,
-        verificationStatus: `อนุมัติ ${updatedReq.leave_type}`,
+        verificationStatus:
+        params.status === 'Approved'
+          ? `อนุมัติ ${updatedReq.leave_type}`
+          : `ไม่อนุมัติ ${updatedReq.leave_type}`,
         gps: 'https://www.google.com/maps?q=12.736929,101.114387',
       }).catch(() => {});
     } catch {}

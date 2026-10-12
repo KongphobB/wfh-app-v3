@@ -236,6 +236,7 @@ export default function SelfieLightboxModal({ photo, onClose }: SelfieLightboxMo
                         a.target = '_blank';
                         a.click();
                       }
+                      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
                     })
                     .catch(() => {
                       const w = window.open('');

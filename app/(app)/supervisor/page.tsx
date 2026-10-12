@@ -338,6 +338,7 @@ export default function SupervisorPage() {
       missingCount: missingEmployees.length,
       missingEmployees,
       memberStatusList,
+      morningLogByEmpId,
       unratedCount,
       totalTasks: tasks.length,
       avgRating,
@@ -1239,14 +1240,14 @@ export default function SupervisorPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            {teamMembers.map((member) => {
-              const statusInfo = stats.memberStatusList.find((m) => m.id === member.id);
-              const todayLog = attendanceLogs.find(
-                (l) => l.employee_id === member.id && l.log_date === todayStr && l.log_type.includes('เข้างาน')
-              );
+            {(() => {
+              const memberStatusById = new Map(stats.memberStatusList.map((m) => [m.id, m]));
+              return teamMembers.map((member) => {
+                const statusInfo = memberStatusById.get(member.id);
+                const todayLog = stats.morningLogByEmpId.get(member.id);
 
-              const isOnsite = statusInfo?.status === 'onsite';
-              const isLeave = statusInfo?.status === 'leave';
+                const isOnsite = statusInfo?.status === 'onsite';
+                const isLeave = statusInfo?.status === 'leave';
 
               return (
                 <div
@@ -1341,7 +1342,8 @@ export default function SupervisorPage() {
                   )}
                 </div>
               );
-            })}
+              });
+            })()}
           </div>
         </Card>
       )}

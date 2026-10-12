@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { 
   Calendar as CalendarIcon, X, ChevronLeft, ChevronRight, FileText, 
   Download, Clock, Eye, Palmtree
@@ -20,8 +21,8 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
   const { t, lang } = useLanguage();
   const [holidays, setHolidays] = useState<CompanyHoliday[]>([]);
   const [policyDoc, setPolicyDoc] = useState<HolidayPolicyDoc | null>(null);
-  const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth()); // 0-indexed
+  const [currentYear, setCurrentYear] = useState<number>(() => Number(getThaiDateStr().split('-')[0]));
+  const [currentMonth, setCurrentMonth] = useState<number>(() => Number(getThaiDateStr().split('-')[1]) - 1); // 0-indexed
   const [loading, setLoading] = useState<boolean>(true);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
   const lastFetchedRef = useRef<number>(0);
@@ -60,32 +61,34 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
 
   const monthName = lang === 'en' ? monthNamesEn[currentMonth] : monthNamesTh[currentMonth];
   const yearDisplay = lang === 'en' ? `${currentYear}` : `พ.ศ. ${currentYear + 543}`;
+  const todayStr = getThaiDateStr();
 
   // Calendar matrix computation
-  const { daysInMonth, firstDayOfWeek, monthHolidays } = useMemo(() => {
+  const { daysInMonth, firstDayOfWeek, monthHolidays, monthHolidayMap } = useMemo(() => {
     const days = new Date(currentYear, currentMonth + 1, 0).getDate();
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
 
     const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
     const mHols = holidays.filter((h) => h.is_active && h.date.startsWith(monthPrefix));
+    const mHolMap = new Map(mHols.map((h) => [h.date, h]));
 
-    return { daysInMonth: days, firstDayOfWeek: firstDay, monthHolidays: mHols };
+    return { daysInMonth: days, firstDayOfWeek: firstDay, monthHolidays: mHols, monthHolidayMap: mHolMap };
   }, [currentYear, currentMonth, holidays]);
 
   // Upcoming holidays across the next 60 days
   const upcomingHolidays = useMemo(() => {
-    const todayStr = getThaiDateStr();
-    const todayMs = new Date(todayStr).getTime();
+    const todayMs = new Date(`${todayStr}T00:00:00+07:00`).getTime();
 
     return holidays
       .filter((h) => h.is_active && h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 5)
       .map((h) => {
-        const holMs = new Date(h.date).getTime();
+        const holMs = new Date(`${h.date}T00:00:00+07:00`).getTime();
         const diffDays = Math.ceil((holMs - todayMs) / (1000 * 60 * 60 * 24));
         return { ...h, diffDays };
-      })
-      .slice(0, 5);
-  }, [holidays]);
+      });
+  }, [holidays, todayStr]);
 
   if (!isOpen) return null;
 
@@ -221,8 +224,8 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
               {Array.from({ length: daysInMonth }).map((_, idx) => {
                 const dayNum = idx + 1;
                 const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                const hol = monthHolidays.find((h) => h.date === dateStr);
-                const isToday = getThaiDateStr() === dateStr;
+                const hol = monthHolidayMap.get(dateStr);
+                const isToday = todayStr === dateStr;
 
                 return (
                   <div
@@ -348,12 +351,13 @@ export function HolidayCalendarModal({ isOpen, onClose }: HolidayCalendarModalPr
               <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
                 นำวันหยุดประจำปีไปวางแผนยื่นขอลาพักผ่อนในระบบล่วงหน้า เพื่อให้หัวหน้างานจัดตารางงานได้ทันท่วงที
               </p>
-              <a
+              <Link
                 href="/leave"
+                onClick={onClose}
                 className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-1"
               >
                 <span>ไปที่หน้าขอลาหยุด ↗</span>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -528,13 +532,13 @@ function DocumentViewerModal({ policyDoc, previewDocUrl, holidays, lang, onClose
                   🏢 SNU SUPPLY AND SERVICE CO., LTD.
                 </h4>
                 <p className="text-orange-900 dark:text-orange-300 text-xs mt-0.5 font-medium">
-                  ประกาศบริษัท ที่ 005/2568 เรื่อง วันหยุดนักขัตฤกษ์ ประจำปี 2569 (รวม 15 วัน)
+                  ประกาศบริษัท ที่ 005/2568 เรื่อง วันหยุดนักขัตฤกษ์ ประจำปี 2569 (รวม {holidays.filter((h) => h.is_active).length} วัน)
                 </p>
               </div>
 
               <div className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xs">
-                {holidays.map((h, index) => {
-                  const dateObj = new Date(h.date);
+                {holidays.filter((h) => h.is_active).map((h, index) => {
+                  const dateObj = new Date(`${h.date}T00:00:00+07:00`);
                   const dayNames = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
                   const dayTh = dayNames[dateObj.getDay()];
                   const monthThNames = [
@@ -542,7 +546,7 @@ function DocumentViewerModal({ policyDoc, previewDocUrl, holidays, lang, onClose
                     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
                   ];
                   const [y, m, d] = h.date.split('-');
-                  const formattedDate = `${dayTh} ที่ ${parseInt(d, 10)} ${monthThNames[parseInt(m, 10) - 1]} พ.ศ. 2569`;
+                  const formattedDate = `${dayTh} ที่ ${parseInt(d, 10)} ${monthThNames[parseInt(m, 10) - 1]} พ.ศ. ${parseInt(y, 10) + 543}`;
 
                   return (
                     <div

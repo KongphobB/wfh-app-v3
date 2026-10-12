@@ -2,13 +2,15 @@ import { AuditLogItem, AuditActionType } from '@/types';
 
 const defaultAuditLogs: AuditLogItem[] = [
   {
-    id: 'audit_init_001',
-    timestamp: '2026-08-24T08:30:00+07:00',
+    id: 'audit_init_003',
+    timestamp: '2026-08-24T09:45:00+07:00',
     admin_id: '1001',
     admin_name: 'ผู้ดูแลระบบ (Admin Desk)',
-    action_type: 'UPDATE_CONFIG',
-    action_title: 'อัปเดตการตั้งค่าพิกัดสำนักงาน',
-    details: 'ตั้งค่าพิกัดบริษัท SNU Supply and Service Co., Ltd. (Lat: 13.7203, Lng: 100.5985, Radius: 500m)',
+    action_type: 'TOGGLE_PHOTO_EXEMPT',
+    action_title: 'ปรับสิทธิ์การยกเว้นถ่ายรูป',
+    target_employee_id: '1304',
+    target_employee_name: 'ก้องภพ บุญชู',
+    details: 'เปิดการยกเว้นการถ่ายรูป (Photo Exempt) สำหรับตำแหน่งผู้บริหาร/งานสนาม',
     ip_address: '192.168.1.10',
   },
   {
@@ -22,15 +24,13 @@ const defaultAuditLogs: AuditLogItem[] = [
     ip_address: '192.168.1.10',
   },
   {
-    id: 'audit_init_003',
-    timestamp: '2026-08-24T09:45:00+07:00',
+    id: 'audit_init_001',
+    timestamp: '2026-08-24T08:30:00+07:00',
     admin_id: '1001',
     admin_name: 'ผู้ดูแลระบบ (Admin Desk)',
-    action_type: 'TOGGLE_PHOTO_EXEMPT',
-    action_title: 'ปรับสิทธิ์การยกเว้นถ่ายรูป',
-    target_employee_id: '1304',
-    target_employee_name: 'ก้องภพ บุญชู',
-    details: 'เปิดการยกเว้นการถ่ายรูป (Photo Exempt) สำหรับตำแหน่งผู้บริหาร/งานสนาม',
+    action_type: 'UPDATE_CONFIG',
+    action_title: 'อัปเดตการตั้งค่าพิกัดสำนักงาน',
+    details: 'ตั้งค่าพิกัดบริษัท SNU Supply and Service Co., Ltd. (Lat: 13.7203, Lng: 100.5985, Radius: 500m)',
     ip_address: '192.168.1.10',
   },
 ];
@@ -39,7 +39,7 @@ const defaultAuditLogs: AuditLogItem[] = [
 
 export function getAllAuditLogs(): AuditLogItem[] {
   const logs: AuditLogItem[] = (global as any).__memoryAuditLogs || defaultAuditLogs;
-  return [...logs].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return logs;
 }
 
 export function createAuditLog(params: {

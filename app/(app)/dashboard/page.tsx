@@ -126,11 +126,17 @@ export default function DashboardPage() {
         fetchData(false);
       }
     };
+    const handleSpotCheckUpdated = () => {
+      setActiveSpotCheck(null);
+      fetchData(false, true);
+    };
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('spotcheck-updated', handleSpotCheckUpdated);
 
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('spotcheck-updated', handleSpotCheckUpdated);
     };
   }, []);
 
