@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  BookOpen, User, UserCheck, ShieldCheck, Search,
+  BookOpen, User, UserCheck, ShieldCheck, Search, X,
   Clock, MapPin, Camera, BellRing, FileText, 
   Ticket, KeyRound,
   Volume2, Moon, Globe, SlidersHorizontal, Check, Calendar, TrendingUp, MessageSquare, MessageSquarePlus,
@@ -11,6 +11,41 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/lib/i18n';
+
+const employeeSearchKeys = [
+  'ลงเวลา เข้างาน ออกงาน gps selfie พิกัด สาย',
+  'สุ่มตรวจ spot check 10 นาที เสียงเตือน ถ่ายรูป ระงับสิทธิ์',
+  'ส่งงาน ผลงาน ประจำวัน daily tasks คะแนน ดาว 1 ดาว',
+  'แจ้งปัญหา it ticket helpdesk แอดมิน',
+  'ธีมมืด dark mode เสียง ภาษา pin เปลี่ยนรหัส',
+  'ลา ขอลา ลาป่วย ลากิจ พักร้อน ออฟฟิศ onsite leave ยกเว้น แจ้งเตือน',
+  'สถิติ ประสิทธิภาพ analytics กราฟ ดาว คะแนน ตรงเวลา on-time rate',
+  'ข้อเสนอแนะ suggestion anonymous ไม่ระบุตัวตน พักเที่ยง lunch break 12:00 13:00',
+  'วันหยุด ปฏิทิน holidays นักขัตฤกษ์ ประกาศบริษัท แนบไฟล์ ดาวน์โหลด'
+];
+
+const supervisorSearchKeys = [
+  'สถานะ ลูกทีม ตรงเวลา สาย ยังไม่ลงเวลา แดชบอร์ด',
+  'ค้นหา กรอง แผนก quick search department filter',
+  'lightbox selfie รูปถ่าย ดูรูป ขยาย google maps พิกัด',
+  'ประเมินดาว ตรวจงาน ให้คะแนน ลิงก์',
+  'สุ่มตรวจทันที on demand เฉพาะกิจ',
+  'อนุมัติ ลา ลาป่วย ลากิจ พักร้อน ออฟฟิศ leave approve supervisor',
+  'สถิติทิม analytics กราฟ ประสิทธิภาพ ดาว ตรงเวลา team metrics',
+  'แจ้งเตือน อีเมล กระดิ่ง สาย ขาดงาน สุ่มตรวจ supervisor notifications email'
+];
+
+const adminSearchKeys = [
+  'จัดการพนักงาน เพิ่มพนักงาน ปลดระงับสิทธิ์ รีเซ็ต pin 1234 ล้าง 1 ดาว',
+  'ยกเว้น ถ่ายรูป selfie photo exempt ตำแหน่ง',
+  'log pagination แบ่งหน้า ประวัติ ตรวจสอบ',
+  'ตั๋ว ปัญหา it helpdesk ตอบกลับ ปิดตั๋ว',
+  'พิกัด ออฟฟิศ รัศมี geofence ตั้งค่า config',
+  'แจ้งเตือน ขาดลงเวลา 08:00 ขาดงาน 12:00 สาย สุ่มตรวจ อีเมล alert dual email cron',
+  'ข้อเสนอแนะ suggestion ความคิดเห็น anonymous กล่อง admin desk',
+  'จัดการวันหยุด holiday policy แนบไฟล์ ประกาศบริษัท pdf upload admin desk',
+  'ประวัติ audit trail log ตรวจสอบ แอดมิน ปลดสิทธิ์ แก้ไข พิกัด ผู้ดูแลระบบ'
+];
 
 export default function ManualPage() {
   const { t, lang } = useLanguage();
@@ -56,16 +91,54 @@ export default function ManualPage() {
     return text.toLowerCase().includes(searchQuery.toLowerCase().trim());
   };
 
+  const hasMatches = (tab: 'employee' | 'supervisor' | 'admin') => {
+    if (!searchQuery.trim()) return true;
+    const list =
+      tab === 'employee'
+        ? employeeSearchKeys
+        : tab === 'supervisor'
+        ? supervisorSearchKeys
+        : adminSearchKeys;
+    return list.some((k) => matchesSearch(k));
+  };
+
+  const renderEmptyState = () => (
+    <Card className="border-dashed border-slate-200 dark:border-slate-800 text-center py-10 px-4 bg-white/50 dark:bg-slate-900/50">
+      <CardContent className="space-y-3 flex flex-col items-center justify-center p-0">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center">
+          <Search className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+            {lang === 'en' ? 'No matching manual topics found' : 'ไม่พบหัวข้อคู่มือที่ตรงกับคำค้นหา'}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {lang === 'en'
+              ? `No topics found matching "${searchQuery}" in this guide.`
+              : `ไม่พบเนื้อหาที่ตรงกับ "${searchQuery}" ในหมวดหมู่นี้`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSearchQuery('')}
+          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+        >
+          {lang === 'en' ? 'Clear Search' : 'ล้างคำค้นหา'}
+        </button>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-orange-500 shrink-0" />
             <span>{lang === 'en' ? 'User Manuals & System Documentation' : 'ศูนย์คู่มือการใช้งานระบบ (User Manuals)'}</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {lang === 'en'
               ? 'Role-based SOP guidelines, attendance rules, spot-check protocols, and system administration'
               : 'คู่มือการปฏิบัติงาน WFH, กฎระเบียบการลงเวลา, การสุ่มตรวจยืนยันตัวตน, และการจัดการระบบตามบทบาท'}
@@ -80,21 +153,31 @@ export default function ManualPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={lang === 'en' ? 'Search manual topics...' : 'ค้นหาหัวข้อในคู่มือ...'}
-            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-500 shadow-2xs"
+            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-orange-500 shadow-2xs"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              title={lang === 'en' ? 'Clear search' : 'ล้างคำค้นหา'}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Role Tabs (Filtered by Permissions) */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/80 overflow-x-auto">
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 dark:bg-slate-900/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-x-auto">
         {/* 1. Employee Tab */}
         <button
           type="button"
           onClick={() => setActiveTab('employee')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'employee'
-              ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-white dark:bg-slate-800 text-orange-600 dark:text-orange-400 shadow-sm border border-slate-200/60 dark:border-slate-700'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
           }`}
         >
           <User className="w-4 h-4" />
@@ -108,8 +191,8 @@ export default function ManualPage() {
             onClick={() => setActiveTab('supervisor')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'supervisor'
-                ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-800 text-orange-600 dark:text-orange-400 shadow-sm border border-slate-200/60 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
             }`}
           >
             <UserCheck className="w-4 h-4" />
@@ -124,8 +207,8 @@ export default function ManualPage() {
             onClick={() => setActiveTab('admin')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'admin'
-                ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-800 text-orange-600 dark:text-orange-400 shadow-sm border border-slate-200/60 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -139,16 +222,16 @@ export default function ManualPage() {
       {/* ============================================================ */}
       {activeTab === 'employee' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          <Card className="border-orange-200/80 bg-gradient-to-r from-orange-50/50 to-white">
+          <Card className="border-orange-200/80 dark:border-orange-900/60 bg-gradient-to-r from-orange-50/50 dark:from-orange-950/20 to-white dark:to-slate-900">
             <CardContent className="p-5 flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 font-bold">
+              <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 font-bold">
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   {lang === 'en' ? 'General Employee Operations Manual' : 'คู่มือการปฏิบัติงานสำหรับพนักงานทั่วไป'}
                 </h2>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   {lang === 'en'
                     ? 'Work-From-Home standard procedures: Attendance check-in/out, Live selfie verification, Spot-checks, Daily work reporting, and Personal preferences.'
                     : 'ขั้นตอนการปฏิบัติงาน WFH: ลงเวลาเข้า-ออกงาน, ถ่ายภาพ Selfie สด, สุ่มตรวจยืนยันตัวตน 10 นาที, ส่งงานประจำวัน, และการปรับแต่งส่วนตัว'}
@@ -473,6 +556,8 @@ export default function ManualPage() {
               </CardContent>
             </Card>
           )}
+
+          {!hasMatches('employee') && renderEmptyState()}
         </div>
       )}
 
@@ -481,16 +566,16 @@ export default function ManualPage() {
       {/* ============================================================ */}
       {activeTab === 'supervisor' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          <Card className="border-amber-200/80 bg-gradient-to-r from-amber-50/50 to-white">
+          <Card className="border-amber-200/80 dark:border-amber-900/60 bg-gradient-to-r from-amber-50/50 dark:from-amber-950/20 to-white dark:to-slate-900">
             <CardContent className="p-5 flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold">
                 <UserCheck className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   {lang === 'en' ? 'Supervisor Operations Manual' : 'คู่มือการปฏิบัติงานสำหรับหัวหน้างาน (Supervisor)'}
                 </h2>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   {lang === 'en'
                     ? 'Monitoring subordinate attendance, Reviewing live selfie photos in Lightbox, Evaluating daily tasks, and Triggering on-demand spot-checks.'
                     : 'การติดตามเวลาเข้างานของลูกทีม, ตรวจสอบภาพถ่าย Selfie ขยายใหญ่, ประเมินดาวผลงาน, และสั่งสุ่มตรวจเจาะจงบุคคล'}
@@ -714,6 +799,8 @@ export default function ManualPage() {
               </CardContent>
             </Card>
           )}
+
+          {!hasMatches('supervisor') && renderEmptyState()}
         </div>
       )}
 
@@ -722,16 +809,16 @@ export default function ManualPage() {
       {/* ============================================================ */}
       {activeTab === 'admin' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          <Card className="border-blue-200/80 bg-gradient-to-r from-blue-50/50 to-white">
+          <Card className="border-blue-200/80 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/50 dark:from-blue-950/20 to-white dark:to-slate-900">
             <CardContent className="p-5 flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 font-bold">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-bold">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   {lang === 'en' ? 'System Administrator Manual' : 'คู่มือการปฏิบัติงานสำหรับผู้ดูแลระบบ (Admin)'}
                 </h2>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   {lang === 'en'
                     ? 'Employee management, Unlocking WFH status, Resetting PINs, Photo exemption gate, System logs pagination, Helpdesk tickets, and Office GPS settings.'
                     : 'การจัดการพนักงาน, ปลดระงับสิทธิ์ WFH, รีเซ็ต PIN, ตั้งค่ายกเว้นถ่ายรูป Selfie, ตรวจ Log ทั้งระบบ, จัดการตั๋ว IT, และตั้งค่าพิกัดออฟฟิศ'}
@@ -977,6 +1064,8 @@ export default function ManualPage() {
               </CardContent>
             </Card>
           )}
+
+          {!hasMatches('admin') && renderEmptyState()}
         </div>
       )}
     </div>
