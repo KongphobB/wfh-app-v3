@@ -42,7 +42,7 @@ const CACHE_RULES: Record<string, number> = {
 };
 
 // Mutating actions that should immediately invalidate cache
-const MUTATION_ACTIONS = new Set([
+const LOG_MUTATION_ACTIONS = new Set([
   'checkin',
   'submitCheckin',
   'submitEmployeeTask',
@@ -50,6 +50,9 @@ const MUTATION_ACTIONS = new Set([
   'submitSpotCheck',
   'submitTicket',
   'resolveTicket',
+]);
+
+const CONFIG_MUTATION_ACTIONS = new Set([
   'changeEmployeePin',
   'employeeChangePin',
   'adminAddNewEmployee',
@@ -59,11 +62,20 @@ const MUTATION_ACTIONS = new Set([
   'adminBulkUpdateWfhStatus',
 ]);
 
+const MUTATION_ACTIONS = new Set([...LOG_MUTATION_ACTIONS, ...CONFIG_MUTATION_ACTIONS]);
+
 export function invalidateGasCache(actionPrefix?: string) {
-  global.__lastKnownEmployeesMapTime = 0;
   if (!actionPrefix) {
+    global.__lastKnownEmployeesMapTime = 0;
     apiCache.clear();
     return;
+  }
+  if (
+    actionPrefix.startsWith('inspectTab') ||
+    actionPrefix.startsWith('getSystemConfig') ||
+    actionPrefix.startsWith('admin')
+  ) {
+    global.__lastKnownEmployeesMapTime = 0;
   }
   for (const key of apiCache.keys()) {
     if (key.startsWith(actionPrefix)) {
@@ -183,7 +195,13 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
 
   // Invalidate cache if this is a mutating write action
   if (isMutation) {
-    apiCache.clear();
+    if (CONFIG_MUTATION_ACTIONS.has(action)) {
+      global.__lastKnownEmployeesMapTime = 0;
+      apiCache.clear();
+    } else {
+      invalidateGasCache('getLogs');
+      invalidateGasCache('getDashboardSummary');
+    }
   }
 
   // Check cache for read actions
@@ -208,6 +226,16 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
 
       if (cacheTtl && isValid) {
         apiCache.set(cacheKey, { data: parsed, expiresAt: Date.now() + cacheTtl });
+        // Warm getSystemConfig cache when getDashboardSummary returns config
+        if (action === 'getDashboardSummary' && parsed?.config && typeof parsed.config === 'object') {
+          const sysCfgKey = `getSystemConfig_{}`;
+          if (!apiCache.has(sysCfgKey)) {
+            apiCache.set(sysCfgKey, {
+              data: { success: true, config: parsed.config },
+              expiresAt: Date.now() + CACHE_RULES.getSystemConfig,
+            });
+          }
+        }
       } else if (!isValid && !isMutation) {
         // If GAS returned empty/corrupted payload, fallback to existing stale cache
         const staleCached = apiCache.get(cacheKey);

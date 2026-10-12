@@ -75,12 +75,24 @@ export default function GlobalSpotCheckWatcher() {
   const hasSubscribedRef = useRef<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
   const lastFetchTimeRef = useRef<number>(0);
+  const activeCheckRef = useRef<SpotCheck | null>(null);
+
+  const updateActiveCheck = (next: SpotCheck | null) => {
+    activeCheckRef.current = next;
+    setActiveCheck((prev) => {
+      if (!next) return null;
+      if (prev && prev.id === next.id && prev.result_status === next.result_status) {
+        return prev;
+      }
+      return next;
+    });
+  };
 
   // 1. Instant recovery on mount / cold start on mobile device
   useEffect(() => {
     const cached = getValidCachedSpotCheck();
     if (cached) {
-      setActiveCheck(cached);
+      updateActiveCheck(cached);
       setIsModalOpen(true);
       playedAlertForId.current = cached.id;
     }
@@ -109,7 +121,7 @@ export default function GlobalSpotCheckWatcher() {
         document.title = 'SNU WFH — ระบบบันทึกเวลาปฏิบัติงานนอกสถานที่';
       }
     };
-  }, [activeCheck]);
+  }, [activeCheck?.id]);
 
   const checkPendingSpotCheck = async (force = false) => {
     if (isFetchingRef.current) return;
@@ -128,10 +140,12 @@ export default function GlobalSpotCheckWatcher() {
         syncServerTime(data.server_timestamp);
       }
 
+      const currentActive = activeCheckRef.current;
+
       // If employee is working at office or on leave today, cancel any pending spot check modal/toast
       if (data.is_working_at_office_today || data.is_on_leave_today) {
-        if (activeCheck) {
-          setActiveCheck(null);
+        if (currentActive) {
+          updateActiveCheck(null);
           setIsModalOpen(false);
           try {
             localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
@@ -144,7 +158,7 @@ export default function GlobalSpotCheckWatcher() {
       const pending = list.find((s) => isSpotCheckCurrentlyActive(s));
 
       if (pending) {
-        setActiveCheck(pending);
+        updateActiveCheck(pending);
         try {
           localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(pending));
         } catch {}
@@ -167,15 +181,15 @@ export default function GlobalSpotCheckWatcher() {
             requireInteraction: true,
           }).catch(() => {});
         }
-      } else if (!pending && activeCheck) {
+      } else if (!pending && currentActive) {
         // If activeCheck is still within its 11-minute window, do NOT wipe it prematurely
         // unless server explicitly returned that this check was completed (Pass / Fail)
-        const isManual = Boolean(activeCheck.id?.startsWith('SPOT-MANUAL') || activeCheck.round?.includes('เฉพาะกิจ'));
-        const createdMs = activeCheck.created_at ? new Date(activeCheck.created_at).getTime() : 0;
+        const isManual = Boolean(currentActive.id?.startsWith('SPOT-MANUAL') || currentActive.round?.includes('เฉพาะกิจ'));
+        const createdMs = currentActive.created_at ? new Date(currentActive.created_at).getTime() : 0;
         const nowMs = getSyncedNow();
         const isStillValid = isManual && createdMs > 0 && nowMs <= createdMs + 11 * 60 * 1000;
 
-        const serverCheck = list.find((s) => s.id === activeCheck.id);
+        const serverCheck = list.find((s) => s.id === currentActive.id);
         const isFinishedOnServer = serverCheck && (
           serverCheck.result_status === 'Pass' ||
           serverCheck.result_status === 'Fail' ||
@@ -183,7 +197,7 @@ export default function GlobalSpotCheckWatcher() {
         );
 
         if (!isStillValid || isFinishedOnServer) {
-          setActiveCheck(null);
+          updateActiveCheck(null);
           setIsModalOpen(false);
           try {
             localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
@@ -227,7 +241,7 @@ export default function GlobalSpotCheckWatcher() {
         // App resumed from background / sleep / mobile reopen -> restore modal immediately
         const cached = getValidCachedSpotCheck();
         if (cached) {
-          setActiveCheck(cached);
+          updateActiveCheck(cached);
           setIsModalOpen(true);
         }
         checkPendingSpotCheck(false);
@@ -239,7 +253,7 @@ export default function GlobalSpotCheckWatcher() {
       if (event.data && event.data.type === 'SPOTCHECK_TRIGGERED' && event.data.spotCheck) {
         const spot = event.data.spotCheck;
         if (isSpotCheckCurrentlyActive(spot)) {
-          setActiveCheck(spot);
+          updateActiveCheck(spot);
           setIsModalOpen(true);
           try {
             localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(spot));
@@ -255,19 +269,29 @@ export default function GlobalSpotCheckWatcher() {
           try {
             const parsed = JSON.parse(e.newValue);
             if (isSpotCheckCurrentlyActive(parsed)) {
-              setActiveCheck(parsed);
+              updateActiveCheck(parsed);
               setIsModalOpen(true);
             }
           } catch {}
         } else {
-          setActiveCheck(null);
+          updateActiveCheck(null);
           setIsModalOpen(false);
         }
       }
     };
 
+    // Listen for same-tab spotcheck completion from /spotcheck page
+    const handleSpotCheckUpdated = () => {
+      const cached = getValidCachedSpotCheck();
+      if (!cached) {
+        updateActiveCheck(null);
+        setIsModalOpen(false);
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('spotcheck-updated', handleSpotCheckUpdated);
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
     }
@@ -276,6 +300,7 @@ export default function GlobalSpotCheckWatcher() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('spotcheck-updated', handleSpotCheckUpdated);
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleSwMessage);
       }
@@ -318,7 +343,7 @@ export default function GlobalSpotCheckWatcher() {
 
       if (secs <= 0) {
         setTimeLeftStr('00:00');
-        setActiveCheck(null);
+        updateActiveCheck(null);
         setIsModalOpen(false);
         try {
           localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
@@ -344,7 +369,7 @@ export default function GlobalSpotCheckWatcher() {
     calcTimer();
     const timerInterval = setInterval(calcTimer, 1000);
     return () => clearInterval(timerInterval);
-  }, [activeCheck]);
+  }, [activeCheck?.id]);
 
   const handleModalClose = () => {
     setIsModalOpen(false);
@@ -357,11 +382,12 @@ export default function GlobalSpotCheckWatcher() {
         localStorage.setItem(`wfh_completed_spot_${activeCheck.id}`, 'true');
       } catch {}
     }
-    setActiveCheck(null);
+    updateActiveCheck(null);
     try {
       localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent('spotcheck-updated'));
     } catch {}
-    checkPendingSpotCheck();
+    checkPendingSpotCheck(true);
   };
 
   if (!activeCheck) return null;

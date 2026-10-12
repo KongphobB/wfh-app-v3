@@ -71,10 +71,15 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
 
   const lastChimeSecRef = useRef<number>(-1);
   const photoDataUrlRef = useRef<string | null>(null);
+  const facingModeRef = useRef<'user' | 'environment'>('user');
 
   useEffect(() => {
     photoDataUrlRef.current = photoDataUrl;
   }, [photoDataUrl]);
+
+  useEffect(() => {
+    facingModeRef.current = facingMode;
+  }, [facingMode]);
 
   // Play alert chime when Spot Check modal opens
   useEffect(() => {
@@ -85,7 +90,6 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   }, [spotCheck?.id]);
 
   // Live 10-minute countdown timer calculation synced with Server Time
-  // and periodic reminder chime every 60s within the 10-minute window
   useEffect(() => {
     if (!spotCheck) return;
 
@@ -117,15 +121,13 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
         const mins = Math.floor(diffSecs / 60);
         const secs = diffSecs % 60;
         setTimeLeftStr(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
-
-        // Periodic milestone chimes are handled by GlobalSpotCheckWatcher
       }
     };
 
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
-  }, [spotCheck]);
+  }, [spotCheck?.id]);
 
   const fetchFirstCheckIn = async () => {
     try {
@@ -159,27 +161,29 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   };
 
   useEffect(() => {
-    if (spotCheck) {
-      setPhotoDataUrl(null);
-      setPopupAlert(null);
-      setOutOfBoundsReason('');
-      setFirstCheckInGps(null);
-      setFacingMode('user');
-      getGpsLocation();
-      startCamera('user');
-      fetchFirstCheckIn();
-    } else {
+    if (!spotCheck) {
       stopCamera();
       setPhotoDataUrl(null);
       setPopupAlert(null);
       setFirstCheckInGps(null);
       setOutOfBoundsReason('');
+      return;
     }
 
+    setPhotoDataUrl(null);
+    setPopupAlert(null);
+    setOutOfBoundsReason('');
+    setFirstCheckInGps(null);
+    setFacingMode('user');
+    facingModeRef.current = 'user';
+    getGpsLocation();
+    startCamera('user');
+    fetchFirstCheckIn();
+
     const handleVisibility = () => {
-      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current && spotCheck) {
+      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current) {
         if (!streamRef.current || streamRef.current.getVideoTracks().some((t) => t.readyState === 'ended')) {
-          startCamera(facingMode);
+          startCamera(facingModeRef.current);
         }
       }
     };
@@ -189,7 +193,7 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       document.removeEventListener('visibilitychange', handleVisibility);
       stopCamera();
     };
-  }, [spotCheck]);
+  }, [spotCheck?.id]);
 
   const getGpsLocation = () => {
     if (navigator.geolocation) {

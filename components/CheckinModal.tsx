@@ -37,10 +37,15 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const photoDataUrlRef = useRef<string | null>(null);
+  const facingModeRef = useRef<'user' | 'environment'>('user');
 
   useEffect(() => {
     photoDataUrlRef.current = photoDataUrl;
   }, [photoDataUrl]);
+
+  useEffect(() => {
+    facingModeRef.current = facingMode;
+  }, [facingMode]);
 
   const [loading, setLoading] = useState(false);
   const [isPhotoExempt, setIsPhotoExempt] = useState(false);
@@ -121,27 +126,29 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
   };
 
   useEffect(() => {
-    if (isOpen) {
-      setLogType(defaultType);
-      setNote('');
-      setOutOfBoundsReason('');
-      setPopupAlert(null);
-      setFacingMode('user');
-      getGpsLocation();
-      startCamera('user');
-      fetchFirstCheckIn();
-      checkTodayTaskSubmission();
-    } else {
+    if (!isOpen) {
       stopCamera();
       setPhotoDataUrl(null);
       setFirstCheckInGps(null);
       setPopupAlert(null);
+      return;
     }
 
+    setLogType(defaultType);
+    setNote('');
+    setOutOfBoundsReason('');
+    setPopupAlert(null);
+    setFacingMode('user');
+    facingModeRef.current = 'user';
+    getGpsLocation();
+    startCamera('user');
+    fetchFirstCheckIn();
+    checkTodayTaskSubmission();
+
     const handleVisibility = () => {
-      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current && isOpen) {
+      if (typeof document !== 'undefined' && !document.hidden && !photoDataUrlRef.current) {
         if (!streamRef.current || streamRef.current.getVideoTracks().some((t) => t.readyState === 'ended')) {
-          startCamera(facingMode);
+          startCamera(facingModeRef.current);
         }
       }
     };
@@ -151,7 +158,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
       document.removeEventListener('visibilitychange', handleVisibility);
       stopCamera();
     };
-  }, [isOpen, defaultType, facingMode]);
+  }, [isOpen, defaultType]);
 
   const getGpsLocation = () => {
     setGpsStatus('loading');

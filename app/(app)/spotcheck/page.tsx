@@ -55,6 +55,8 @@ export default function SpotCheckPage() {
   const [isWorkingAtOfficeToday, setIsWorkingAtOfficeToday] = useState(false);
 
   // Restore active spot check from localStorage immediately on mount
+  // Note: GlobalSpotCheckWatcher already handles auto-opening the camera modal globally,
+  // so we only set activeCheck here to prevent two stacked camera modals opening simultaneously.
   useEffect(() => {
     try {
       const cachedRaw = localStorage.getItem(SPOTCHECK_STORAGE_KEY);
@@ -62,7 +64,6 @@ export default function SpotCheckPage() {
         const cachedCheck: SpotCheck = JSON.parse(cachedRaw);
         if (isSpotCheckCurrentlyActive(cachedCheck)) {
           setActiveCheck(cachedCheck);
-          setModalCheck(cachedCheck); // Automatically open modal on page visit
         } else {
           localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
         }
@@ -112,18 +113,27 @@ export default function SpotCheckPage() {
         fetchSpotChecks(false);
       }
     };
+
+    const handleSpotCheckUpdated = () => {
+      setActiveCheck(null);
+      setModalCheck(null);
+      fetchSpotChecks(false, true);
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('spotcheck-updated', handleSpotCheckUpdated);
 
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('spotcheck-updated', handleSpotCheckUpdated);
     };
   }, []);
 
   useEffect(() => {
     const pending = spotChecks.find((s: SpotCheck) => isSpotCheckCurrentlyActive(s));
     if (pending) {
-      setActiveCheck(pending);
+      setActiveCheck((prev) => (prev && prev.id === pending.id ? prev : pending));
       try {
         localStorage.setItem(SPOTCHECK_STORAGE_KEY, JSON.stringify(pending));
       } catch {}
@@ -398,7 +408,11 @@ export default function SpotCheckPage() {
         onClose={() => setModalCheck(null)}
         onSuccess={() => {
           try {
+            if (modalCheck?.id) {
+              localStorage.setItem(`wfh_completed_spot_${modalCheck.id}`, 'true');
+            }
             localStorage.removeItem(SPOTCHECK_STORAGE_KEY);
+            window.dispatchEvent(new CustomEvent('spotcheck-updated'));
           } catch {}
           setModalCheck(null);
           setActiveCheck(null);
