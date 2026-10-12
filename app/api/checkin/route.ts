@@ -360,6 +360,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (log_type === 'ยืนยันตัวตน' && (currentHour > 13 || (currentHour === 13 && currentMinute > 20)) && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณยืนยันตัวตนหลังเวลา 13:20 น. (ล่าช้า) กรุณาระบุเหตุผลในช่องหมายเหตุ' },
+        { status: 400 }
+      );
+    }
+
     if (log_type === 'ออกงาน' && currentHour < 17 && (!note || !note.trim())) {
       return NextResponse.json(
         { error: 'เนื่องจากคุณลงเวลาออกงานก่อนเวลา 17:00 น. กรุณาระบุเหตุผลการออกก่อนเวลาในช่องหมายเหตุ' },
