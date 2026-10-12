@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
                 {data ? `${data.onTimeRate}%` : '--'}
               </span>
               <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                {data && data.onTimeRate >= 90 ? 'ยอดเยี่ยม' : 'ปกติ'}
+                {data && data.onTimeRate >= 90 ? (lang === 'en' ? 'Excellent' : 'ยอดเยี่ยม') : (lang === 'en' ? 'Normal' : 'ปกติ')}
               </Badge>
             </div>
             <p className="text-[11px] text-slate-500 mt-1">{t.analytics.onTimeDesc}</p>
@@ -271,23 +271,35 @@ export default function AnalyticsPage() {
                   <span className="text-xs font-bold block">{day.dayLabel}</span>
                   <div className="mt-1">
                     {day.checkinStatus === 'on-time' && (
-                      <Badge variant="success" className="text-[10px] px-1.5 py-0 bg-emerald-600">เข้างานตรงเวลา</Badge>
+                      <Badge variant="success" className="text-[10px] px-1.5 py-0 bg-emerald-600">
+                        {lang === 'en' ? 'On-Time' : 'เข้างานตรงเวลา'}
+                      </Badge>
                     )}
                     {day.checkinStatus === 'late' && (
-                      <Badge variant="warning" className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">เข้างานสาย</Badge>
+                      <Badge variant="warning" className="text-[10px] px-1.5 py-0 bg-amber-500 text-white">
+                        {lang === 'en' ? 'Late' : 'เข้างานสาย'}
+                      </Badge>
                     )}
                     {day.checkinStatus === 'leave' && (
-                      <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-blue-600">ลางาน/Onsite</Badge>
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-blue-600">
+                        {lang === 'en' ? 'Leave/Onsite' : 'ลางาน/Onsite'}
+                      </Badge>
                     )}
                     {day.checkinStatus === 'missing' && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">ไม่ลงเวลา</Badge>
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        {lang === 'en' ? 'Missing' : 'ไม่ลงเวลา'}
+                      </Badge>
                     )}
                     {day.checkinStatus === 'none' && (
                       <span className="text-[10px] text-slate-400">
                         {idx === data.dailyTrends.length - 1 &&
                         !day.dayLabel.startsWith('ส.') &&
                         !day.dayLabel.startsWith('อา.')
-                          ? 'รอลงเวลา'
+                          ? lang === 'en'
+                            ? 'Pending'
+                            : 'รอลงเวลา'
+                          : lang === 'en'
+                          ? 'Holiday/Off'
                           : 'วันหยุด'}
                       </span>
                     )}
@@ -342,7 +354,7 @@ export default function AnalyticsPage() {
                     />
                   </div>
                   <span className="w-12 text-right font-mono font-bold text-slate-600">
-                    {count} ครั้ง
+                    {count} {lang === 'en' ? 'times' : 'ครั้ง'}
                   </span>
                 </div>
               );
@@ -362,22 +374,22 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
                 <span className="text-xs text-slate-500">{t.analytics.workdays}</span>
-                <p className="text-2xl font-extrabold text-slate-900 mt-1">{data?.totalWorkdays || 0} วัน</p>
+                <p className="text-2xl font-extrabold text-slate-900 mt-1">{data?.totalWorkdays || 0} {lang === 'en' ? 'days' : 'วัน'}</p>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100">
                 <span className="text-xs text-emerald-700">{t.analytics.onTimeDays}</span>
-                <p className="text-2xl font-extrabold text-emerald-800 mt-1">{data?.onTimeCheckinCount || 0} วัน</p>
+                <p className="text-2xl font-extrabold text-emerald-800 mt-1">{data?.onTimeCheckinCount || 0} {lang === 'en' ? 'days' : 'วัน'}</p>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-100">
                 <span className="text-xs text-amber-700">{t.analytics.lateDays}</span>
-                <p className="text-2xl font-extrabold text-amber-800 mt-1">{data?.lateCheckinCount || 0} วัน</p>
+                <p className="text-2xl font-extrabold text-amber-800 mt-1">{data?.lateCheckinCount || 0} {lang === 'en' ? 'days' : 'วัน'}</p>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100">
                 <span className="text-xs text-blue-700">{t.analytics.leaveDays}</span>
-                <p className="text-2xl font-extrabold text-blue-800 mt-1">{data?.leaveDaysCount || 0} วัน</p>
+                <p className="text-2xl font-extrabold text-blue-800 mt-1">{data?.leaveDaysCount || 0} {lang === 'en' ? 'days' : 'วัน'}</p>
               </div>
             </div>
           </CardContent>
