@@ -288,15 +288,42 @@ export async function POST(request: Request) {
 
     const todayStr = getThaiDateStr();
 
-    if (photo_base64 && typeof photo_base64 === 'string') {
-      saveSelfiePhoto(spot_check_id, photo_base64, [
-        `spot_${session.employee_id}_${todayStr}_${spot_check_id}`,
-      ]);
-    }
-
     if (String(spot_check_id).startsWith('TEST-') || String(spot_check_id).startsWith('SPOT-MANUAL-')) {
+      const { getManualSpotChecksForDate, updateManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
+      const existingManual =
+        getManualSpotChecksForDate(todayStr).find((s) => s.id === spot_check_id) ||
+        (global.__activeTestSpotChecks || []).find((s) => s.id === spot_check_id);
+
+      if (existingManual) {
+        if (String(existingManual.employee_id) !== String(session.employee_id)) {
+          return NextResponse.json({ error: 'รหัสการสุ่มตรวจนี้ไม่ใช่ของคุณ' }, { status: 403 });
+        }
+        const createdMs = existingManual.created_at ? new Date(existingManual.created_at).getTime() : 0;
+        const isExpired =
+          existingManual.result_status === 'Fail' ||
+          String(existingManual.result_status || '').includes('ไม่ผ่าน') ||
+          (createdMs > 0 && Date.now() > createdMs + 11 * 60 * 1000 && existingManual.result_status !== 'Pass');
+        if (isExpired) {
+          return NextResponse.json(
+            { error: 'หมดเวลายืนยันตัวตนแล้ว (เกินกำหนด 10 นาที)' },
+            { status: 400 }
+          );
+        }
+      } else if (String(spot_check_id).startsWith('SPOT-MANUAL-')) {
+        const idParts = String(spot_check_id).split('-');
+        const embeddedEmpId = idParts.slice(3).join('-');
+        if (embeddedEmpId && embeddedEmpId !== String(session.employee_id)) {
+          return NextResponse.json({ error: 'รหัสการสุ่มตรวจนี้ไม่ใช่ของคุณ' }, { status: 403 });
+        }
+      }
+
+      if (photo_base64 && typeof photo_base64 === 'string') {
+        saveSelfiePhoto(spot_check_id, photo_base64, [
+          `spot_${session.employee_id}_${todayStr}_${spot_check_id}`,
+        ]);
+      }
+
       const nowIso = new Date().toISOString();
-      const { updateManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
       updateManualSpotCheck(spot_check_id, {
         result_status: 'Pass',
         actual_scan_time: nowIso,
@@ -372,6 +399,12 @@ export async function POST(request: Request) {
         result_status: 'Pass',
         message: 'คุณได้ยืนยันตัวตนสุ่มตรวจเฉพาะกิจเรียบร้อยแล้ว!',
       });
+    }
+
+    if (photo_base64 && typeof photo_base64 === 'string') {
+      saveSelfiePhoto(spot_check_id, photo_base64, [
+        `spot_${session.employee_id}_${todayStr}_${spot_check_id}`,
+      ]);
     }
 
     // 1. Try submitSpotCheck directly

@@ -10,12 +10,29 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    let targetEmployeeId = session.employee_id;
+    let targetEmployeeId = String(session.employee_id);
     if (body?.employee_id && (session.role === 'admin' || session.role === 'supervisor')) {
-      targetEmployeeId = String(body.employee_id);
+      const requestedId = String(body.employee_id);
+      if (session.role === 'supervisor' && requestedId !== String(session.employee_id)) {
+        const { getLiveEmployeesMap } = await import('@/lib/gas');
+        const employeesMap = await getLiveEmployeesMap();
+        const targetEmp = employeesMap[requestedId];
+        if (!targetEmp || String(targetEmp.supervisorId) !== String(session.employee_id)) {
+          return NextResponse.json(
+            { error: 'พนักงานคนนี้ไม่ได้อยู่ในสายบังคับบัญชาของคุณ' },
+            { status: 403 }
+          );
+        }
+      }
+      targetEmployeeId = requestedId;
     }
 
-    if (body?.subscription && body.subscription.endpoint && body.subscription.keys) {
+    if (
+      targetEmployeeId === String(session.employee_id) &&
+      body?.subscription &&
+      body.subscription.endpoint &&
+      body.subscription.keys
+    ) {
       const { savePushSubscription } = await import('@/lib/pushStore');
       savePushSubscription(targetEmployeeId, body.subscription, request.headers.get('user-agent') || undefined);
     }

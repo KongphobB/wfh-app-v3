@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     // Exclude internal system persistence records (e.g. __SYS_PUSH_SUB__)
     let filtered = rawTickets.filter((t) => !String(t.issueType || '').startsWith('__SYS_'));
-    if (session.role === 'employee' || scope === 'self') {
+    if (session.role !== 'admin' || scope === 'self') {
       filtered = filtered.filter((t) => String(t.employeeId) === String(session.employee_id));
     }
 

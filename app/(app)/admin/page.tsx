@@ -159,7 +159,7 @@ export default function AdminPage() {
         const mergedEmps = fetchedEmps.map((emp: Employee) => ({
           ...emp,
           work_location_today: emp.is_auto_gps_location
-            ? 'wfh'
+            ? (emp.work_location_today || 'wfh')
             : (clientLocs[emp.employee_id] || emp.work_location_today || 'office'),
         }));
         setEmployees(mergedEmps);
@@ -1228,7 +1228,11 @@ export default function AdminPage() {
                           {emp.is_auto_gps_location && (
                             <span
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200"
-                              title="พนักงานเช็คอินนอกพื้นที่ออฟฟิศ ระบบตรวจจับ GPS และปรับเป็น WFH อัตโนมัติ"
+                              title={
+                                isOffice
+                                  ? 'พนักงานเช็คอินในรัศมีสำนักงาน ระบบตรวจจับพิกัด GPS อัตโนมัติ'
+                                  : 'พนักงานเช็คอินนอกพื้นที่ออฟฟิศ ระบบตรวจจับ GPS และปรับเป็น WFH อัตโนมัติ'
+                              }
                             >
                               <span>🤖</span>
                               <span>ตรวจจาก GPS</span>

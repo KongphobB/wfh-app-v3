@@ -277,11 +277,14 @@ export default function SupervisorPage() {
       let checkinDetails: string | null = null;
 
       const isConfiguredOffice = m.work_location_today === 'office';
-      const isLeave = m.resolved_daily_status === 'leave' || m.resolved_daily_status === 'leave_pending';
+      const isLeave =
+        m.resolved_daily_status === 'leave' ||
+        m.resolved_daily_status === 'leave_pending' ||
+        m.resolved_daily_status === 'holiday';
 
       if (isLeave) {
         status = 'leave';
-        checkinDetails = m.daily_status_reason || 'ลางาน (อนุมัติแล้ว)';
+        checkinDetails = m.daily_status_reason || 'ลางาน / วันหยุด';
       } else if (morningLog) {
         checkinTime = morningLog.log_time ? formatDisplayTime(morningLog.log_time) : null;
         const isOnsiteLog =
@@ -563,6 +566,13 @@ export default function SupervisorPage() {
     );
     if (!todayLog) {
       alert('พนักงานยังไม่ได้ลงเวลาเข้างาน ไม่สามารถสั่งสุ่มตรวจได้');
+      return;
+    }
+    const todayClockoutLog = attendanceLogs.find(
+      (l) => l.employee_id === member.id && l.log_date === todayStr && l.log_type.includes('ออกงาน')
+    );
+    if (todayClockoutLog) {
+      alert('พนักงานลงเวลาออกงานวันนี้เรียบร้อยแล้ว ไม่สามารถสั่งสุ่มตรวจได้');
       return;
     }
     if (triggerCloseTimerRef.current) {

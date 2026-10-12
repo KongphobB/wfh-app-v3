@@ -60,6 +60,13 @@ export function LeaveRequestModal({ isOpen, onClose, onSuccess }: LeaveRequestMo
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 3 * 1024 * 1024) {
+      setError('ไฟล์แนบต้องมีขนาดไม่เกิน 3 MB');
+      e.target.value = '';
+      return;
+    }
+    setError('');
+
     setAttachmentName(file.name);
     const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
     setAttachmentType(isPdf ? 'pdf' : 'image');

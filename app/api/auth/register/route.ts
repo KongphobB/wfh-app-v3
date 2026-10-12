@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     const { employee_id, name, email, department, position, pin } = validation.data;
     const cleanEmpId = employee_id.trim();
 
-    // Prevent registering reserved administrative IDs
-    if (cleanEmpId === '9999' || cleanEmpId === '8888') {
+    // Prevent registering reserved administrative/system IDs
+    if (cleanEmpId === '9999' || cleanEmpId === '8888' || cleanEmpId === '9988') {
       return NextResponse.json(
         { error: 'รหัสพนักงานนี้สงวนไว้สำหรับระบบ ไม่สามารถใช้ลงทะเบียนได้' },
         { status: 400 }
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       name: name.trim(),
       role: 'employee',
       department: department?.trim() || undefined,
-      force_pin_change: false,
+      force_pin_change: pin === '1234',
     });
 
     return NextResponse.json({

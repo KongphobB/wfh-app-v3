@@ -50,6 +50,12 @@ export async function POST(request: Request) {
         c.date === todayStr &&
         (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
     );
+    const todayClockoutLog = checkinLogs.find(
+      (c) =>
+        String(c.employeeId || c.employee_id) === String(employee_id) &&
+        c.date === todayStr &&
+        String(c.type || c.log_type || '').includes('ออกงาน')
+    );
     const hasCheckedInToday = Boolean(todayMorningLog);
     const isOfficeCheckin = Boolean(
       todayMorningLog &&
@@ -92,6 +98,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Guard 3: Employee MUST NOT have already clocked out today (ออกงาน)
+    if (todayClockoutLog) {
+      return NextResponse.json(
+        { error: `พนักงาน ${targetEmployee?.name || employee_id} ลงเวลาออกงานวันนี้เรียบร้อยแล้ว จึงไม่สามารถสั่งสุ่มตรวจได้` },
+        { status: 400 }
+      );
+    }
+
     const newSpotCheckId = `SPOT-MANUAL-${Date.now()}-${employee_id}`;
 
     const newSpotCheck: SpotCheck = {
@@ -110,6 +124,19 @@ export async function POST(request: Request) {
 
     const { addManualSpotCheckAsync } = await import('@/lib/manualSpotCheckStore');
     await addManualSpotCheckAsync(newSpotCheck);
+
+    try {
+      const { createAuditLog } = await import('@/lib/auditStore');
+      createAuditLog({
+        admin_id: String(session.employee_id),
+        admin_name: session.name || String(session.employee_id),
+        action_type: 'SYSTEM_ACTION',
+        action_title: 'สั่งสุ่มตรวจยืนยันตัวตนเฉพาะกิจ (Spot Check)',
+        target_employee_id: String(employee_id),
+        target_employee_name: targetEmployee?.name || String(employee_id),
+        details: `สั่งสุ่มตรวจเฉพาะกิจ (ID: ${newSpotCheckId})${note ? ` หมายเหตุ: ${note}` : ''}`,
+      });
+    } catch {}
 
     if (!global.__activeTestSpotChecks) {
       global.__activeTestSpotChecks = [];

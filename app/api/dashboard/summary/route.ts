@@ -74,7 +74,12 @@ export async function GET() {
         note: l.note || null,
         out_of_bounds_reason: null,
         is_early_leave: false,
-        verification_status: l.verificationStatus || 'ปกติ',
+        verification_status:
+          typeof l.note === 'string' &&
+          l.note.includes('ปฏิบัติงานที่ออฟฟิศ') &&
+          !String(l.verificationStatus || '').includes('ออฟฟิศ')
+            ? 'ปฏิบัติงานที่ออฟฟิศ'
+            : (l.verificationStatus || 'ปกติ'),
         created_at: isoTimeStr,
         updated_at: isoTimeStr,
       };

@@ -72,12 +72,23 @@ export default function DashboardPage() {
             )
         );
 
+        const hasTodayOfficeLog = (data.checkinLogs || []).some(
+          (l: CheckinLog) =>
+            (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
+            ((l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
+              l.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
+        );
+
         // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)
-        let locToday: 'office' | 'wfh' = hasTodayWfhLog ? 'wfh' : (data.workLocationToday || 'office');
+        let locToday: 'office' | 'wfh' = hasTodayWfhLog
+          ? 'wfh'
+          : hasTodayOfficeLog
+          ? 'office'
+          : (data.workLocationToday || 'office');
         try {
           const todayDateStr = getThaiDateStr();
           const raw = localStorage.getItem(`wfh_daily_locations_${todayDateStr}`);
-          if (raw && !hasTodayWfhLog) {
+          if (raw && !hasTodayWfhLog && !hasTodayOfficeLog) {
             const parsed = JSON.parse(raw);
             if (parsed[empId]) {
               locToday = parsed[empId];
@@ -85,13 +96,25 @@ export default function DashboardPage() {
           }
         } catch {}
 
-        const finalStatus = hasTodayWfhLog ? 'wfh' : (data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
+        const finalStatus = hasTodayWfhLog
+          ? 'wfh'
+          : hasTodayOfficeLog
+          ? 'office'
+          : (data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
         setWorkLocationToday(locToday);
         setResolvedDailyStatus(finalStatus);
-        setDailyStatusReason(hasTodayWfhLog ? 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)' : (data.dailyStatusReason || ''));
+        setDailyStatusReason(
+          hasTodayWfhLog
+            ? 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)'
+            : hasTodayOfficeLog
+            ? 'เข้าปฏิบัติงานที่สำนักงาน (เช็คอินพิกัดสำนักงาน)'
+            : (data.dailyStatusReason || '')
+        );
         setIsExemptFromMissingCheckin(
           hasTodayWfhLog
             ? false
+            : hasTodayOfficeLog
+            ? true
             : (data.isExemptFromMissingCheckin != null
                 ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
                 : locToday === 'office')

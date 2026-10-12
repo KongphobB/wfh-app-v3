@@ -154,9 +154,11 @@ export default function GlobalSpotCheckWatcher() {
       }
 
       const currentActive = activeCheckRef.current;
+      const list: SpotCheck[] = data.spotChecks || [];
+      const pending = list.find((s) => isSpotCheckCurrentlyActive(s));
 
-      // If employee is working at office or on leave today, cancel any pending spot check modal/toast
-      if (data.is_working_at_office_today || data.is_on_leave_today) {
+      // If employee is working at office or on leave today and there is no active manual/test check, cancel any pending routine modal/toast
+      if ((data.is_working_at_office_today || data.is_on_leave_today) && !pending) {
         if (currentActive) {
           updateActiveCheck(null);
           setIsModalOpen(false);
@@ -166,9 +168,6 @@ export default function GlobalSpotCheckWatcher() {
         }
         return;
       }
-
-      const list: SpotCheck[] = data.spotChecks || [];
-      const pending = list.find((s) => isSpotCheckCurrentlyActive(s));
 
       if (pending) {
         updateActiveCheck(pending);

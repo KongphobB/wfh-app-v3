@@ -114,8 +114,22 @@ export async function GET(request: Request) {
         };
       });
 
-    const testSpotLogs = (((global as any).__activeTestSpotChecks || []) as any[])
-      .filter((s: any) => s.result_status === 'Pass' && s.actual_scan_time)
+    const { getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
+    const persistedManualChecks = getManualSpotChecksForDate(todayStr);
+    const activeTestChecks = (((global as any).__activeTestSpotChecks || []) as any[]);
+    const combinedManualMap = new Map<string, any>();
+    for (const s of [...persistedManualChecks, ...activeTestChecks]) {
+      if (s && s.id) combinedManualMap.set(String(s.id), s);
+    }
+
+    const testSpotLogs = Array.from(combinedManualMap.values())
+      .filter((s: any) => {
+        if (s.result_status !== 'Pass' || !s.actual_scan_time) return false;
+        const alreadyInGas = rawCheckinLogs.some(
+          (c: any) => typeof c.note === 'string' && c.note.includes(`(${s.id})`)
+        );
+        return !alreadyInGas;
+      })
       .map((s: any) => ({
         uuid: s.id,
         employeeId: s.employee_id,
