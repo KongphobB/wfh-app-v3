@@ -37,17 +37,28 @@ export async function GET(request: Request) {
       isSelf: boolean;
     }[] = [];
 
+    const isSystemOrTestAccount = (id: string, emp: any) =>
+      id !== String(session.employee_id) &&
+      (id === '9988' ||
+        id.startsWith('qa_') ||
+        id.startsWith('test_') ||
+        String(emp?.dept || '').toLowerCase() === 'testmail');
+
     if (session.role === 'admin') {
-      accessibleEmployees = Object.entries(employeesMap).map(([id, emp]) => ({
-        id,
-        name: emp.name || id,
-        dept: emp.dept || '',
-        position: emp.position || '',
-        isSelf: id === String(session.employee_id),
-      }));
+      accessibleEmployees = Object.entries(employeesMap)
+        .filter(([id, emp]) => !isSystemOrTestAccount(id, emp))
+        .map(([id, emp]) => ({
+          id,
+          name: emp.name || id,
+          dept: emp.dept || '',
+          position: emp.position || '',
+          isSelf: id === String(session.employee_id),
+        }));
     } else if (session.role === 'supervisor') {
       const teamEntries = Object.entries(employeesMap).filter(
-        ([id, emp]) => String(emp.supervisorId) === String(session.employee_id) || id === String(session.employee_id)
+        ([id, emp]) =>
+          !isSystemOrTestAccount(id, emp) &&
+          (String(emp.supervisorId) === String(session.employee_id) || id === String(session.employee_id))
       );
 
       accessibleEmployees = teamEntries.map(([id, emp]) => ({
@@ -87,9 +98,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'ไม่สามารถดึงข้อมูลสถิติได้' }, { status: 500 });
     }
 
-    const rawCheckins = (applyCheckinAdjustments((res.checkinLogs || []) as any[])).filter(
+    const allMorningCheckins = (applyCheckinAdjustments((res.checkinLogs || []) as any[])).filter(
       (l) => String(l.employeeId) === String(targetEmployeeId) && (l.type === 'เข้างาน' || l.log_type === 'เข้างาน')
     );
+    // Deduplicate morning check-ins by date (keep earliest per date)
+    const checkinByDateMap = new Map<string, any>();
+    for (const c of allMorningCheckins) {
+      const dKey = String(c.date || c.log_date || '');
+      if (!dKey) continue;
+      const existing = checkinByDateMap.get(dKey);
+      if (!existing || String(c.time || '') < String(existing.time || '')) {
+        checkinByDateMap.set(dKey, c);
+      }
+    }
+    const rawCheckins = Array.from(checkinByDateMap.values());
+
     const rawTasks = ((res.tasks || []) as any[]).filter(
       (t) => String(t.employeeId) === String(targetEmployeeId)
     );
@@ -157,15 +180,52 @@ export async function GET(request: Request) {
 
     const taskCompletionRate = totalAssigned > 0 ? Math.min(100, Math.round((totalCompleted / totalAssigned) * 100)) : 100;
 
-    // 4. Spot Check Compliance
-    let spotPassCount = 0;
-    let spotTotalCount = rawSpots.length;
+    // 4. Spot Check Compliance (deduplicate by date + round and normalize GAS status fields)
+    const isSpotPassed = (s: any) => {
+      const status = String(s.status || s.resultStatus || '');
+      return (
+        status === 'Pass' ||
+        status === 'ผ่าน' ||
+        status.includes('ผ่านการสุ่มตรวจ') ||
+        Boolean(s.actualScanTime || s.checkInTime)
+      );
+    };
+    const isSpotPending = (s: any) => {
+      const status = String(s.status || s.resultStatus || 'Scheduled');
+      return (status === 'Scheduled' || status === 'Pending' || status === 'รอการยืนยัน') && !isSpotPassed(s);
+    };
 
-    rawSpots.forEach((s) => {
-      const status = s.resultStatus || '';
-      if (status === 'Pass' || status.includes('ผ่านการสุ่มตรวจ')) {
-        spotPassCount++;
+    const dedupedSpotRounds = new Map<string, any>();
+    for (const s of rawSpots) {
+      const key = `${s.date || ''}_${s.round || 'เช้า'}`;
+      const existing = dedupedSpotRounds.get(key);
+      if (!existing || (!isSpotPassed(existing) && isSpotPassed(s))) {
+        dedupedSpotRounds.set(key, s);
       }
+    }
+
+    let spotPassCount = 0;
+    let spotTotalCount = 0;
+    const todayDateStr = getThaiDateStr();
+    const nowTimeMs = Date.now();
+
+    dedupedSpotRounds.forEach((s) => {
+      if (isSpotPassed(s)) {
+        spotPassCount++;
+        spotTotalCount++;
+        return;
+      }
+      if (isSpotPending(s) && s.date === todayDateStr) {
+        const rawSched = String(s.triggeredTime || s.scheduledTime || s.time || '').trim();
+        const m = rawSched.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const normTime = m ? `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}` : '23:59:59';
+        const trigMs = new Date(`${s.date}T${normTime}+07:00`).getTime();
+        // Do not penalize an employee for a spot check that hasn't expired yet today
+        if (!isNaN(trigMs) && nowTimeMs <= trigMs + 11 * 60 * 1000) {
+          return;
+        }
+      }
+      spotTotalCount++;
     });
 
     const spotCheckComplianceRate = spotTotalCount > 0 ? Math.round((spotPassCount / spotTotalCount) * 100) : 100;

@@ -92,9 +92,24 @@ export function getAllLeaveRequests(): LeaveRequest[] {
   return memoryLeaveRequests;
 }
 
-export function getLeaveRequestsForUser(employeeId: string, role?: string): LeaveRequest[] {
+export function getLeaveRequestsForUser(
+  employeeId: string,
+  role?: string,
+  employeesMap?: Record<string, { supervisorId?: string }>
+): LeaveRequest[] {
   const list = getAllLeaveRequests();
-  if (role === 'admin' || role === 'supervisor') {
+  if (role === 'admin') {
+    return list;
+  }
+  if (role === 'supervisor') {
+    const map = employeesMap || (global as any).__lastKnownEmployeesMap;
+    if (map && Object.keys(map).length > 0) {
+      return list.filter(
+        (r) =>
+          String(r.employee_id) === String(employeeId) ||
+          String(map[r.employee_id]?.supervisorId) === String(employeeId)
+      );
+    }
     return list;
   }
   return list.filter((r) => r.employee_id === employeeId);

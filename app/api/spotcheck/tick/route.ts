@@ -57,9 +57,9 @@ export async function GET(request: Request) {
     // Check for expired spot checks exceeding 10 minutes
     const nowMs = Date.now();
     const { getLiveEmployeesMap } = await import('@/lib/gas');
-    const { createNotification, createNotificationForSupervisor } = await import('@/lib/notifications');
+    const { createNotification, createNotificationForAdmins, createNotificationForSupervisor } = await import('@/lib/notifications');
     const { sendMissedSpotCheckAlertEmail } = await import('@/lib/email');
-    const { updateManualSpotCheck } = await import('@/lib/manualSpotCheckStore');
+    const { updateManualSpotCheck, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
 
     const [employeesMap, spotRes, checkinRes] = await Promise.all([
       getLiveEmployeesMap(),
@@ -85,9 +85,16 @@ export async function GET(request: Request) {
       }
     }
 
-    // 1. Check active test / manual spot checks
-    if (global.__activeTestSpotChecks && global.__activeTestSpotChecks.length > 0) {
-      for (const check of global.__activeTestSpotChecks) {
+    // 1. Check active test / manual spot checks (both in-memory and disk store)
+    const persistedManualToday = getManualSpotChecksForDate(todayStr);
+    const activeMemoryChecks = global.__activeTestSpotChecks || [];
+    const combinedManualChecks = [
+      ...activeMemoryChecks,
+      ...persistedManualToday.filter((p) => !activeMemoryChecks.some((m) => m.id === p.id)),
+    ];
+
+    if (combinedManualChecks.length > 0) {
+      for (const check of combinedManualChecks) {
         if (check.result_status === 'Scheduled' || check.result_status === 'Pending') {
           const triggerTimeMs = check.created_at ? new Date(check.created_at).getTime() : 0;
           if (triggerTimeMs > 0 && nowMs > triggerTimeMs + 10 * 60 * 1000) {
@@ -101,7 +108,7 @@ export async function GET(request: Request) {
               (global as any)[manualAlertKey] = true;
 
               const emp = employeesMap[check.employee_id];
-              const empName = emp?.name || check.employee_name || check.employee_id;
+              const empName = emp?.name || (check as any).employee_name || check.employee_id;
               const supervisorId = emp?.supervisorId;
               const supervisorEmail = supervisorId ? employeesMap[supervisorId]?.email : null;
               const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
@@ -116,6 +123,12 @@ export async function GET(request: Request) {
                       link: '/supervisor',
                     })
                   : Promise.resolve(),
+                createNotificationForAdmins({
+                  type: 'spotcheck',
+                  title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${check.employee_id})`,
+                  message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${check.round}`,
+                  link: '/admin',
+                }),
                 createNotification({
                   employee_id: check.employee_id,
                   type: 'spotcheck',
@@ -207,6 +220,12 @@ export async function GET(request: Request) {
                           link: '/supervisor',
                         })
                       : Promise.resolve(),
+                    createNotificationForAdmins({
+                      type: 'spotcheck',
+                      title: `⚠️ พนักงานไม่ผ่านการสุ่มตรวจ: ${empName} (${s.employeeId})`,
+                      message: `ขาดการติดต่อเกิน 10 นาที ในรอบการสุ่มตรวจ ${s.round || 'ประจำวัน'}`,
+                      link: '/admin',
+                    }),
                     createNotification({
                       employee_id: String(s.employeeId),
                       type: 'spotcheck',

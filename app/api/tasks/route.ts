@@ -31,12 +31,17 @@ const rateTaskSchema = z.object({
   supervisor_note: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
+
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope');
+    const { getThaiDateStr } = await import('@/lib/timeSync');
+    const todayStr = getThaiDateStr();
 
     const [gasRes, employeesMap] = await Promise.all([
       callGAS('getLogs', { logType: 'task', limit: 300 }),
@@ -45,7 +50,7 @@ export async function GET() {
     const rawTasks = (gasRes?.data || []) as any[];
 
     let filtered = rawTasks;
-    if (session.role === 'employee') {
+    if (scope === 'self' || session.role === 'employee') {
       filtered = rawTasks.filter((t) => String(t.employeeId) === String(session.employee_id));
     } else if (session.role === 'supervisor') {
       const subordinateIdSet = new Set(
@@ -73,9 +78,10 @@ export async function GET() {
           ? parseInt(t.remainingTasks || t.tasksRemaining, 10)
           : Math.max(0, assigned - completed);
 
+      const submitDate = t.date || t.submitDate || todayStr;
       return {
-        id: t.uuid || `${t.employeeId}_${t.date}`,
-        submit_date: t.date || t.submitDate,
+        id: t.uuid || `${t.employeeId}_${submitDate}`,
+        submit_date: submitDate,
         employee_id: String(t.employeeId),
         employee_name: rawName,
         tasks_assigned: assigned,
@@ -85,7 +91,7 @@ export async function GET() {
         submission_link: t.submissionLink || t.link || null,
         star_rating: starRating && !isNaN(starRating) ? starRating : null,
         supervisor_note: t.supervisorNote || t.supervisorNotes || t.note || null,
-        created_at: `${t.date || '2026-08-19'}T09:00:00+07:00`,
+        created_at: `${submitDate}T09:00:00+07:00`,
       };
     });
 
@@ -181,6 +187,31 @@ export async function PATCH(request: Request) {
 
     const { task_id, employee_id, star_rating, supervisor_note } = validation.data;
     const employeesMap = await getLiveEmployeesMap();
+
+    let targetEmpId = employee_id || (task_id.includes('_') ? task_id.split('_')[0] : '');
+    if (!targetEmpId) {
+      try {
+        const tasksRes = await callGAS('getLogs', { logType: 'task', limit: 200 });
+        const targetTask = ((tasksRes?.data || []) as any[]).find(
+          (t) => t.uuid === task_id || t.id === task_id || `${t.employeeId}_${t.date}` === task_id
+        );
+        if (targetTask?.employeeId) {
+          targetEmpId = String(targetTask.employeeId);
+        }
+      } catch {}
+    }
+
+    if (session.role === 'supervisor' && Object.keys(employeesMap).length > 0) {
+      const isSubordinate =
+        targetEmpId && String(employeesMap[targetEmpId]?.supervisorId) === String(session.employee_id);
+      if (!isSubordinate) {
+        return NextResponse.json(
+          { error: 'ไม่มีสิทธิ์ประเมินผลงานของพนักงานนอกสายบังคับบัญชา' },
+          { status: 403 }
+        );
+      }
+    }
+
     const authPin = employeesMap[session.employee_id]?.pin || (session.employee_id === '9999' ? '9999' : '1234');
 
     // Submit rating directly to Google Sheets
@@ -198,7 +229,7 @@ export async function PATCH(request: Request) {
       adminPin: '9999',
     });
 
-    // Fallback for older tasks assigned under 9999 supervisor in Google Sheets
+    // Fallback for older tasks assigned under 9999 supervisor in Google Sheets (only after scope check passes)
     if (gasResult && !gasResult.success && String(gasResult.message || '').includes('สิทธิ์ของหัวหน้างาน')) {
       gasResult = await callGAS('submitSupervisorRating', {
         taskUuid: task_id,
@@ -229,18 +260,9 @@ export async function PATCH(request: Request) {
 
     // Send in-app notification to employee
     try {
-      let empId = employee_id || (task_id.includes('_') ? task_id.split('_')[0] : '');
-      if (!empId) {
-        const tasksRes = await callGAS('getLogs', { logType: 'task', limit: 50 });
-        const targetTask = ((tasksRes?.data || []) as any[]).find((t) => t.uuid === task_id || t.id === task_id);
-        if (targetTask?.employeeId) {
-          empId = String(targetTask.employeeId);
-        }
-      }
-
-      if (empId) {
+      if (targetEmpId) {
         await createNotification({
-          employee_id: empId,
+          employee_id: targetEmpId,
           type: 'task_rated',
           title: `⭐ หัวหน้างานประเมินผลงานแล้ว (${star_rating} ดาว)`,
           message: supervisor_note ? `ความคิดเห็น: ${supervisor_note}` : `หัวหน้างานได้ประเมินคะแนนส่งงานประจำวันแล้ว`,

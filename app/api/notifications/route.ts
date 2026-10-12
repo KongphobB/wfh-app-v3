@@ -56,7 +56,7 @@ export async function GET() {
       hasCheckedInWfhToday,
       isOfficeCheckin,
     });
-    const isOfficeToday = todayDailyStatus.location === 'office' || isEmployeeAtOfficeToday(session.employee_id);
+    const isOfficeToday = todayDailyStatus.location === 'office' || todayDailyStatus.status === 'office';
     const isExemptRoutineToday = todayDailyStatus.isExemptFromRoutineSpotCheck;
     const memoryNotifs = getNotificationsForUser(session.employee_id, session.role);
     const dynamicNotifs: AppNotification[] = [];

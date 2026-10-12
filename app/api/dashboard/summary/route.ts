@@ -217,7 +217,7 @@ export async function GET() {
         todayStr,
         {
           reason: 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)',
-          is_auto_gps: false,
+          is_auto_gps: true,
         }
       );
     }
@@ -228,25 +228,34 @@ export async function GET() {
       wfhStatus,
     });
 
-    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
-    const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
-    const activeManual = manualChecks.find(
+    const { getActiveManualSpotChecksAsync, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
+    const activeManualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
+    const allManualToday = getManualSpotChecksForDate(todayStr, String(session.employee_id));
+    const activeManual = activeManualChecks.find(
       (s) => s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน'
     );
 
+    const nowMs = Date.now();
     // If employee is exempt from routine spot checks (Office, Holiday, Leave), omit routine checks
     const activeRoutine = dailyDetail.isExemptFromRoutineSpotCheck
       ? null
-      : formattedSpots.find(
-          (s) => s.result_status === 'Pending' || s.result_status === 'Scheduled' || s.result_status === 'รอการยืนยัน'
-        );
+      : formattedSpots.find((s) => {
+          const isPending =
+            s.result_status === 'Pending' || s.result_status === 'Scheduled' || s.result_status === 'รอการยืนยัน';
+          if (!isPending || s.actual_scan_time) return false;
+          const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
+          const triggerMs = s.created_at ? new Date(s.created_at).getTime() : 0;
+          if (!isManual && triggerMs > 0 && nowMs < triggerMs - 5000) return false;
+          if (triggerMs > 0 && nowMs > triggerMs + 11 * 60 * 1000) return false;
+          return true;
+        });
     const activeSpotCheck = activeManual || activeRoutine || null;
 
     const filteredRoutineSpots = dailyDetail.isExemptFromRoutineSpotCheck
       ? formattedSpots.filter((s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL'))
       : formattedSpots;
     const finalSpots = [
-      ...manualChecks.filter((m) => !filteredRoutineSpots.some((r) => r.id === m.id)),
+      ...allManualToday.filter((m) => !filteredRoutineSpots.some((r) => r.id === m.id)),
       ...filteredRoutineSpots,
     ];
 

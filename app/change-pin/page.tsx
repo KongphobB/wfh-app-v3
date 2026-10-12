@@ -48,6 +48,11 @@ export default function ChangePinPage() {
       return;
     }
 
+    if (newPin === '1234') {
+      setError(lang === 'en' ? 'New PIN cannot be the default PIN (1234).' : 'ไม่อนุญาตให้ตั้งรหัส PIN ใหม่เป็นค่าเริ่มต้น (1234)');
+      return;
+    }
+
     setLoading(true);
 
     try {

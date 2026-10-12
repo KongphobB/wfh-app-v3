@@ -31,7 +31,7 @@ export default function DailyTasksPage() {
     isFetchingRef.current = true;
     if (isInitial) setLoading(true);
     try {
-      const res = await fetch('/api/tasks');
+      const res = await fetch('/api/tasks?scope=self');
       lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();

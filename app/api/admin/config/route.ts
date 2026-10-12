@@ -65,6 +65,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'รูปแบบข้อมูลการตั้งค่าไม่ถูกต้อง' }, { status: 400 });
     }
 
+    if (configs.office_lat !== undefined) {
+      const lat = Number(configs.office_lat);
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+        return NextResponse.json({ error: 'ค่า Latitude ของบริษัทไม่ถูกต้อง (ต้องอยู่ระหว่าง -90 ถึง 90)' }, { status: 400 });
+      }
+    }
+    if (configs.office_lng !== undefined) {
+      const lng = Number(configs.office_lng);
+      if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+        return NextResponse.json({ error: 'ค่า Longitude ของบริษัทไม่ถูกต้อง (ต้องอยู่ระหว่าง -180 ถึง 180)' }, { status: 400 });
+      }
+    }
+    if (configs.max_allowed_radius_meters !== undefined) {
+      const radius = Number(configs.max_allowed_radius_meters);
+      if (!Number.isFinite(radius) || radius <= 0 || radius > 100000) {
+        return NextResponse.json({ error: 'ค่ารัศมีอนุญาตไม่ถูกต้อง (ต้องมากกว่า 0 เมตร)' }, { status: 400 });
+      }
+    }
+
     const localExemptIds = getLocalExemptIds();
     if (configs.auto_exempt_supervisors !== undefined) {
       if (String(configs.auto_exempt_supervisors) === 'false') {

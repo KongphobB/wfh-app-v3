@@ -66,7 +66,10 @@ export default function DashboardPage() {
         const hasTodayWfhLog = (data.checkinLogs || []).some(
           (l: CheckinLog) =>
             (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
-            !(l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office')))
+            !(
+              (l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
+              l.note?.includes('ปฏิบัติงานที่ออฟฟิศ')
+            )
         );
 
         // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)

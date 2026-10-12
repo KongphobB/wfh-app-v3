@@ -237,7 +237,10 @@ export async function GET(request: Request) {
         note: l.note || null,
         out_of_bounds_reason: null,
         is_early_leave: false,
-        verification_status: l.verificationStatus || 'ปกติ',
+        verification_status:
+          typeof l.note === 'string' && l.note.includes('ปฏิบัติงานที่ออฟฟิศ') && !String(l.verificationStatus || '').includes('ออฟฟิศ')
+            ? 'ปฏิบัติงานที่ออฟฟิศ'
+            : l.verificationStatus || 'ปกติ',
         created_at: isoTimeStr,
         updated_at: isoTimeStr,
         department: l.dept || employeesMap[l.employeeId]?.dept,
@@ -435,7 +438,13 @@ export async function POST(request: Request) {
 
     const typeKey = `${session.employee_id}_${todayStr}_${log_type}`;
     const effectiveReason = out_of_bounds_reason || note || body.reason || '';
-    const effectiveNote = note || out_of_bounds_reason || '';
+    const baseNote = (note || out_of_bounds_reason || '').trim();
+    const effectiveNote =
+      log_type === 'เข้างาน' && !isOutsideOffice && !baseNote.includes('ปฏิบัติงานที่ออฟฟิศ')
+        ? baseNote
+          ? `[ปฏิบัติงานที่ออฟฟิศ] ${baseNote}`
+          : '[ปฏิบัติงานที่ออฟฟิศ]'
+        : baseNote;
 
     // Call Google Apps Script backend directly
     const gasResult = await callGAS('checkin', {

@@ -50,7 +50,7 @@ export async function GET() {
       const cEmpId = String(c.employeeId || c.employee_id || '');
       if (!cEmpId || c.date !== todayStr || morningCheckinByEmp.has(cEmpId)) continue;
       const typeStr = String(c.type || c.log_type || '');
-      if (!typeStr.includes('เข้างาน') && typeStr !== 'ยืนยันตัวตน') continue;
+      if (typeStr !== 'เข้างาน' && !typeStr.startsWith('เข้างาน')) continue;
       const isOffice =
         String(c.verificationStatus || c.verification_status || '').includes('ออฟฟิศ') ||
         String(c.verificationStatus || c.verification_status || '').includes('Office') ||

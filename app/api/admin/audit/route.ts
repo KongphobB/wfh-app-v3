@@ -11,7 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
-    const logs = getAllAuditLogs();
+    const allLogs = getAllAuditLogs();
+    const logs =
+      session.role === 'admin'
+        ? allLogs
+        : allLogs.filter((l) => String(l.admin_id) === String(session.employee_id));
 
     return NextResponse.json({
       success: true,

@@ -18,6 +18,7 @@ export default function LeavePage() {
   const { t, lang } = useLanguage();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [role, setRole] = useState<string>('employee');
+  const [currentEmpId, setCurrentEmpId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'my_requests' | 'team_approvals'>('my_requests');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,13 +34,17 @@ export default function LeavePage() {
       if (res.ok && data.success) {
         const fetchedList: LeaveRequest[] = data.data || [];
         const fetchedRole: string = data.role || 'employee';
+        const fetchedEmpId: string = String(data.employee_id || '');
         setRequests(fetchedList);
         setRole(fetchedRole);
+        setCurrentEmpId(fetchedEmpId);
         if (!hasInitializedTabRef.current) {
           hasInitializedTabRef.current = true;
           if (
             (fetchedRole === 'supervisor' || fetchedRole === 'admin') &&
-            fetchedList.some((r) => r.status === 'Pending')
+            fetchedList.some(
+              (r) => r.status === 'Pending' && (fetchedRole === 'admin' || !fetchedEmpId || String(r.employee_id) !== fetchedEmpId)
+            )
           ) {
             setActiveTab('team_approvals');
           }
@@ -80,7 +85,9 @@ export default function LeavePage() {
   };
 
   const myRequests = requests.filter((r) => role === 'employee' || activeTab === 'my_requests');
-  const pendingApprovals = requests.filter((r) => r.status === 'Pending');
+  const pendingApprovals = requests.filter(
+    (r) => r.status === 'Pending' && (role === 'admin' || !currentEmpId || String(r.employee_id) !== currentEmpId)
+  );
 
   const getStatusBadge = (status: LeaveStatus) => {
     switch (status) {

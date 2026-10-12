@@ -16,6 +16,10 @@ const changePinSchema = z
   .refine((data) => data.newPin !== data.oldPin, {
     message: 'รหัส PIN ใหม่ต้องไม่ซ้ำกับรหัส PIN เดิม',
     path: ['newPin'],
+  })
+  .refine((data) => data.newPin !== '1234', {
+    message: 'ไม่อนุญาตให้ตั้งรหัส PIN ใหม่เป็นค่าเริ่มต้น (1234)',
+    path: ['newPin'],
   });
 
 export async function POST(request: Request) {

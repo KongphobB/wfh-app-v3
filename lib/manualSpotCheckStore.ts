@@ -112,6 +112,19 @@ export function getActiveManualSpotChecks(employeeId?: string): SpotCheck[] {
   });
 }
 
+export function getManualSpotChecksForDate(dateStr?: string, employeeId?: string): SpotCheck[] {
+  const store = getMemoryStore();
+  const targetDate = dateStr || getThaiDateStr();
+  return store.filter((c) => {
+    if (!isTestEnv && (String(c.employee_id).startsWith('qa_') || String(c.employee_id).startsWith('test_'))) {
+      return false;
+    }
+    if (c.check_date !== targetDate) return false;
+    if (employeeId && String(c.employee_id) !== String(employeeId)) return false;
+    return true;
+  });
+}
+
 /**
  * Asynchronously retrieve active manual spot checks
  */

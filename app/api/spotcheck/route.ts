@@ -19,7 +19,7 @@ export async function GET() {
     const todayStr = getThaiDateStr();
     const { getLiveEmployeesMap } = await import('@/lib/gas');
     const { isEmployeePhotoExempt } = await import('@/lib/photoExempt');
-    const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
+    const { getActiveManualSpotChecksAsync, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
     const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
 
     // Parallel fetch from GAS & cache to avoid waterfall delays
@@ -34,7 +34,7 @@ export async function GET() {
     const todayMorningLog = rawCheckins.find((c: any) => {
       if (String(c.employeeId || c.employee_id) !== String(session.employee_id) || c.date !== todayStr) return false;
       const typeStr = String(c.type || c.log_type || '');
-      return typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน';
+      return typeStr === 'เข้างาน' || typeStr.startsWith('เข้างาน');
     });
     const isOfficeCheckin = Boolean(
       todayMorningLog &&
@@ -171,11 +171,16 @@ export async function GET() {
 
     // Fetch manual spot checks from persistent store (with Google Sheets recovery)
     const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));
+    const allManualToday = getManualSpotChecksForDate(todayStr, String(session.employee_id));
+    const mergedManualChecks = [
+      ...manualChecks,
+      ...allManualToday.filter((m) => !manualChecks.some((a) => a.id === m.id)),
+    ];
 
     const testChecks = [
-      ...manualChecks,
+      ...mergedManualChecks,
       ...((global.__activeTestSpotChecks || []).filter(
-        (t) => String(t.employee_id) === String(session.employee_id) && !manualChecks.some((m) => m.id === t.id)
+        (t) => String(t.employee_id) === String(session.employee_id) && !mergedManualChecks.some((m) => m.id === t.id)
       )),
     ];
 

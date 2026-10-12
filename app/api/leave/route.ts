@@ -37,11 +37,18 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const requests = getLeaveRequestsForUser(session.employee_id, session.role);
+    const empMap =
+      session.role === 'supervisor'
+        ? (global as any).__lastKnownEmployeesMap ||
+          (process.env.VITEST || process.env.NODE_ENV === 'test' ? {} : await getLiveEmployeesMap().catch(() => ({})))
+        : undefined;
+
+    const requests = getLeaveRequestsForUser(session.employee_id, session.role, empMap);
     return NextResponse.json({
       success: true,
       data: requests,
       role: session.role,
+      employee_id: session.employee_id,
     });
   } catch (error: any) {
     console.error('Fetch leave error:', error);
@@ -151,11 +158,20 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'ข้อมูลการพิจารณาไม่ถูกต้อง' }, { status: 400 });
     }
 
-    // If supervisor, verify that the leave request belongs to their scope
+    // If supervisor, verify that the leave request belongs to their subordinate scope and is not self-approval
     if (session.role === 'supervisor') {
-      const allowedRequests = getLeaveRequestsForUser(session.employee_id, session.role);
-      const isAllowed = allowedRequests.some((r) => r.id === parsed.data.id);
-      if (!isAllowed) {
+      const empMap =
+        (global as any).__lastKnownEmployeesMap ||
+        (process.env.VITEST || process.env.NODE_ENV === 'test' ? {} : await getLiveEmployeesMap().catch(() => ({})));
+      const allowedRequests = getLeaveRequestsForUser(session.employee_id, session.role, empMap);
+      const targetReq = allowedRequests.find((r) => r.id === parsed.data.id);
+      if (targetReq && String(targetReq.employee_id) === String(session.employee_id)) {
+        return NextResponse.json(
+          { error: 'ไม่สามารถอนุมัติหรือปฏิเสธคำขอลาของตนเองได้' },
+          { status: 403 }
+        );
+      }
+      if (!targetReq) {
         return NextResponse.json(
           { error: 'ไม่มีสิทธิ์พิจารณาคำขอลาของพนักงานนอกสายบังคับบัญชา' },
           { status: 403 }

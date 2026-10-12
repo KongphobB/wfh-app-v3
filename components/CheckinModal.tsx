@@ -116,7 +116,7 @@ export default function CheckinModal({ isOpen, onClose, onSuccess, defaultType =
 
   const checkTodayTaskSubmission = async () => {
     try {
-      const res = await fetch('/api/tasks');
+      const res = await fetch('/api/tasks?scope=self');
       if (res.ok) {
         const data = await res.json();
         const todayStr = getThaiDateStr();
