@@ -2,6 +2,8 @@ const GAS_WEB_APP_URL =
   process.env.GOOGLE_SCRIPT_URL ||
   'https://script.google.com/macros/s/AKfycbwqlMKbRoQlh97mpbJm1--Gorz2ub_5x749utYYBkt2ynF2CeMQejkyFAZq7ccIT5D2ew/exec';
 
+const GAS_TIMEOUT_MS = Number(process.env.GAS_TIMEOUT_MS) || 25000;
+
 // High-speed In-Memory Cache
 interface CacheEntry {
   data: any;
@@ -151,6 +153,7 @@ async function fetchFromGAS(action: string, payload: Record<string, any>): Promi
     },
     body: bodyData,
     redirect: 'follow',
+    signal: AbortSignal.timeout(GAS_TIMEOUT_MS),
   });
 
   const text = await res.text();
