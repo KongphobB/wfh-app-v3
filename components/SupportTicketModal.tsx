@@ -76,11 +76,11 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !submitting) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, submitting]);
 
   useEffect(() => {
     if (tabSwitchTimerRef.current) {
@@ -155,12 +155,19 @@ export default function SupportTicketModal({ isOpen, onClose }: SupportTicketMod
   if (!isOpen || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <Card className="w-full max-w-xl p-6 relative border-slate-200 bg-white shadow-2xl rounded-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div
+      onClick={() => !submitting && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+    >
+      <Card
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl p-6 relative border-slate-200 bg-white shadow-2xl rounded-3xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
         {/* Close Button */}
         <button
-          onClick={onClose}
-          className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+          onClick={() => !submitting && onClose()}
+          disabled={submitting}
+          className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-1.5 rounded-full hover:bg-slate-100 disabled:opacity-50 transition-colors cursor-pointer"
           title={lang === 'en' ? 'Close Window' : 'ปิดหน้าต่าง'}
         >
           <X className="w-5 h-5" />

@@ -146,8 +146,14 @@ export function OnboardingModal({ isOpen, onClose, employeeId }: OnboardingModal
   const StepIcon = current.icon;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-      <div className="glass-card w-full max-w-xl rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white relative max-h-[92vh] overflow-y-auto">
+    <div
+      onClick={handleFinish}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-xl rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white relative max-h-[92vh] overflow-y-auto"
+      >
         {/* Close Button */}
         <button
           type="button"

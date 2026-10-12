@@ -173,11 +173,17 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
   useEffect(() => {
     if (!spotCheck) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (popupAlert) {
+          setPopupAlert(null);
+        } else if (!loading) {
+          onClose();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [spotCheck, onClose]);
+  }, [spotCheck, onClose, popupAlert, loading]);
 
   useEffect(() => {
     if (!spotCheck) {
@@ -397,8 +403,14 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
     <>
       {/* Popup Alert Dialog Modal */}
       {popupAlert && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 bg-white text-center relative animate-scale-up">
+        <div
+          onClick={() => setPopupAlert(null)}
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-orange-200 bg-white text-center relative animate-scale-up"
+          >
             <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center mx-auto mb-4 font-bold shadow-inner">
               <AlertCircle className="w-7 h-7 text-orange-600" />
             </div>
@@ -418,11 +430,18 @@ export default function SpotCheckModal({ spotCheck, onClose, onSuccess }: SpotCh
       )}
 
       {/* Main Spot Check Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in safe-area-bottom safe-area-top">
-        <div className="glass-card w-full max-w-md rounded-3xl p-4 sm:p-6 shadow-2xl border border-orange-300 bg-white relative max-h-[92dvh] overflow-y-auto">
+      <div
+        onClick={() => !loading && onClose()}
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in safe-area-bottom safe-area-top"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="glass-card w-full max-w-md rounded-3xl p-4 sm:p-6 shadow-2xl border border-orange-300 bg-white relative max-h-[92dvh] overflow-y-auto"
+        >
           <button
-            onClick={onClose}
-            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 transition-colors"
+            onClick={() => !loading && onClose()}
+            disabled={loading}
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 disabled:opacity-50 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

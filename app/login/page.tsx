@@ -37,6 +37,17 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isRegisterOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !regSubmitting) {
+        setIsRegisterOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRegisterOpen, regSubmitting]);
+
   const handleLogin = async () => {
     if (loading) return;
     setError('');
@@ -270,12 +281,19 @@ export default function LoginPage() {
 
       {/* Registration Modal Dialog */}
       {isRegisterOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white relative max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => !regSubmitting && setIsRegisterOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white relative max-h-[90vh] overflow-y-auto"
+          >
             <button
               type="button"
+              disabled={regSubmitting}
               onClick={() => setIsRegisterOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 p-2 rounded-full hover:bg-slate-100 disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
