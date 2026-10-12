@@ -6,7 +6,7 @@ import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLight
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BellRing, RefreshCw, Clock } from 'lucide-react';
+import { BellRing, RefreshCw, Clock, Loader2 } from 'lucide-react';
 import { SpotCheck } from '@/types';
 import { syncServerTime, getSyncedNow, getThaiDateStr } from '@/lib/timeSync';
 import { useLanguage } from '@/lib/i18n';
@@ -260,6 +260,15 @@ export default function SpotCheckPage() {
               // Don't show future un-triggered scheduled checks in the history list
               return !isUpcoming;
             });
+
+            if (loading) {
+              return (
+                <div className="text-center py-10 text-slate-400 text-xs font-medium space-y-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-orange-500 mx-auto" />
+                  <p>{t.common.loading}</p>
+                </div>
+              );
+            }
 
             if (historyChecks.length === 0) {
               return (

@@ -20,13 +20,31 @@ export default function ManualPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let initialTab: 'employee' | 'supervisor' | 'admin' | null = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'employee' || tabParam === 'supervisor' || tabParam === 'admin') {
+        initialTab = tabParam;
+      }
+    } catch {}
+
     fetch('/api/dashboard/summary')
       .then((res) => res.json())
       .then((data) => {
         if (data.role) {
           const role = data.role as 'employee' | 'supervisor' | 'admin';
           setUserRole(role);
-          setActiveTab(role === 'admin' ? 'admin' : role === 'supervisor' ? 'supervisor' : 'employee');
+          if (
+            initialTab &&
+            (initialTab === 'employee' ||
+              (initialTab === 'supervisor' && (role === 'supervisor' || role === 'admin')) ||
+              (initialTab === 'admin' && role === 'admin'))
+          ) {
+            setActiveTab(initialTab);
+          } else {
+            setActiveTab(role === 'admin' ? 'admin' : role === 'supervisor' ? 'supervisor' : 'employee');
+          }
         }
       })
       .catch((err) => console.error('Fetch role error:', err))
