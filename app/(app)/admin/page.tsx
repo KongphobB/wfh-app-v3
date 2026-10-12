@@ -2203,6 +2203,10 @@ export default function AdminPage() {
               return <Badge variant="default" className="bg-indigo-600 text-white text-[10px]">สร้างพนักงานใหม่</Badge>;
             case 'EDIT_EMPLOYEE':
               return <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-[10px]">แก้ไขพนักงาน</Badge>;
+            case 'DELETE_EMPLOYEE':
+              return <Badge variant="destructive" className="text-[10px]">ลบพนักงาน</Badge>;
+            case 'CHANGE_PIN':
+              return <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 text-[10px]">เปลี่ยนรหัส PIN</Badge>;
             case 'TOGGLE_PHOTO_EXEMPT':
               return <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-[10px]">ปรับสิทธิ์ถ่ายภาพ</Badge>;
             case 'SET_OFFICE_MODE':
@@ -2277,8 +2281,10 @@ export default function AdminPage() {
                       <option value="UPDATE_CONFIG">⚙️ ตั้งค่าระบบ (UPDATE_CONFIG)</option>
                       <option value="UNSUSPEND_WFH">🔓 ปลดระงับสิทธิ์ WFH (UNSUSPEND_WFH)</option>
                       <option value="SUSPEND_WFH">🔒 ระงับสิทธิ์ WFH (SUSPEND_WFH)</option>
-                      <option value="EDIT_EMPLOYEE">✏️ แก้ไข/ลบพนักงาน (EDIT_EMPLOYEE)</option>
+                      <option value="EDIT_EMPLOYEE">✏️ แก้ไขพนักงาน (EDIT_EMPLOYEE)</option>
                       <option value="CREATE_EMPLOYEE">➕ สร้างพนักงานใหม่ (CREATE_EMPLOYEE)</option>
+                      <option value="DELETE_EMPLOYEE">🗑️ ลบพนักงาน (DELETE_EMPLOYEE)</option>
+                      <option value="CHANGE_PIN">🔑 เปลี่ยนรหัส PIN (CHANGE_PIN)</option>
                       <option value="TOGGLE_PHOTO_EXEMPT">📸 สิทธิ์ยกเว้นถ่ายรูป (TOGGLE_PHOTO_EXEMPT)</option>
                       <option value="RESOLVE_TICKET">🎫 ดำเนินการ Ticket (RESOLVE_TICKET)</option>
                       <option value="RESPOND_SUGGESTION">💬 ตอบกลับข้อเสนอแนะ (RESPOND_SUGGESTION)</option>

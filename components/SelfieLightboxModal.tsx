@@ -26,11 +26,16 @@ interface SelfieLightboxModalProps {
 
 export default function SelfieLightboxModal({ photo, onClose }: SelfieLightboxModalProps) {
   const { lang } = useLanguage();
+  const [mounted, setMounted] = useState<boolean>(false);
   const [brightness, setBrightness] = useState<number>(100);
   const [hasError, setHasError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setHasError(false);
@@ -47,7 +52,7 @@ export default function SelfieLightboxModal({ photo, onClose }: SelfieLightboxMo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [photo]);
 
-  if (!photo) return null;
+  if (!photo || !mounted) return null;
 
   const hasGps = photo.gps_lat != null && photo.gps_lng != null;
   const mapsUrl = hasGps ? `https://www.google.com/maps?q=${photo.gps_lat},${photo.gps_lng}` : null;

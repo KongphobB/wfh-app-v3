@@ -458,8 +458,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ไม่ระบุรหัสพนักงาน' }, { status: 400 });
     }
 
-    if (employee_id === '9999') {
-      return NextResponse.json({ error: 'ไม่สามารถลบผู้ดูแลระบบหลักได้' }, { status: 400 });
+    if (['9999', '8888', '9988'].includes(employee_id)) {
+      return NextResponse.json({ error: 'ไม่สามารถลบบัญชีระบบหรือผู้ดูแลระบบหลักได้' }, { status: 400 });
+    }
+
+    if (employee_id === session.employee_id) {
+      return NextResponse.json({ error: 'ไม่สามารถลบบัญชีของตนเองที่กำลังเข้าสู่ระบบอยู่ได้' }, { status: 400 });
     }
 
     const gasResult = await callGAS('adminDeleteEmployee', {
@@ -490,7 +494,7 @@ export async function DELETE(request: Request) {
     createAuditLog({
       admin_id: session.employee_id,
       admin_name: session.name,
-      action_type: 'EDIT_EMPLOYEE',
+      action_type: 'DELETE_EMPLOYEE',
       action_title: 'ลบข้อมูลพนักงาน',
       target_employee_id: employee_id,
       details: `${session.name} ลบพนักงานรหัส ${employee_id} ออกจากระบบ`,

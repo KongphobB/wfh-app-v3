@@ -192,4 +192,55 @@ describe('API Input Validation & Schema Guard QA Suite', () => {
       expect(res.success).toBe(false);
     });
   });
+
+  describe('6. Admin Employee Guards', () => {
+    const isReservedId = (id: string) => ['9999', '8888', '9988'].includes(id);
+
+    it('Identifies reserved IDs correctly', () => {
+      expect(isReservedId('9999')).toBe(true);
+      expect(isReservedId('8888')).toBe(true);
+      expect(isReservedId('9988')).toBe(true);
+      expect(isReservedId('1001')).toBe(false);
+      expect(isReservedId('1234')).toBe(false);
+    });
+
+    it('Blocks self-deletion when session employee_id matches target', () => {
+      const sessionEmpId = '1001';
+      const canDelete = (targetId: string, currentSessionId: string) => {
+        if (isReservedId(targetId)) return false;
+        if (targetId === currentSessionId) return false;
+        return true;
+      };
+
+      expect(canDelete('1001', sessionEmpId)).toBe(false);
+      expect(canDelete('9999', sessionEmpId)).toBe(false);
+      expect(canDelete('1002', sessionEmpId)).toBe(true);
+    });
+  });
+
+  describe('7. Audit Action Type Verification', () => {
+    it('Accepts DELETE_EMPLOYEE and CHANGE_PIN as valid action types', async () => {
+      const { createAuditLog } = await import('@/lib/auditStore');
+      const log1 = createAuditLog({
+        admin_id: '9999',
+        admin_name: 'Admin Test',
+        action_type: 'DELETE_EMPLOYEE',
+        action_title: 'ลบข้อมูลพนักงาน',
+        target_employee_id: '9991',
+        details: 'Admin deleted test user',
+      });
+      expect(log1.action_type).toBe('DELETE_EMPLOYEE');
+
+      const log2 = createAuditLog({
+        admin_id: '1001',
+        admin_name: 'User Test',
+        action_type: 'CHANGE_PIN',
+        action_title: 'เปลี่ยนรหัส PIN',
+        target_employee_id: '1001',
+        details: 'User changed personal PIN',
+      });
+      expect(log2.action_type).toBe('CHANGE_PIN');
+    });
+  });
 });
+
