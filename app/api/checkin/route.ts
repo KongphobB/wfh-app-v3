@@ -23,9 +23,10 @@ export async function GET(request: Request) {
     const scope = searchParams.get('scope'); // 'all' | 'team' | 'self'
     const todayStr = getThaiDateStr();
 
-    const [gasRes, gasSpotRes] = await Promise.all([
+    const [gasRes, gasSpotRes, employeesMap] = await Promise.all([
       callGAS('getLogs', { logType: 'checkin', limit: 300 }),
       callGAS('getLogs', { logType: 'spotcheck', limit: 300 }),
+      getLiveEmployeesMap().catch(() => ({} as Record<string, any>)),
     ]);
 
     const rawCheckinLogs = applyCheckinAdjustments((gasRes?.data || []) as any[]);
@@ -133,9 +134,6 @@ export async function GET(request: Request) {
 
     const rawLogs = [...rawCheckinLogs, ...rawSpotLogs, ...testSpotLogs];
 
-    // Fetch employee map for supervisor/team hierarchy
-    const employeesMap = await getLiveEmployeesMap();
-
     // Filter to strictly attendance & verification logs (เข้างาน, ออกงาน, สุ่มตรวจ, ยืนยันตัวตน)
     const isAttendanceLog = (type?: string) => {
       if (!type) return false;
@@ -240,8 +238,17 @@ export async function GET(request: Request) {
       role: session.role,
     });
 
-    const todayMorning = formattedLogs.find((l) => l.log_type === 'เข้างาน' && l.log_date === todayStr);
-    const isOfficeLog = Boolean(todayMorning && todayMorning.verification_status?.includes('ออฟฟิศ'));
+    const todayMorning = rawCheckinLogs.find(
+      (l) =>
+        String(l.employeeId) === String(session.employee_id) &&
+        (l.type === 'เข้างาน' || l.log_type === 'เข้างาน') &&
+        l.date === todayStr
+    );
+    const isOfficeLog = Boolean(
+      todayMorning &&
+        (todayMorning.verificationStatus?.includes('ออฟฟิศ') ||
+          todayMorning.verification_status?.includes('ออฟฟิศ'))
+    );
     const hasCheckedInWfh = Boolean(todayMorning && !isOfficeLog);
 
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');

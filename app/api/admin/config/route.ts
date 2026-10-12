@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { callGAS } from '@/lib/gas';
 import { createAuditLog } from '@/lib/auditStore';
+import { invalidateExemptConfigCache } from '@/lib/photoExempt';
 
 export async function GET() {
   try {
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
     if (gasResult && !gasResult.success) {
       return NextResponse.json({ error: gasResult.message || 'บันทึกการตั้งค่าใน Google Sheet ไม่สำเร็จ' }, { status: 400 });
     }
+
+    invalidateExemptConfigCache();
 
     createAuditLog({
       admin_id: session.employee_id,

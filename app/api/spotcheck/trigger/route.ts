@@ -5,6 +5,7 @@ import { createNotification } from '@/lib/notifications';
 import { sendSpotCheckTriggeredEmail } from '@/lib/email';
 import { SpotCheck } from '@/types';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
 declare global {
   var __activeTestSpotChecks: SpotCheck[] | undefined;
@@ -24,7 +25,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสพนักงานที่ต้องการสุ่มตรวจ' }, { status: 400 });
     }
 
-    const employeesMap = await getLiveEmployeesMap();
+    const [employeesMap, checkinRes] = await Promise.all([
+      getLiveEmployeesMap(),
+      callGAS('getLogs', { logType: 'checkin', limit: 150 }),
+    ]);
     const targetEmployee = employeesMap[employee_id];
 
     // If supervisor, ensure target employee belongs to their team
@@ -39,9 +43,27 @@ export async function POST(request: Request) {
     const todayStr = getThaiDateStr(now);
     const timeStr = getThaiTime(now).timeStr;
 
+    const checkinLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
+    const todayMorningLog = checkinLogs.find(
+      (c) =>
+        String(c.employeeId || c.employee_id) === String(employee_id) &&
+        c.date === todayStr &&
+        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
+    );
+    const hasCheckedInToday = Boolean(todayMorningLog);
+    const isOfficeCheckin = Boolean(
+      todayMorningLog &&
+        (todayMorningLog.verificationStatus?.includes('ออฟฟิศ') ||
+          todayMorningLog.verification_status?.includes('ออฟฟิศ'))
+    );
+    const hasCheckedInWfhToday = Boolean(todayMorningLog && !isOfficeCheckin);
+
     // Guard 1: Check daily status (Office, Leave, Holiday are exempt from spot checks)
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-    const dailyStatus = resolveEmployeeDailyStatus(String(employee_id), todayStr);
+    const dailyStatus = resolveEmployeeDailyStatus(String(employee_id), todayStr, {
+      hasCheckedInWfhToday,
+      isOfficeCheckin,
+    });
     if (dailyStatus.status === 'office') {
       return NextResponse.json(
         { error: `พนักงาน ${targetEmployee?.name || employee_id} ปฏิบัติงานที่ออฟฟิศในวันนี้ จึงได้รับการยกเว้นการสุ่มตรวจ` },
@@ -62,15 +84,6 @@ export async function POST(request: Request) {
     }
 
     // Guard 2: Employee MUST have checked in today (เข้างาน) to be spot checked
-    const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 150 });
-    const checkinLogs = (checkinRes?.data || []) as any[];
-    const hasCheckedInToday = checkinLogs.some(
-      (c) =>
-        String(c.employeeId || c.employee_id) === String(employee_id) &&
-        c.date === todayStr &&
-        (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
-    );
-
     if (!hasCheckedInToday) {
       return NextResponse.json(
         { error: `พนักงาน ${targetEmployee?.name || employee_id} ยังไม่ได้ลงเวลาเข้างานในวันนี้ จึงไม่สามารถสั่งสุ่มตรวจได้` },

@@ -29,7 +29,10 @@ export async function GET() {
       return NextResponse.json({ error: 'เฉพาะแอดมินหรือหัวหน้างานเท่านั้น' }, { status: 403 });
     }
 
-    const { exemptKeywords, exemptEmployeeIds, autoExemptSupervisors } = await getExemptConfig();
+    const [{ exemptKeywords, exemptEmployeeIds, autoExemptSupervisors }, inspectRes] = await Promise.all([
+      getExemptConfig(),
+      callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' }),
+    ]);
 
     const checkExempt = (empId: string, pos?: string | null, role?: string) => {
       if (empId && exemptEmployeeIds.has(empId)) return true;
@@ -40,7 +43,6 @@ export async function GET() {
     };
 
     // 1. Fetch live Google Sheet rows directly from 'ข้อมูลพนักงาน'
-    const inspectRes = await callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' });
     const targetRows = inspectRes?.targetRows || [];
 
     if (Array.isArray(targetRows) && targetRows.length > 1) {

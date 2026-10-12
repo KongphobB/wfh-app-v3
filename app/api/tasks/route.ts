@@ -37,11 +37,11 @@ export async function GET() {
       return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
     }
 
-    const gasRes = await callGAS('getLogs', { logType: 'task', limit: 300 });
+    const [gasRes, employeesMap] = await Promise.all([
+      callGAS('getLogs', { logType: 'task', limit: 300 }),
+      getLiveEmployeesMap().catch(() => ({} as Record<string, any>)),
+    ]);
     const rawTasks = (gasRes?.data || []) as any[];
-
-    // Fetch live employee details for accurate supervisor/team hierarchy
-    const employeesMap = await getLiveEmployeesMap();
 
     let filtered = rawTasks;
     if (session.role === 'employee') {

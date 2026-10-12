@@ -56,6 +56,10 @@ export function getLocalExemptIds(): Set<string> {
   return new Set<string>();
 }
 
+export function invalidateExemptConfigCache(): void {
+  cachedExemptConfig = null;
+}
+
 export function saveLocalExemptIds(ids: Set<string>): void {
   const filePath = getStoragePath();
   cachedExemptConfig = null; // Invalidate memory cache when local exempt IDs change

@@ -35,21 +35,24 @@ export async function GET(request: Request) {
       });
     }
 
-    // 2. Check local disk cache
+    // 2. Check local disk cache (skip on read-only serverless environments)
     const safeKey = uuid.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const diskFile = path.join(uploadsDir, `${safeKey}.jpg`);
-    if (fs.existsSync(diskFile)) {
-      const buffer = fs.readFileSync(diskFile);
-      // Populate memory cache
-      try {
-        photoStore.set(uuid, `data:image/jpeg;base64,${buffer.toString('base64')}`);
-      } catch {}
-      return new Response(buffer, {
-        headers: {
-          'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
-        },
-      });
+    const isReadOnlyFs = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    if (!isReadOnlyFs) {
+      const diskFile = path.join(uploadsDir, `${safeKey}.jpg`);
+      if (fs.existsSync(diskFile)) {
+        const buffer = fs.readFileSync(diskFile);
+        // Populate memory cache
+        try {
+          photoStore.set(uuid, `data:image/jpeg;base64,${buffer.toString('base64')}`);
+        } catch {}
+        return new Response(buffer, {
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        });
+      }
     }
 
     // 3. Fetch from Google Drive via GAS adminGetLogPhoto

@@ -8,6 +8,7 @@ import { isEmployeeAtOfficeToday } from '@/lib/dailyLocationStore';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 import { getHolidayByDate } from '@/lib/holidayStore';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,9 +44,11 @@ export async function GET(request: Request) {
       });
     }
 
-    const employeesMap = await getLiveEmployeesMap();
-    const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 200 });
-    const checkinLogs = (checkinRes?.data || []) as any[];
+    const [employeesMap, checkinRes] = await Promise.all([
+      getLiveEmployeesMap(),
+      callGAS('getLogs', { logType: 'checkin', limit: 200 }),
+    ]);
+    const checkinLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
 
     // Set of employee IDs who have checked in today
     const checkedInEmpIds = new Set(

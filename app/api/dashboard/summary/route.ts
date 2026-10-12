@@ -108,8 +108,9 @@ export async function GET() {
     const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
     const { getDailyLocationRecord, setDailyWorkLocation } = await import('@/lib/dailyLocationStore');
 
-    if (hasCheckedInWfhToday) {
-      setDailyWorkLocation(
+    let locRecord = getDailyLocationRecord(String(session.employee_id), todayStr);
+    if (hasCheckedInWfhToday && !locRecord) {
+      locRecord = setDailyWorkLocation(
         String(session.employee_id),
         'wfh',
         session.name,
@@ -127,7 +128,6 @@ export async function GET() {
       isOfficeCheckin,
       wfhStatus,
     });
-    const locRecord = getDailyLocationRecord(String(session.employee_id), todayStr);
 
     const { getActiveManualSpotChecksAsync } = await import('@/lib/manualSpotCheckStore');
     const manualChecks = await getActiveManualSpotChecksAsync(String(session.employee_id));

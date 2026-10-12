@@ -133,31 +133,41 @@ export async function GET() {
 
       // Only query check-in logs if NOT at office and currently within the 13:00 - 13:20 afternoon window!
       if (!isOfficeToday && thHour === 13 && thMin >= 0 && thMin <= 20) {
-        const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
-        const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr);
-        if (dailyStatus.status === 'wfh') {
-          let isCheckedInWfhToday = false;
-          try {
-            const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
-            const checkinLogs = (checkinRes?.data || []) as any[];
-            const todayMorningCheckin = checkinLogs.find(
-              (c) =>
-                String(c.employeeId) === String(session.employee_id) &&
-                c.date === todayStr &&
-                c.type === 'เข้างาน'
-            );
-            if (
-              todayMorningCheckin &&
-              !(
-                todayMorningCheckin.verificationStatus &&
-                (todayMorningCheckin.verificationStatus.includes('ออฟฟิศ') || todayMorningCheckin.verificationStatus.includes('Office'))
-              )
-            ) {
-              isCheckedInWfhToday = true;
-            }
-          } catch {}
+        let isCheckedInWfhToday = false;
+        let hasVerifiedAfternoonToday = false;
+        try {
+          const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
+          const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
+          const checkinLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
+          const todayMorningCheckin = checkinLogs.find(
+            (c) =>
+              String(c.employeeId) === String(session.employee_id) &&
+              c.date === todayStr &&
+              (c.type === 'เข้างาน' || c.log_type === 'เข้างาน')
+          );
+          hasVerifiedAfternoonToday = checkinLogs.some(
+            (c) =>
+              String(c.employeeId) === String(session.employee_id) &&
+              c.date === todayStr &&
+              (c.type === 'ยืนยันตัวตน' || c.log_type === 'ยืนยันตัวตน')
+          );
+          if (
+            todayMorningCheckin &&
+            !(
+              todayMorningCheckin.verificationStatus &&
+              (todayMorningCheckin.verificationStatus.includes('ออฟฟิศ') || todayMorningCheckin.verificationStatus.includes('Office'))
+            )
+          ) {
+            isCheckedInWfhToday = true;
+          }
+        } catch {}
 
-          if (isCheckedInWfhToday) {
+        if (isCheckedInWfhToday && !hasVerifiedAfternoonToday) {
+          const { resolveEmployeeDailyStatus } = await import('@/lib/dailyStatus');
+          const dailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr, {
+            hasCheckedInWfhToday: true,
+          });
+          if (dailyStatus.status === 'wfh') {
             const notifId = `verify_afternoon_${todayStr}_${session.employee_id}`;
             dynamicNotifs.unshift({
               id: notifId,
