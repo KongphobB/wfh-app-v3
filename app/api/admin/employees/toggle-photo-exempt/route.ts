@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     }
 
     const targetEmpId = String(employee_id).trim();
+    if (targetEmpId === '9988') {
+      return NextResponse.json({ error: 'รหัสพนักงานนี้สงวนไว้สำหรับระบบ' }, { status: 400 });
+    }
     const localIds = getLocalExemptIds();
 
     if (is_exempt) {

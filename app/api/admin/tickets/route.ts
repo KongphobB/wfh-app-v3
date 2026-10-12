@@ -65,8 +65,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { problem_type, description } = body;
 
-    if (!problem_type) {
+    if (!problem_type || typeof problem_type !== 'string' || !problem_type.trim()) {
       return NextResponse.json({ error: 'กรุณาระบุหมวดหมู่ปัญหา' }, { status: 400 });
+    }
+
+    if (problem_type.trim().startsWith('__SYS_')) {
+      return NextResponse.json({ error: 'หมวดหมู่ปัญหานี้สงวนไว้สำหรับระบบ' }, { status: 400 });
     }
 
     const gasResult = await callGAS('submitTicket', {
@@ -126,8 +130,9 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { ticket_id, status, admin_notes, employee_id } = body;
 
-    if (!ticket_id || !status) {
-      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
+    const ALLOWED_STATUSES = ['Resolved', 'In Progress', 'Pending', 'Closed', 'ดำเนินการแล้ว', 'กำลังดำเนินการ', 'รอการแก้ไข'];
+    if (!ticket_id || typeof ticket_id !== 'string' || !status || typeof status !== 'string' || !ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json({ error: 'ข้อมูลหรือสถานะ Ticket ไม่ถูกต้อง' }, { status: 400 });
     }
 
     const { invalidateGasCache } = await import('@/lib/gas');
