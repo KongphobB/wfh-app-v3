@@ -35,8 +35,28 @@ export async function GET() {
       if (String(c.employeeId) !== String(session.employee_id) || c.date !== todayStr) return false;
       const typeStr = String(c.type || '');
       const noteStr = String(c.note || '');
-      return (typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน') && !noteStr.includes('[ปฏิบัติงานที่ออฟฟิศ');
+      const verifyStr = String(c.verificationStatus || c.verification_status || '');
+      return (
+        (typeStr.includes('เข้างาน') || typeStr === 'ยืนยันตัวตน') &&
+        !noteStr.includes('ปฏิบัติงานที่ออฟฟิศ') &&
+        !verifyStr.includes('ออฟฟิศ')
+      );
     });
+
+    const normalizeSpotTimeStr = (rawTime: unknown, fallback = '09:30:00'): string => {
+      if (!rawTime || typeof rawTime !== 'string') return fallback;
+      const clean = rawTime.includes('T')
+        ? rawTime.split('T')[1]?.split('+')[0]?.split('Z')[0] || fallback
+        : rawTime.trim();
+      const parts = clean.split(':');
+      if (parts.length === 2) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+      }
+      if (parts.length >= 3) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].substring(0, 2).padStart(2, '0')}`;
+      }
+      return fallback;
+    };
 
     // Filter by employee and optionally today
     const employeeChecks = rawSpotChecks.filter(
@@ -67,7 +87,8 @@ export async function GET() {
         lng = typeof s.lng === 'number' ? s.lng : (parseFloat(s.lng ?? s.gpsLng ?? s.gps_lng) || null);
       }
 
-      const scheduledTime = s.triggeredTime || s.scheduledTime || s.time || (s.round === 'เช้า' ? '09:30:00' : '14:30:00');
+      const rawScheduled = s.triggeredTime || s.scheduledTime || s.time || (s.round === 'เช้า' ? '09:30:00' : '14:30:00');
+      const scheduledTime = normalizeSpotTimeStr(rawScheduled, s.round === 'เช้า' ? '09:30:00' : '14:30:00');
       const status = s.status || s.resultStatus || 'Scheduled';
       const scanTimeRaw = s.checkInTime || s.actualScanTime || null;
       let actualScanTimeFormatted: string | null = null;
@@ -75,7 +96,7 @@ export async function GET() {
         if (typeof scanTimeRaw === 'string' && scanTimeRaw.includes('T')) {
           actualScanTimeFormatted = scanTimeRaw;
         } else {
-          actualScanTimeFormatted = `${s.date || todayStr}T${String(scanTimeRaw).padStart(8, '0')}+07:00`;
+          actualScanTimeFormatted = `${s.date || todayStr}T${normalizeSpotTimeStr(scanTimeRaw, scheduledTime)}+07:00`;
         }
       }
 

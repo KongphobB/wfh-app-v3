@@ -37,6 +37,11 @@ const saveClientDailyLocation = (empId: string, location: 'office' | 'wfh') => {
   } catch {}
 };
 
+const bangkokWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Bangkok',
+  weekday: 'short',
+});
+
 export default function AdminPage() {
   const { t, lang } = useLanguage();
   const [activeTab, setActiveTab] = useState<'employees' | 'checkins' | 'tickets' | 'suggestions' | 'holidays' | 'audit' | 'config'>('employees');
@@ -97,10 +102,7 @@ export default function AdminPage() {
 
   const currentBangkokDay = (() => {
     try {
-      const dayStr = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Bangkok',
-        weekday: 'short',
-      }).format(new Date());
+      const dayStr = bangkokWeekdayFormatter.format(new Date());
       switch (dayStr) {
         case 'Mon': return 1;
         case 'Tue': return 2;
@@ -502,6 +504,7 @@ export default function AdminPage() {
           const schedData = await schedRes.json();
           if (schedData.work_location_today) {
             nextLocToday = schedData.work_location_today;
+            saveClientDailyLocation(editEmployee.employee_id, schedData.work_location_today);
           }
         }
       }
@@ -764,6 +767,7 @@ export default function AdminPage() {
       }
 
       if (data.work_location_today) {
+        saveClientDailyLocation(emp.employee_id, data.work_location_today);
         setEmployees((prev) =>
           prev.map((e) =>
             e.employee_id === emp.employee_id

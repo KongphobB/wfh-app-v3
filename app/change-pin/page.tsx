@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { KeyRound, Lock, AlertCircle, CheckCircle2, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -17,6 +17,15 @@ export default function ChangePinPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +61,11 @@ export default function ChangePinPage() {
       }
 
       setSuccess(lang === 'en' ? 'PIN changed successfully! Redirecting...' : 'เปลี่ยนรหัส PIN สำเร็จ! กำลังนำท่านไปยังหน้าหลัก...');
-      setTimeout(() => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
         router.push(data.redirect || '/dashboard');
         router.refresh();
       }, 1500);
@@ -109,9 +122,10 @@ export default function ChangePinPage() {
                 </div>
                 <input
                   type="password"
+                  inputMode="numeric"
                   maxLength={4}
                   value={oldPin}
-                  onChange={(e) => setOldPin(e.target.value)}
+                  onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder={lang === 'en' ? 'Current PIN (Default: 1234)' : 'PIN เดิม (เริ่มต้น: 1234)'}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-base"
                 />
@@ -129,9 +143,10 @@ export default function ChangePinPage() {
                 </div>
                 <input
                   type="password"
+                  inputMode="numeric"
                   maxLength={4}
                   value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder={lang === 'en' ? 'New 4-digit PIN' : 'PIN ใหม่ 4 หลัก'}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-base"
                 />
@@ -149,9 +164,10 @@ export default function ChangePinPage() {
                 </div>
                 <input
                   type="password"
+                  inputMode="numeric"
                   maxLength={4}
                   value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder={lang === 'en' ? 'Confirm 4-digit PIN' : 'ยืนยัน PIN 4 หลัก'}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-base"
                 />
@@ -178,7 +194,7 @@ export default function ChangePinPage() {
                 className="w-full border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>ย้อนกลับ</span>
+                <span>{lang === 'en' ? 'Back' : 'ย้อนกลับ'}</span>
               </Button>
             </div>
           </form>

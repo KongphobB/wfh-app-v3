@@ -69,9 +69,12 @@ export async function checkRateLimit(employeeId: string): Promise<{ isLimited: b
   }
 
   const record = memoryRateLimits.get(employeeId);
-  if (record && record.lockedUntil && Date.now() < record.lockedUntil) {
-    const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / (60 * 1000));
-    return { isLimited: true, lockMinutesRemaining: remainingMinutes };
+  if (record && record.lockedUntil) {
+    if (Date.now() < record.lockedUntil) {
+      const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / (60 * 1000));
+      return { isLimited: true, lockMinutesRemaining: remainingMinutes };
+    }
+    memoryRateLimits.delete(employeeId);
   }
   return { isLimited: false };
 }
@@ -83,8 +86,12 @@ export async function recordFailedAttempt(employeeId: string) {
   const maxAttempts = Number(process.env.MAX_LOGIN_ATTEMPTS || 5);
   const lockoutMs = Number(process.env.LOCKOUT_MINUTES || 15) * 60 * 1000;
 
-  const record = memoryRateLimits.get(employeeId) || { attempts: 0, lockedUntil: null };
-  const currentAttempts = record.attempts + 1;
+  let record = memoryRateLimits.get(employeeId);
+  if (record && record.lockedUntil && Date.now() >= record.lockedUntil) {
+    memoryRateLimits.delete(employeeId);
+    record = undefined;
+  }
+  const currentAttempts = (record?.attempts || 0) + 1;
   const lockedUntil = currentAttempts >= maxAttempts ? Date.now() + lockoutMs : null;
   memoryRateLimits.set(employeeId, { attempts: currentAttempts, lockedUntil });
 }

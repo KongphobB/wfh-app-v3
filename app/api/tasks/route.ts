@@ -48,11 +48,13 @@ export async function GET() {
     if (session.role === 'employee') {
       filtered = rawTasks.filter((t) => String(t.employeeId) === String(session.employee_id));
     } else if (session.role === 'supervisor') {
-      const subordinateIds = Object.keys(employeesMap).filter(
-        (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+      const subordinateIdSet = new Set(
+        Object.keys(employeesMap).filter(
+          (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+        )
       );
       filtered = rawTasks.filter(
-        (t) => subordinateIds.includes(String(t.employeeId)) || String(t.employeeId) === String(session.employee_id)
+        (t) => subordinateIdSet.has(String(t.employeeId)) || String(t.employeeId) === String(session.employee_id)
       );
     }
 

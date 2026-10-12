@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Lock, AlertCircle, ArrowRight, UserPlus, X, CheckCircle2, Info, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingModal } from '@/components/OnboardingModal';
@@ -27,6 +27,15 @@ export default function LoginPage() {
   const [regError, setRegError] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
+  const regTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (regTimerRef.current) {
+        clearTimeout(regTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (loading) return;
@@ -127,7 +136,11 @@ export default function LoginPage() {
       }
 
       setRegSuccess('ลงทะเบียนพนักงานใหม่สำเร็จ! กำลังเข้าสู่ระบบ...');
-      setTimeout(() => {
+      if (regTimerRef.current) {
+        clearTimeout(regTimerRef.current);
+      }
+      regTimerRef.current = setTimeout(() => {
+        regTimerRef.current = null;
         setIsRegisterOpen(false);
         window.location.href = data.redirect || '/dashboard';
       }, 500);

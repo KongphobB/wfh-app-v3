@@ -126,6 +126,8 @@ export default function SupervisorPage() {
 
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+  const rateCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchSupervisorData = async (isInitial = false, force = true) => {
     if (isFetchingRef.current) return;
@@ -227,6 +229,8 @@ export default function SupervisorPage() {
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (rateCloseTimerRef.current) clearTimeout(rateCloseTimerRef.current);
+      if (triggerCloseTimerRef.current) clearTimeout(triggerCloseTimerRef.current);
     };
   }, []);
 
@@ -239,20 +243,29 @@ export default function SupervisorPage() {
     );
   }, [teamCheckins]);
 
+  const teamMemberDeptMap = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    for (const m of teamMembers) {
+      map.set(m.id, m.dept);
+    }
+    return map;
+  }, [teamMembers]);
+
   // Real-time Overview Statistics Calculations
   const stats = useMemo(() => {
     const todayLogs = attendanceLogs.filter((l) => l.log_date === todayStr);
 
-    // Subordinates who checked in today
-    const checkedInTodayEmps = new Set(
-      todayLogs.filter((l) => l.log_type?.includes('เข้างาน')).map((l) => l.employee_id)
-    );
+    // Pre-index today's morning check-in log per employee for O(1) lookup
+    const morningLogByEmpId = new Map<string, CheckinLog>();
+    for (const l of todayLogs) {
+      if (l.log_type?.includes('เข้างาน') && !morningLogByEmpId.has(l.employee_id)) {
+        morningLogByEmpId.set(l.employee_id, l);
+      }
+    }
 
     // Full detailed list for modal inspection
     const memberStatusList = teamMembers.map((m: any) => {
-      const morningLog = todayLogs.find(
-        (l) => l.employee_id === m.id && l.log_type?.includes('เข้างาน')
-      );
+      const morningLog = morningLogByEmpId.get(m.id);
       let status: 'on_time' | 'onsite' | 'late' | 'leave' | 'missing' = 'missing';
       let checkinTime: string | null = null;
       let checkinDetails: string | null = null;
@@ -378,7 +391,7 @@ export default function SupervisorPage() {
     return tasks.filter((t) => {
       // Department Filter
       if (departmentFilter !== 'all') {
-        const empDept = teamMembers.find((m) => m.id === t.employee_id)?.dept;
+        const empDept = teamMemberDeptMap.get(t.employee_id);
         if (empDept !== departmentFilter) return false;
       }
 
@@ -407,14 +420,14 @@ export default function SupervisorPage() {
 
       return true;
     });
-  }, [tasks, searchQuery, departmentFilter, teamMembers, dateFilter, customDate, taskStatusFilter, todayStr]);
+  }, [tasks, searchQuery, departmentFilter, teamMemberDeptMap, dateFilter, customDate, taskStatusFilter, todayStr]);
 
   // Filtered Checkin Logs
   const filteredCheckins = useMemo(() => {
     return attendanceLogs.filter((l) => {
       // Department Filter
       if (departmentFilter !== 'all') {
-        const empDept = l.department || teamMembers.find((m) => m.id === l.employee_id)?.dept;
+        const empDept = l.department || teamMemberDeptMap.get(l.employee_id);
         if (empDept !== departmentFilter) return false;
       }
 
@@ -448,7 +461,7 @@ export default function SupervisorPage() {
 
       return true;
     });
-  }, [attendanceLogs, searchQuery, departmentFilter, teamMembers, dateFilter, customDate, checkinTypeFilter, todayStr]);
+  }, [attendanceLogs, searchQuery, departmentFilter, teamMemberDeptMap, dateFilter, customDate, checkinTypeFilter, todayStr]);
 
   const hasActiveFilters = searchQuery !== '' || departmentFilter !== 'all' || dateFilter !== 'today' || taskStatusFilter !== 'all' || checkinTypeFilter !== 'all';
 
@@ -462,11 +475,16 @@ export default function SupervisorPage() {
   };
 
   const openRatingModal = (task: TaskItem) => {
+    if (rateCloseTimerRef.current) {
+      clearTimeout(rateCloseTimerRef.current);
+      rateCloseTimerRef.current = null;
+    }
     setSelectedTask(task);
     setRating(task.star_rating || 5);
     setNote(task.supervisor_note || '');
     setMessage('');
     setError('');
+    setSubmitting(false);
   };
 
   const handleRateSubmit = async (e: React.FormEvent) => {
@@ -509,7 +527,11 @@ export default function SupervisorPage() {
         )
       );
       setMessage(data.message || 'ประเมินผลงานเรียบร้อยแล้ว');
-      setTimeout(() => {
+      if (rateCloseTimerRef.current) {
+        clearTimeout(rateCloseTimerRef.current);
+      }
+      rateCloseTimerRef.current = setTimeout(() => {
+        rateCloseTimerRef.current = null;
         setSubmitting(false);
         setSelectedTask(null);
       }, 1000);
@@ -535,6 +557,10 @@ export default function SupervisorPage() {
     if (!todayLog) {
       alert('พนักงานยังไม่ได้ลงเวลาเข้างาน ไม่สามารถสั่งสุ่มตรวจได้');
       return;
+    }
+    if (triggerCloseTimerRef.current) {
+      clearTimeout(triggerCloseTimerRef.current);
+      triggerCloseTimerRef.current = null;
     }
     setTriggerTarget(member);
     setTriggerNote('');
@@ -570,7 +596,11 @@ export default function SupervisorPage() {
       }
 
       setTriggerSuccess(data.message || 'ส่งคำสั่งสุ่มตรวจสำเร็จแล้ว (เริ่มนับถอยหลัง 10 นาที)');
-      setTimeout(() => {
+      if (triggerCloseTimerRef.current) {
+        clearTimeout(triggerCloseTimerRef.current);
+      }
+      triggerCloseTimerRef.current = setTimeout(() => {
+        triggerCloseTimerRef.current = null;
         setTriggerLoading(false);
         setTriggerTarget(null);
       }, 1500);

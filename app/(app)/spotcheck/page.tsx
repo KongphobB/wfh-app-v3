@@ -243,12 +243,14 @@ export default function SpotCheckPage() {
         </CardHeader>
         <CardContent>
           {(() => {
+            const nowMs = getSyncedNow();
             const historyChecks = spotChecks.filter((s) => {
               const isPending = s.result_status === 'Scheduled' || s.result_status === 'Pending' || s.result_status === 'รอการยืนยัน';
+              const isManual = Boolean(s.id?.startsWith('SPOT-MANUAL') || s.round?.includes('เฉพาะกิจ'));
               let triggerTimeMs = 0;
               if (s.created_at) triggerTimeMs = new Date(s.created_at).getTime();
               if (!triggerTimeMs || isNaN(triggerTimeMs)) triggerTimeMs = new Date(`${s.check_date}T${s.scheduled_time}+07:00`).getTime();
-              const isUpcoming = isPending && Date.now() < triggerTimeMs;
+              const isUpcoming = isPending && !isManual && nowMs < triggerTimeMs - 5000;
               // Don't show future un-triggered scheduled checks in the history list
               return !isUpcoming;
             });

@@ -4,6 +4,7 @@ import { callGAS } from '@/lib/gas';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { getThaiDateStr } from '@/lib/timeSync';
 import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
+import { getSelfiePhoto } from '@/lib/photoStore';
 
 export async function GET() {
   try {
@@ -25,14 +26,39 @@ export async function GET() {
     const rawTasks = (res.tasks || []) as any[];
     const rawSpots = (res.spotChecks || []) as any[];
 
+    const normalizeTimeStr = (rawTime: unknown, fallback = '08:00:00'): string => {
+      if (!rawTime || typeof rawTime !== 'string') return fallback;
+      const clean = rawTime.includes('T')
+        ? rawTime.split('T')[1]?.split('+')[0]?.split('Z')[0] || fallback
+        : rawTime.trim();
+      const parts = clean.split(':');
+      if (parts.length === 2) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+      }
+      if (parts.length >= 3) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].substring(0, 2).padStart(2, '0')}`;
+      }
+      return fallback;
+    };
+
     // 1. Format Checkin Logs (Filter for self today)
     const selfCheckins = rawCheckins.filter(
       (l) => String(l.employeeId) === String(session.employee_id) && l.date === todayStr
     );
 
     const formattedCheckins: CheckinLog[] = selfCheckins.map((l) => {
-      const timeFormatted = l.time ? (l.time.length === 5 ? `${l.time}:00` : l.time) : '08:00:00';
+      const timeFormatted = normalizeTimeStr(l.time, '08:00:00');
       const isoTimeStr = `${l.date}T${timeFormatted}+07:00`;
+      let photoUrl = getSelfiePhoto([
+        l.photo,
+        l.photoUrl,
+        l.uuid,
+        `${l.employeeId}_${l.date}_${l.time}`,
+        `${l.employeeId}_${l.date}_${l.type}`,
+      ]);
+      if (!photoUrl && l.uuid && (l.hasPhoto === true || Boolean(l.photo))) {
+        photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(l.uuid)}&type=checkin`;
+      }
 
       return {
         id: l.uuid || `${l.employeeId}_${l.date}_${l.time}`,
@@ -43,7 +69,8 @@ export async function GET() {
         log_time: isoTimeStr,
         gps_lat: null,
         gps_lng: null,
-        photo_url: l.photo || null,
+        photo_url: photoUrl,
+        has_photo: l.hasPhoto === true || Boolean(photoUrl),
         note: l.note || null,
         out_of_bounds_reason: null,
         is_early_leave: false,
@@ -83,19 +110,22 @@ export async function GET() {
     const selfSpots = rawSpots.filter(
       (s) => String(s.employeeId) === String(session.employee_id) && s.date === todayStr
     );
-    const formattedSpots: SpotCheck[] = selfSpots.map((s) => ({
-      id: s.uuid || `${s.employeeId}_${s.date}_${s.round}`,
-      employee_id: String(s.employeeId),
-      check_date: s.date || todayStr,
-      round: s.round || 'เช้า',
-      scheduled_time: s.scheduledTime || '10:00:00',
-      actual_scan_time: s.actualScanTime || null,
-      gps_lat: null,
-      gps_lng: null,
-      photo_url: s.photo || null,
-      result_status: s.resultStatus || 'Scheduled',
-      created_at: `${s.date || todayStr}T${s.scheduledTime || '10:00:00'}+07:00`,
-    }));
+    const formattedSpots: SpotCheck[] = selfSpots.map((s) => {
+      const scheduledTime = normalizeTimeStr(s.scheduledTime || '10:00:00', '10:00:00');
+      return {
+        id: s.uuid || `${s.employeeId}_${s.date}_${s.round}`,
+        employee_id: String(s.employeeId),
+        check_date: s.date || todayStr,
+        round: s.round || 'เช้า',
+        scheduled_time: scheduledTime,
+        actual_scan_time: s.actualScanTime || null,
+        gps_lat: null,
+        gps_lng: null,
+        photo_url: s.photo || null,
+        result_status: s.resultStatus || 'Scheduled',
+        created_at: `${s.date || todayStr}T${scheduledTime}+07:00`,
+      };
+    });
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const wfhStatus = currentEmp.wfhStatus || 'เปิดสิทธิ์';
@@ -148,9 +178,13 @@ export async function GET() {
       : formattedSpots.find((s) => s.result_status === 'Pending' || s.result_status === 'Scheduled');
     const activeSpotCheck = activeManual || activeRoutine || null;
 
-    const finalSpots = dailyDetail.isExemptFromRoutineSpotCheck
+    const filteredRoutineSpots = dailyDetail.isExemptFromRoutineSpotCheck
       ? formattedSpots.filter((s) => s.round?.includes('เฉพาะกิจ') || s.id?.startsWith('SPOT-MANUAL'))
       : formattedSpots;
+    const finalSpots = [
+      ...manualChecks.filter((m) => !filteredRoutineSpots.some((r) => r.id === m.id)),
+      ...filteredRoutineSpots,
+    ];
 
     return NextResponse.json(
       {

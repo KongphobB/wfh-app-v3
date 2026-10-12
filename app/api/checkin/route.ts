@@ -148,10 +148,12 @@ export async function GET(request: Request) {
     if (scope === 'all' && session.role === 'admin') {
       // Admin global logs (all attendance records)
     } else if (scope === 'team' && (session.role === 'supervisor' || session.role === 'admin')) {
-      const subordinateIds = Object.keys(employeesMap).filter(
-        (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+      const subordinateIdSet = new Set(
+        Object.keys(employeesMap).filter(
+          (empId) => String(employeesMap[empId]?.supervisorId) === String(session.employee_id)
+        )
       );
-      filtered = filtered.filter((l) => subordinateIds.includes(String(l.employeeId)));
+      filtered = filtered.filter((l) => subordinateIdSet.has(String(l.employeeId)));
     } else if (scope === 'self') {
       filtered = filtered.filter((l) => String(l.employeeId) === String(session.employee_id));
     } else {
@@ -160,6 +162,21 @@ export async function GET(request: Request) {
         (l) => String(l.employeeId) === String(session.employee_id) && l.date === todayStr
       );
     }
+
+    const normalizeTimeStr = (rawTime: unknown, fallback = '08:00:00'): string => {
+      if (!rawTime || typeof rawTime !== 'string') return fallback;
+      const clean = rawTime.includes('T')
+        ? rawTime.split('T')[1]?.split('+')[0]?.split('Z')[0] || fallback
+        : rawTime.trim();
+      const parts = clean.split(':');
+      if (parts.length === 2) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+      }
+      if (parts.length >= 3) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].substring(0, 2).padStart(2, '0')}`;
+      }
+      return fallback;
+    };
 
     const formattedLogs: CheckinLog[] = filtered.map((l) => {
       let lat: number | null = null;
@@ -185,7 +202,7 @@ export async function GET(request: Request) {
         lng = typeof l.gps_lng === 'number' ? l.gps_lng : (parseFloat(l.lng ?? l.gps_lng ?? l.gpsLng) || null);
       }
 
-      const timeFormatted = l.time ? (l.time.length === 5 ? `${l.time}:00` : l.time) : '08:00:00';
+      const timeFormatted = normalizeTimeStr(l.time, '08:00:00');
       const isoTimeStr = `${l.date}T${timeFormatted}+07:00`;
 
       // Check memory or disk for photo
@@ -228,7 +245,7 @@ export async function GET(request: Request) {
       };
     });
 
-    formattedLogs.sort((a, b) => new Date(b.log_time).getTime() - new Date(a.log_time).getTime());
+    formattedLogs.sort((a, b) => (a.log_time < b.log_time ? 1 : a.log_time > b.log_time ? -1 : 0));
 
     const currentEmp = employeesMap[session.employee_id] || {};
     const position = currentEmp.position || '';
@@ -247,7 +264,8 @@ export async function GET(request: Request) {
     const isOfficeLog = Boolean(
       todayMorning &&
         (todayMorning.verificationStatus?.includes('ออฟฟิศ') ||
-          todayMorning.verification_status?.includes('ออฟฟิศ'))
+          todayMorning.verification_status?.includes('ออฟฟิศ') ||
+          todayMorning.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
     );
     const hasCheckedInWfh = Boolean(todayMorning && !isOfficeLog);
 
@@ -447,28 +465,34 @@ export async function POST(request: Request) {
         const adminEmail = employeesMap['9999']?.email || process.env.ADMIN_EMAIL || null;
         const checkinTimeFormatted = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
 
-        await sendLateCheckinNotificationEmail({
-          employeeName: session.name || currentEmp.name || session.employee_id,
-          employeeId: session.employee_id,
-          department: session.department || currentEmp.dept,
-          position: currentEmp.position,
-          checkinTime: checkinTimeFormatted,
-          reason: effectiveReason,
-          supervisorEmail,
-          adminEmail,
-          employeeEmail: currentEmp.email,
-        });
+        const lateTasks: Promise<unknown>[] = [
+          sendLateCheckinNotificationEmail({
+            employeeName: session.name || currentEmp.name || session.employee_id,
+            employeeId: session.employee_id,
+            department: session.department || currentEmp.dept,
+            position: currentEmp.position,
+            checkinTime: checkinTimeFormatted,
+            reason: effectiveReason,
+            supervisorEmail,
+            adminEmail,
+            employeeEmail: currentEmp.email,
+          }),
+        ];
 
         // In-app notification to supervisor
         if (supervisorId) {
-          await createNotificationForSupervisor({
-            supervisor_id: supervisorId,
-            type: 'warning',
-            title: `⏰ พนักงานเข้างานสาย: ${session.name} (${session.employee_id})`,
-            message: `ลงเวลาเข้างานเวลา ${checkinTimeFormatted} น. เหตุผล: "${effectiveReason || 'ไม่ได้ระบุเหตุผล'}"`,
-            link: '/supervisor',
-          });
+          lateTasks.push(
+            createNotificationForSupervisor({
+              supervisor_id: supervisorId,
+              type: 'warning',
+              title: `⏰ พนักงานเข้างานสาย: ${session.name} (${session.employee_id})`,
+              message: `ลงเวลาเข้างานเวลา ${checkinTimeFormatted} น. เหตุผล: "${effectiveReason || 'ไม่ได้ระบุเหตุผล'}"`,
+              link: '/supervisor',
+            })
+          );
         }
+
+        await Promise.allSettled(lateTasks);
       } catch (emailErr) {
         console.warn('Failed to send late checkin email alert:', emailErr);
       }
