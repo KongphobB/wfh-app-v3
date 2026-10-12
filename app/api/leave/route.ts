@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getLeaveRequestsForUser, createLeaveRequest, updateLeaveStatus } from '@/lib/leaveStore';
+import { getLeaveRequestsForUser, createLeaveRequest, updateLeaveStatus, getAllLeaveRequests, removeLeaveRequestById } from '@/lib/leaveStore';
 import { createNotification, createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
 import { createAuditLog } from '@/lib/auditStore';
 import { getLiveEmployeesMap, invalidateGasCache } from '@/lib/gas';
@@ -237,5 +237,65 @@ export async function PATCH(request: Request) {
   } catch (error: any) {
     console.error('Update leave error:', error);
     return NextResponse.json({ error: error?.message || 'Failed to update leave status' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อน' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'ไม่ระบุรหัสคำขอลา' }, { status: 400 });
+    }
+
+    const allLeaves = getAllLeaveRequests();
+    const targetLeave = allLeaves.find((r) => r.id === id);
+    if (!targetLeave) {
+      return NextResponse.json({ error: 'ไม่พบรายการคำขอลา' }, { status: 404 });
+    }
+
+    const isOwner = String(targetLeave.employee_id) === String(session.employee_id);
+    const isAdmin = session.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ error: 'ไม่มีสิทธิ์ยกเลิกคำขอลาของผู้อื่น' }, { status: 403 });
+    }
+
+    if (isOwner && !isAdmin && targetLeave.status !== 'Pending') {
+      return NextResponse.json(
+        { error: 'ไม่สามารถยกเลิกคำขอลาที่ผ่านการพิจารณาแล้วได้ กรุณาติดต่อหัวหน้างานหรือผู้ดูแลระบบ' },
+        { status: 400 }
+      );
+    }
+
+    const removed = removeLeaveRequestById(id);
+    if (!removed) {
+      return NextResponse.json({ error: 'ลบรายการคำขอลาไม่สำเร็จ' }, { status: 500 });
+    }
+
+    invalidateGasCache('getDashboardSummary');
+
+    createAuditLog({
+      admin_id: session.employee_id,
+      admin_name: session.name,
+      action_type: 'SYSTEM_ACTION',
+      action_title: isOwner ? 'ยกเลิกคำขอลา' : 'ลบคำขอลาโดยผู้ดูแลระบบ',
+      target_employee_id: targetLeave.employee_id,
+      target_employee_name: targetLeave.employee_name,
+      details: `${session.name} ${isOwner ? 'ยกเลิกคำขอ' : 'ลบคำขอ'}${targetLeave.leave_type} วันที่ ${targetLeave.start_date} ถึง ${targetLeave.end_date}`,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'ยกเลิกรายการคำขอลาสำเร็จ',
+    });
+  } catch (error: any) {
+    console.error('DELETE leave error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to delete leave request' }, { status: 500 });
   }
 }

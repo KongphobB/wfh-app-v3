@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   CalendarDays, Plus, CheckCircle2, XCircle, Clock, 
   ShieldCheck, RefreshCw, UserCheck,
-  Paperclip, X, Download
+  Paperclip, X, Download, Trash2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ export default function LeavePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHolidayOpen, setIsHolidayOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null);
   const hasInitializedTabRef = useRef(false);
 
@@ -84,6 +85,28 @@ export default function LeavePage() {
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!confirm(lang === 'en' ? 'Are you sure you want to cancel this leave request?' : 'คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำขอนี้?')) {
+      return;
+    }
+    setCancellingId(id);
+    try {
+      const res = await fetch(`/api/leave?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        alert(data.error || (lang === 'en' ? 'Failed to cancel request' : 'ยกเลิกคำขอไม่สำเร็จ'));
+      }
+    } catch {
+      alert(lang === 'en' ? 'Server connection error' : 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -377,10 +400,29 @@ export default function LeavePage() {
                       )}
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="flex flex-col sm:items-end justify-center gap-1.5 shrink-0">
                       <span className="text-[11px] text-slate-400 font-mono">
                         ยื่นเมื่อ: {new Date(req.created_at).toLocaleDateString('th-TH')}
                       </span>
+                      {req.status === 'Pending' && (String(req.employee_id) === currentEmpId || role === 'admin') && (
+                        <button
+                          type="button"
+                          disabled={cancellingId === req.id}
+                          onClick={() => handleCancel(req.id)}
+                          className="text-xs text-rose-600 hover:text-rose-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>
+                            {cancellingId === req.id
+                              ? lang === 'en'
+                                ? 'Cancelling...'
+                                : 'กำลังยกเลิก...'
+                              : lang === 'en'
+                              ? 'Cancel'
+                              : 'ยกเลิกคำขอ'}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

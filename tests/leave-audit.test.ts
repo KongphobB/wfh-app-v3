@@ -189,4 +189,25 @@ describe('Leave Requests & Audit Trail QA Suite', () => {
       }
     });
   });
+
+  describe('5. Leave Request Cancellation & Removal', () => {
+    it('Cancels pending leave request and removes from store successfully', async () => {
+      const { removeLeaveRequestById } = await import('@/lib/leaveStore');
+      const req = createLeaveRequest({
+        employee_id: 'qa_user_cancel',
+        employee_name: 'สายใจ ปลดล็อก',
+        leave_type: 'ลากิจ',
+        start_date: '2026-11-20',
+        end_date: '2026-11-20',
+        reason: 'ธุระส่วนตัว',
+      });
+
+      expect(req.id).toBeDefined();
+      const removed = removeLeaveRequestById(req.id);
+      expect(removed).toBe(true);
+
+      const all = getAllLeaveRequests();
+      expect(all.some((r) => r.id === req.id)).toBe(false);
+    });
+  });
 });
