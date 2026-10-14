@@ -64,7 +64,7 @@ export default function ManualPage() {
       }
     } catch {}
 
-    fetch('/api/dashboard/summary')
+    fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
         if (data.role) {

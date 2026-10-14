@@ -136,4 +136,36 @@ describe('Authentication & Role Determination QA Suite', () => {
       expect(payload).toBeNull();
     });
   });
+
+  describe('5. /api/auth/me endpoint', () => {
+    it('returns session information when authenticated', async () => {
+      const { GET } = await import('@/app/api/auth/me/route');
+      const { vi } = await import('vitest');
+      const authModule = await import('@/lib/auth');
+      vi.spyOn(authModule, 'getSession').mockResolvedValueOnce({
+        employee_id: '1304',
+        name: 'Kongphob',
+        role: 'employee',
+        dept: 'IT',
+        position: 'Developer',
+      } as any);
+
+      const res = await GET();
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.employee_id).toBe('1304');
+      expect(json.role).toBe('employee');
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+      const { GET } = await import('@/app/api/auth/me/route');
+      const { vi } = await import('vitest');
+      const authModule = await import('@/lib/auth');
+      vi.spyOn(authModule, 'getSession').mockResolvedValueOnce(null as any);
+
+      const res = await GET();
+      expect(res.status).toBe(401);
+    });
+  });
 });
