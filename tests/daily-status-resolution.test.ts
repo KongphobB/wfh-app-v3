@@ -106,11 +106,21 @@ describe('Daily Status Resolution & Rules QA', () => {
     expect(status.isExemptFromRoutineSpotCheck).toBe(true);
   });
 
-  it('8. Real employee 1304 with weekly schedule is resolved as WFH on workdays', () => {
-    // 2026-10-09 is Friday (workday)
+  it('8. Employee 1304 without check-in or WFH notification defaults to Office and is exempt from missing checkin', () => {
+    // Without check-in or explicit request, defaults to Office
     const status = resolveEmployeeDailyStatus('1304', '2026-10-09');
+    expect(status.status).toBe('office');
+    expect(status.location).toBe('office');
+    expect(status.source).toBe('default_office');
+    expect(status.isExemptFromMissingCheckin).toBe(true);
+    expect(status.isExemptFromRoutineSpotCheck).toBe(true);
+  });
+
+  it('9. Employee 1304 is resolved as WFH once they check in via WFH app', () => {
+    const status = resolveEmployeeDailyStatus('1304', '2026-10-09', { hasCheckedInWfhToday: true });
     expect(status.status).toBe('wfh');
     expect(status.location).toBe('wfh');
+    expect(status.source).toBe('wfh_checkin');
     expect(status.isExemptFromMissingCheckin).toBe(false);
     expect(status.isExemptFromRoutineSpotCheck).toBe(false);
   });
