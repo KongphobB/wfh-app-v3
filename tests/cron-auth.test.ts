@@ -9,6 +9,7 @@ vi.mock('@/lib/notifications', () => ({
   createNotification: vi.fn().mockResolvedValue(undefined),
   createNotificationForSupervisor: vi.fn().mockResolvedValue(undefined),
   createNotificationForAdmins: vi.fn().mockResolvedValue(undefined),
+  hasNotificationForEmployeeToday: vi.fn().mockReturnValue(false),
 }));
 
 import { callGAS } from '@/lib/gas';

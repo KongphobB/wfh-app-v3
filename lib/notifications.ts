@@ -171,3 +171,13 @@ export function markNotificationsAsRead(employeeId: string, notifId?: string, ro
     saveNotificationsToDisk(list);
   }
 }
+
+export function hasNotificationForEmployeeToday(employeeId: string, titlePrefix: string, todayIsoDateStr: string): boolean {
+  const list: NotificationItem[] = (global as any).__memoryNotifications || loadNotificationsFromDisk();
+  return list.some((n) => {
+    if (n.employee_id !== employeeId) return false;
+    if (!n.title.startsWith(titlePrefix)) return false;
+    const nDate = n.created_at ? n.created_at.substring(0, 10) : '';
+    return nDate === todayIsoDateStr;
+  });
+}

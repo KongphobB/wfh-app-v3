@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
 import { verifyCronAuth } from '@/lib/cron';
-import { createNotification, createNotificationForAdmins, createNotificationForSupervisor } from '@/lib/notifications';
+import {
+  createNotification,
+  createNotificationForAdmins,
+  createNotificationForSupervisor,
+  hasNotificationForEmployeeToday,
+} from '@/lib/notifications';
 import { sendMissingCheckinAlertEmail, sendAbsentAlertEmail } from '@/lib/email';
 import { resolveEmployeeDailyStatus } from '@/lib/dailyStatus';
 import { getHolidayByDate } from '@/lib/holidayStore';
@@ -79,12 +84,13 @@ export async function GET(request: Request) {
         continue;
       }
 
-      // Deduplicate: Send at most ONE alert per employee per window per day
+      // Deduplicate: Send at most ONE alert per employee per window per day (in-memory + persistent store)
       const alertKey = isAfternoonAbsent
         ? `alerted_absent_${empId}_${todayStr}`
         : `alerted_missing_checkin_${empId}_${todayStr}`;
 
-      if ((global as any)[alertKey]) {
+      const titlePrefix = isAfternoonAbsent ? '🚫' : '⚠️';
+      if ((global as any)[alertKey] || hasNotificationForEmployeeToday(empId, titlePrefix, todayStr)) {
         continue;
       }
       (global as any)[alertKey] = true;

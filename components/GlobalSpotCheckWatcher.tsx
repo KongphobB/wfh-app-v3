@@ -148,6 +148,8 @@ export default function GlobalSpotCheckWatcher() {
         syncServerTime(data.server_timestamp);
       }
       if (typeof window !== 'undefined') {
+        (window as any).__lastSpotCheckData = data;
+        (window as any).__lastSpotCheckSyncTime = Date.now();
         try {
           window.dispatchEvent(new CustomEvent('spotcheck-data-synced', { detail: data }));
         } catch {}

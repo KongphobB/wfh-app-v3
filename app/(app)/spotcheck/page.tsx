@@ -110,16 +110,30 @@ export default function SpotCheckPage() {
   };
 
   useEffect(() => {
-    fetchSpotChecks(true, true);
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      fetchSpotChecks(false);
-    }, 35000);
+    // 1. If GlobalSpotCheckWatcher already synced fresh data (< 25s), reuse immediately to prevent duplicate fetch
+    const cachedData = typeof window !== 'undefined' ? (window as any).__lastSpotCheckData : null;
+    const lastSyncTime = typeof window !== 'undefined' ? ((window as any).__lastSpotCheckSyncTime || 0) : 0;
+    const isFresh = cachedData && Date.now() - lastSyncTime < 25000;
+
+    if (isFresh) {
+      if (cachedData.server_timestamp) {
+        syncServerTime(cachedData.server_timestamp);
+      }
+      setSpotChecks(cachedData.spotChecks || []);
+      setIsWorkingAtOfficeToday(Boolean(cachedData.is_working_at_office_today));
+      setLoading(false);
+      lastFetchTimeRef.current = lastSyncTime;
+    } else {
+      fetchSpotChecks(true, false);
+    }
 
     const handleDataSynced = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
       if (detail) {
         lastFetchTimeRef.current = Date.now();
+        if (detail.server_timestamp) {
+          syncServerTime(detail.server_timestamp);
+        }
         if (detail.spotChecks) {
           setSpotChecks(detail.spotChecks);
         }
@@ -134,13 +148,24 @@ export default function SpotCheckPage() {
       fetchSpotChecks(false, true);
     };
 
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        const lastSync = typeof window !== 'undefined' ? ((window as any).__lastSpotCheckSyncTime || 0) : 0;
+        // Only trigger fallback fetch if no sync has occurred within 30 seconds
+        if (Date.now() - lastSync > 30000) {
+          fetchSpotChecks(false, false);
+        }
+      }
+    };
+
     window.addEventListener('spotcheck-data-synced', handleDataSynced);
     window.addEventListener('spotcheck-updated', handleSpotCheckUpdated);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('spotcheck-data-synced', handleDataSynced);
       window.removeEventListener('spotcheck-updated', handleSpotCheckUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

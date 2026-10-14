@@ -57,7 +57,12 @@ export async function GET(request: Request) {
     // Check for expired spot checks exceeding 10 minutes
     const nowMs = Date.now();
     const { getLiveEmployeesMap } = await import('@/lib/gas');
-    const { createNotification, createNotificationForAdmins, createNotificationForSupervisor } = await import('@/lib/notifications');
+    const {
+      createNotification,
+      createNotificationForAdmins,
+      createNotificationForSupervisor,
+      hasNotificationForEmployeeToday,
+    } = await import('@/lib/notifications');
     const { sendMissedSpotCheckAlertEmail } = await import('@/lib/email');
     const { updateManualSpotCheck, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
 
@@ -201,7 +206,8 @@ export async function GET(request: Request) {
               const triggerTimeMs = new Date(`${s.date}T${normalizedTime}+07:00`).getTime();
               if (!isNaN(triggerTimeMs) && nowMs > triggerTimeMs + 10 * 60 * 1000) {
                 const alertKey = `alerted_missed_spot_${s.employeeId}_${s.date}_${s.round || rawScheduledTime}`;
-                if (!(global as any)[alertKey]) {
+                const hasNotified = (global as any)[alertKey] || hasNotificationForEmployeeToday(String(s.employeeId), '⚠️ คุณไม่ผ่านการสุ่มตรวจ', s.date || todayStr);
+                if (!hasNotified) {
                   (global as any)[alertKey] = true;
 
                   const emp = employeesMap[String(s.employeeId)];

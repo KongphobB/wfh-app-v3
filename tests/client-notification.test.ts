@@ -127,4 +127,22 @@ describe('Client Native Notification Suite', () => {
     expect(result.success).toBe(true);
     expect(showNotificationMock).toHaveBeenCalled();
   });
+
+  it('7. hasNotificationForEmployeeToday correctly deduplicates alerts based on date and prefix', async () => {
+    const { createNotification, hasNotificationForEmployeeToday } = await import('@/lib/notifications');
+    const todayStr = '2026-10-14';
+
+    expect(hasNotificationForEmployeeToday('TEST_EMP_99', '⚠️', todayStr)).toBe(false);
+
+    await createNotification({
+      employee_id: 'TEST_EMP_99',
+      type: 'warning',
+      title: '⚠️ แจ้งเตือนยังไม่ได้ลงเวลาเข้างาน (WFH)',
+      message: 'กรุณาลงเวลาเข้างาน',
+    });
+
+    expect(hasNotificationForEmployeeToday('TEST_EMP_99', '⚠️', todayStr)).toBe(true);
+    expect(hasNotificationForEmployeeToday('TEST_EMP_99', '🚫', todayStr)).toBe(false);
+    expect(hasNotificationForEmployeeToday('OTHER_EMP', '⚠️', todayStr)).toBe(false);
+  });
 });
