@@ -80,7 +80,31 @@ export default function CheckinPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [alertPopup]);
 
+  const todayStr = getThaiDateStr();
+  const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
+  const todayMorningLog = todayLogs.find((l) => l.log_type === 'เข้างาน');
+  const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;
+
+  const formatTimeDisplay = (isoOrTimeStr?: string) => {
+    if (!isoOrTimeStr) return '';
+    if (isoOrTimeStr.includes('T')) {
+      return isoOrTimeStr.split('T')[1]?.split('+')[0]?.substring(0, 5) || '';
+    }
+    return isoOrTimeStr.substring(0, 5);
+  };
+
   const openCheckinModal = (type: CheckinType) => {
+    if (type === 'เข้างาน' && todayMorningLog) {
+      const timeStr = formatTimeDisplay(todayMorningLog.log_time);
+      setAlertPopup({
+        title: lang === 'en' ? 'Already Checked In' : 'ลงเวลาเข้างานเรียบร้อยแล้ว',
+        message: lang === 'en'
+          ? `You have already checked in today at ${timeStr || ''}. You cannot check in again.`
+          : `คุณได้ลงเวลาเข้างานของวันนี้เรียบร้อยแล้ว${timeStr ? `เมื่อเวลา ${timeStr} น.` : ''} ไม่สามารถลงเวลาเข้างานซ้ำได้ครับ`,
+      });
+      return;
+    }
+
     if (type === 'ยืนยันตัวตน') {
       const currentHour = getThaiTime().hour;
       if (currentHour < 13) {
@@ -94,11 +118,6 @@ export default function CheckinPage() {
     setSelectedType(type);
     setIsModalOpen(true);
   };
-
-  const todayStr = getThaiDateStr();
-
-  const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
-  const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;
 
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return '';
@@ -168,17 +187,41 @@ export default function CheckinPage() {
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-5 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20">
+        <Card className={`p-5 transition-all ${
+          todayMorningLog
+            ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40'
+            : 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20'
+        }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
               IN
             </div>
-            <Badge variant="success">{t.checkin.morningCheckin}</Badge>
+            <Badge variant="success">
+              {todayMorningLog
+                ? (lang === 'en' ? 'Checked In' : 'ลงเวลาแล้ว')
+                : t.checkin.morningCheckin}
+            </Badge>
           </div>
           <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.morningCheckin}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.morningTimeHint}</p>
-          <Button onClick={() => openCheckinModal('เข้างาน')} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer">
-            {t.checkin.morningCheckin}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+            {todayMorningLog
+              ? (lang === 'en'
+                  ? `Checked in today at ${formatTimeDisplay(todayMorningLog.log_time)}`
+                  : `ลงเวลาเข้างานแล้วเมื่อ ${formatTimeDisplay(todayMorningLog.log_time)} น.`)
+              : t.checkin.morningTimeHint}
+          </p>
+          <Button
+            disabled={Boolean(todayMorningLog)}
+            onClick={() => openCheckinModal('เข้างาน')}
+            className={`w-full font-bold ${
+              todayMorningLog
+                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 cursor-not-allowed opacity-90'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+            }`}
+          >
+            {todayMorningLog
+              ? (lang === 'en' ? '✓ Checked In' : '✓ เข้างานเรียบร้อยแล้ว')
+              : t.checkin.morningCheckin}
           </Button>
         </Card>
 

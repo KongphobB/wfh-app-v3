@@ -12,6 +12,21 @@ import { getDailyWorkLocation, setDailyWorkLocation } from '@/lib/dailyLocationS
 import { createAuditLog } from '@/lib/auditStore';
 import { applyCheckinAdjustments } from '@/lib/checkinAdjustmentStore';
 
+export const normalizeTimeStr = (rawTime: unknown, fallback = '08:00:00'): string => {
+  if (!rawTime || typeof rawTime !== 'string') return fallback;
+  const clean = rawTime.includes('T')
+    ? rawTime.split('T')[1]?.split('+')[0]?.split('Z')[0] || fallback
+    : rawTime.trim();
+  const parts = clean.split(':');
+  if (parts.length === 2) {
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+  }
+  if (parts.length >= 3) {
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].substring(0, 2).padStart(2, '0')}`;
+  }
+  return fallback;
+};
+
 export async function GET(request: Request) {
   try {
     const session = await getSession();
@@ -176,21 +191,6 @@ export async function GET(request: Request) {
         (l) => String(l.employeeId) === String(session.employee_id) && l.date === todayStr
       );
     }
-
-    const normalizeTimeStr = (rawTime: unknown, fallback = '08:00:00'): string => {
-      if (!rawTime || typeof rawTime !== 'string') return fallback;
-      const clean = rawTime.includes('T')
-        ? rawTime.split('T')[1]?.split('+')[0]?.split('Z')[0] || fallback
-        : rawTime.trim();
-      const parts = clean.split(':');
-      if (parts.length === 2) {
-        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
-      }
-      if (parts.length >= 3) {
-        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].substring(0, 2).padStart(2, '0')}`;
-      }
-      return fallback;
-    };
 
     const formattedLogs: CheckinLog[] = filtered.map((l) => {
       let lat: number | null = null;
@@ -375,6 +375,32 @@ export async function POST(request: Request) {
     }
 
     const todayStr = getThaiDateStr();
+
+    // Prevent duplicate morning check-in on the same day
+    if (log_type === 'เข้างาน') {
+      try {
+        const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
+        const existingLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
+        const alreadyCheckedIn = existingLogs.find(
+          (l: any) =>
+            l.date === todayStr &&
+            String(l.employeeId || l.employee_id) === String(session.employee_id) &&
+            (l.type === 'เข้างาน' || l.log_type === 'เข้างาน')
+        );
+
+        if (alreadyCheckedIn) {
+          const timeFormatted = alreadyCheckedIn.time ? normalizeTimeStr(alreadyCheckedIn.time).substring(0, 5) : '';
+          return NextResponse.json(
+            {
+              error: `คุณได้ลงเวลาเข้างานของวันนี้เรียบร้อยแล้ว${timeFormatted ? `เมื่อเวลา ${timeFormatted} น.` : ''} ไม่สามารถลงเวลาเข้างานซ้ำได้`,
+            },
+            { status: 400 }
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to verify prior check-in log:', err);
+      }
+    }
 
     // Calculate GPS Geofence vs Office location (read dynamic config with safe defaults)
     let isOutsideOffice = false;
