@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     alias: {
-      '@': path.resolve(__dirname, './'),
+      '@': path.resolve(import.meta.dirname, './'),
     },
     env: {
       JWT_SECRET: 'r2VdFyi0Ow4gHzp+kJDU3vRcI/Q7q/PA2v3mofgXocg=',
