@@ -250,16 +250,16 @@ export default function ManualPage() {
                   </div>
                   <div>
                     <CardTitle className="text-sm sm:text-base text-slate-900 font-bold">
-                      1. การลงเวลาเข้า-ออกงาน (Check-in / Check-out)
+                      1. การลงเวลาเข้า-ออกงาน และกติกาการปฏิบัติงาน (Check-in / Check-out SOP)
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      เวลาเข้างานก่อน 08:00 น. และ เวลาออกงานหลัง 17:00 น.
+                      เวลาเข้างานก่อน 08:00 น., รอบยืนยันตัวตน 13:00 - 13:20 น., และเวลาออกงานหลัง 17:00 น.
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-5 pt-0 space-y-3 text-xs text-slate-700 leading-relaxed">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
                   <p className="font-bold text-slate-900">ขั้นตอนการลงเวลา:</p>
                   <ol className="list-decimal list-inside space-y-1.5 pl-1">
                     <li>ไปที่เมนู <strong>"📍 ลงเวลาปฏิบัติงาน"</strong> แล้วกดปุ่ม <strong>"ลงเวลาเข้างาน"</strong> หรือ <strong>"ลงเวลาออกงาน"</strong></li>
@@ -268,6 +268,59 @@ export default function ManualPage() {
                     <li>หากลงเวลาเข้างานหลัง 08:00 น. (สาย) หรือออกก่อน 17:00 น. ระบบจะให้ระบุ <strong>"เหตุผลความจำเป็น"</strong> ซึ่งระบบจะส่งอีเมลแจ้งเตือนพร้อมเหตุผลไปยังหัวหน้างานและ Admin ทันที</li>
                     <li>กดปุ่ม <strong>"💾 ยืนยันการลงเวลา"</strong> เพื่อบันทึกข้อมูลเข้าสู่ระบบทันที</li>
                   </ol>
+
+                  {/* Highlights of Business Rules */}
+                  <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2">
+                    <p className="font-bold text-slate-900">กฎระเบียบและความปลอดภัยในการลงเวลา:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                      <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 space-y-1">
+                        <p className="font-bold flex items-center gap-1 text-emerald-800">
+                          <span>🟢 ป้องกันการเข้างานซ้ำ (Double Check-in Guard)</span>
+                        </p>
+                        <p className="text-emerald-900">
+                          ลงเวลาเข้างานได้เพียง <strong>วันละ 1 ครั้ง</strong> เมื่อลงเวลาสำเร็จแล้ว ปุ่มจะแสดงสถานะ <em>"✓ เข้างานเรียบร้อยแล้ว"</em> พร้อมระบุเวลา และปิดการกดซ้ำอัตโนมัติ
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200 text-rose-950 space-y-1">
+                        <p className="font-bold flex items-center gap-1 text-rose-800">
+                          <span>🔴 ต้องเข้างานก่อนจึงจะออกงานได้ (Prerequisite Guard)</span>
+                        </p>
+                        <p className="text-rose-900">
+                          ระบบไม่อนุญาตให้กด <em>"ออกงาน"</em> หากยังไม่มีประวัติการเข้างานของวันนั้น และสามารถลงเวลาออกงานได้เพียง <strong>วันละ 1 ครั้ง</strong> เท่านั้น
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 text-orange-950 space-y-1">
+                        <p className="font-bold flex items-center gap-1 text-orange-800">
+                          <span>🟠 รอบยืนยันตัวตนช่วงบ่าย (13:00 - 13:20 น.)</span>
+                        </p>
+                        <p className="text-orange-900">
+                          เปิดให้ยืนยันตัวตนเฉพาะช่วงเวลา 13:00 - 13:20 น. (หากยืนยันหลัง 13:20 น. ต้องระบุเหตุผล) เพื่อยืนยันการพร้อมปฏิบัติงานตลอดช่วงบ่าย
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 space-y-1">
+                        <p className="font-bold flex items-center gap-1 text-blue-800">
+                          <span>🔵 สลับสถานะ Office/WFH อัตโนมัติ (Geofence)</span>
+                        </p>
+                        <p className="text-blue-900">
+                          หากเช็คอินนอกรัศมีบริษัท (เกิน 200 ม.) ระบบจะปรับสถานะเป็น WFH ให้อัตโนมัติ พร้อมแจ้งเตือนหัวหน้างาน และเปิดรับการสุ่มตรวจประจำวัน
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security Highlights */}
+                  <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-300/80 text-slate-800 text-[11px] space-y-1">
+                    <p className="font-bold flex items-center gap-1 text-slate-900">
+                      <span>🔒 การรักษาความปลอดภัยและความเป็นส่วนตัว (Privacy & Security):</span>
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5 pl-1">
+                      <li><strong>รูปถ่ายเซลฟี่:</strong> พนักงานดูได้เฉพาะรูปของตนเองเท่านั้น หัวหน้างานดูได้เฉพาะรูปของลูกทีม และแอดมินดูได้เพื่อการตรวจสอบ</li>
+                      <li><strong>ระบบป้องกัน PIN:</strong> หากกรอกรหัส PIN ผิดติดต่อกัน 5 ครั้ง บัญชีจะถูกระงับชั่วคราวเป็นเวลา 15 นาที เพื่อป้องกันการสุ่มรหัสผ่าน</li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -728,6 +781,7 @@ export default function ManualPage() {
                     <li>ตรวจสอบชื่อพนักงาน, ช่วงวันที่, และเหตุผลความจำเป็น</li>
                     <li><strong>📎 ตรวจสอบหลักฐานแนบ:</strong> หากมีปุ่ม <em>"📎 ดูหลักฐานแนบ"</em> หัวหน้างานสามารถคลิกเพื่อเปิดดูรูปภาพใบรับรองแพทย์หรือเอกสารราชการแบบ Lightbox ขยายใหญ่ และกดดาวน์โหลดได้ทันที</li>
                     <li>กดปุ่ม <strong>"อนุมัติคำขอ (Approve)"</strong> หรือ <strong>"ปฏิเสธคำขอ (Reject)"</strong> พร้อมระบุหมายเหตุ</li>
+                    <li>🛡️ <strong>ระบบป้องกันการอนุมัติใบลาตนเอง (Self-Approval Guard):</strong> เพื่อความโปร่งใส หัวหน้างานไม่สามารถกดอนุมัติหรือปฏิเสธคำขอลาของตนเองได้ โดยคำขอลาของหัวหน้างานจะถูกส่งต่อไปยังผู้บริหารหรือแอดมินเพื่อพิจารณาแทน</li>
                     <li>⚡ <em>หมายเหตุ:</em> กรณีพนักงานแจ้ง <strong>"ปฏิบัติงานที่ออฟฟิศ (Onsite)"</strong> ระบบจะอนุมัติให้อัตโนมัติทันทีโดยไม่ต้องรอหัวหน้ากด</li>
                   </ul>
                 </div>
