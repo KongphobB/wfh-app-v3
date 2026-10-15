@@ -1,13 +1,145 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { callGAS } from '@/lib/gas';
-import { photoStore, saveSelfiePhoto, uploadsDir } from '@/lib/photoStore';
+import { callGAS, getLiveEmployeesMap } from '@/lib/gas';
+import { photoStore, saveSelfiePhoto, uploadsDir, getPhotoOwner, associatePhotoOwner } from '@/lib/photoStore';
 import fs from 'fs';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
 const missingPhotoCache = new Map<string, number>();
+
+/**
+ * Validates whether the logged-in user is authorized to view a check-in or spot-check photo.
+ * - Admin: Full access to all photos.
+ * - Supervisor: Allowed to view own photos and photos of subordinates.
+ * - Employee: Allowed ONLY to view their own photos.
+ */
+export async function isAuthorizedToViewPhoto(
+  uuid: string,
+  session: { role?: string; employee_id?: string }
+): Promise<boolean> {
+  // 1. Admin always has full access
+  if (session.role === 'admin') {
+    return true;
+  }
+
+  const currentEmpId = String(session.employee_id || '');
+  if (!currentEmpId) return false;
+
+  // 2. Direct match or known owner from memory store
+  const knownOwner = getPhotoOwner(uuid);
+  if (knownOwner && knownOwner === currentEmpId) {
+    return true;
+  }
+
+  // 3. Direct pattern matching on composite keys
+  if (uuid === currentEmpId) {
+    return true;
+  }
+
+  if (uuid.startsWith('spot_')) {
+    const parts = uuid.split('_');
+    if (parts[1] && parts[1] === currentEmpId) {
+      return true;
+    }
+  }
+
+  if (uuid.startsWith('SPOT-MANUAL-')) {
+    const parts = uuid.split('-');
+    const embeddedEmpId = parts.slice(3).join('-');
+    if (uuid.endsWith(`-${currentEmpId}`) || (embeddedEmpId && embeddedEmpId === currentEmpId)) {
+      return true;
+    }
+  }
+
+  if (uuid.includes('_')) {
+    const prefix = uuid.split('_')[0];
+    if (prefix === currentEmpId) {
+      return true;
+    }
+  }
+
+  // 4. Supervisor subordinate checks
+  let subordinateIds: Set<string> | null = null;
+  if (session.role === 'supervisor') {
+    try {
+      const empsMap = await getLiveEmployeesMap();
+      subordinateIds = new Set(
+        Object.entries(empsMap)
+          .filter(([_, emp]) => String(emp.supervisorId) === currentEmpId)
+          .map(([id]) => String(id))
+      );
+
+      if (knownOwner && subordinateIds.has(knownOwner)) {
+        return true;
+      }
+
+      if (uuid.startsWith('spot_')) {
+        const parts = uuid.split('_');
+        if (parts[1] && subordinateIds.has(parts[1])) return true;
+      }
+
+      if (uuid.startsWith('SPOT-MANUAL-')) {
+        const parts = uuid.split('-');
+        const embeddedEmpId = parts.slice(3).join('-');
+        if (
+          Array.from(subordinateIds).some((subId) => uuid.endsWith(`-${subId}`)) ||
+          (embeddedEmpId && subordinateIds.has(embeddedEmpId))
+        ) {
+          return true;
+        }
+      }
+
+      if (uuid.includes('_')) {
+        const prefix = uuid.split('_')[0];
+        if (subordinateIds.has(prefix)) return true;
+      }
+    } catch (e) {
+      console.warn('Failed to resolve supervisor subordinates for photo check:', e);
+    }
+  }
+
+  // 5. Lookup in GAS logs cache for opaque UUIDs
+  try {
+    const [logsRes, spotRes] = await Promise.all([
+      callGAS('getLogs').catch(() => null),
+      callGAS('getSpotChecks').catch(() => null),
+    ]);
+
+    let targetEmpId: string | null = null;
+
+    if (logsRes?.logs && Array.isArray(logsRes.logs)) {
+      const matched = logsRes.logs.find(
+        (l: any) => String(l.uuid) === uuid || String(l.photo) === uuid
+      );
+      if (matched) {
+        targetEmpId = String(matched.employeeId);
+      }
+    }
+
+    if (!targetEmpId && spotRes?.spotChecks && Array.isArray(spotRes.spotChecks)) {
+      const matched = spotRes.spotChecks.find(
+        (s: any) => String(s.uuid) === uuid || String(s.spotCheckId || s.id) === uuid
+      );
+      if (matched) {
+        targetEmpId = String(matched.employeeId);
+      }
+    }
+
+    if (targetEmpId) {
+      associatePhotoOwner(uuid, targetEmpId);
+      if (targetEmpId === currentEmpId) return true;
+      if (session.role === 'supervisor' && subordinateIds && subordinateIds.has(targetEmpId)) {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to lookup photo ownership in GAS logs:', err);
+  }
+
+  return false;
+}
 
 export async function GET(request: Request) {
   try {
@@ -23,6 +155,15 @@ export async function GET(request: Request) {
 
     if (!uuid || uuid === 'undefined' || uuid === 'null') {
       return NextResponse.json({ error: 'Missing uuid parameter' }, { status: 400 });
+    }
+
+    // SEC-01: Prevent BOLA / IDOR on employee selfies
+    const authorized = await isAuthorizedToViewPhoto(uuid, session);
+    if (!authorized) {
+      return NextResponse.json(
+        { error: 'Forbidden: คุณไม่มีสิทธิ์เข้าถึงรูปภาพของพนักงานท่านอื่น' },
+        { status: 403 }
+      );
     }
 
     // 1. Check in-memory store

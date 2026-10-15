@@ -491,9 +491,9 @@ export async function POST(request: Request) {
     // Store in memory cache & disk once after GAS succeeds
     if (photo_base64 && typeof photo_base64 === 'string') {
       if (gasResult?.data?.uuid) {
-        saveSelfiePhoto(gasResult.data.uuid, photo_base64, [typeKey]);
+        saveSelfiePhoto(gasResult.data.uuid, photo_base64, [typeKey], session.employee_id);
       } else {
-        saveSelfiePhoto(typeKey, photo_base64);
+        saveSelfiePhoto(typeKey, photo_base64, [], session.employee_id);
       }
     }
 

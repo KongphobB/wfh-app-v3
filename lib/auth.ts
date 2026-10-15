@@ -13,8 +13,74 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const COOKIE_NAME = 'wfh_session';
 
-// In-memory rate limiting
-const memoryRateLimits = new Map<string, { attempts: number; lockedUntil: number | null }>();
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
+const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOCAL_RATE_LIMIT_FILE = path.join(DATA_DIR, 'rate_limits.json');
+const TMP_RATE_LIMIT_FILE = '/tmp/rate_limits.json';
+const TEST_RATE_LIMIT_FILE = path.join(os.tmpdir(), `wfh_test_${process.pid}_rate_limits.json`);
+
+function getRateLimitStoragePath(): string {
+  if (isTestEnv) return TEST_RATE_LIMIT_FILE;
+  if (process.env.VERCEL) return TMP_RATE_LIMIT_FILE;
+  return LOCAL_RATE_LIMIT_FILE;
+}
+
+function loadRateLimitsFromDisk(): Map<string, { attempts: number; lockedUntil: number | null }> {
+  const map = new Map<string, { attempts: number; lockedUntil: number | null }>();
+  try {
+    const filePath = getRateLimitStoragePath();
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(content);
+      if (data && typeof data === 'object') {
+        const now = Date.now();
+        for (const [key, val] of Object.entries(data)) {
+          const rec = val as { attempts: number; lockedUntil: number | null };
+          if (rec && (!rec.lockedUntil || rec.lockedUntil > now)) {
+            map.set(key, rec);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Graceful fallback to empty map
+  }
+  return map;
+}
+
+function saveRateLimitsToDisk(map: Map<string, { attempts: number; lockedUntil: number | null }>) {
+  try {
+    const filePath = getRateLimitStoragePath();
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const obj: Record<string, { attempts: number; lockedUntil: number | null }> = {};
+    const now = Date.now();
+    for (const [key, val] of map.entries()) {
+      if (!val.lockedUntil || val.lockedUntil > now) {
+        obj[key] = val;
+      }
+    }
+    fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf-8');
+  } catch (err) {
+    // Ignore disk write errors in restricted serverless environments
+  }
+}
+
+// In-memory rate limiting with global and disk fallback
+declare global {
+  var __wfhRateLimits: Map<string, { attempts: number; lockedUntil: number | null }> | undefined;
+}
+
+if (!global.__wfhRateLimits) {
+  global.__wfhRateLimits = loadRateLimitsFromDisk();
+}
+const memoryRateLimits = global.__wfhRateLimits;
 
 /**
  * Create JWT Session Token (Internal helper)
@@ -75,6 +141,7 @@ export async function checkRateLimit(employeeId: string): Promise<{ isLimited: b
       return { isLimited: true, lockMinutesRemaining: remainingMinutes };
     }
     memoryRateLimits.delete(employeeId);
+    saveRateLimitsToDisk(memoryRateLimits);
   }
   return { isLimited: false };
 }
@@ -94,6 +161,7 @@ export async function recordFailedAttempt(employeeId: string) {
   const currentAttempts = (record?.attempts || 0) + 1;
   const lockedUntil = currentAttempts >= maxAttempts ? Date.now() + lockoutMs : null;
   memoryRateLimits.set(employeeId, { attempts: currentAttempts, lockedUntil });
+  saveRateLimitsToDisk(memoryRateLimits);
 }
 
 /**
@@ -101,6 +169,7 @@ export async function recordFailedAttempt(employeeId: string) {
  */
 export async function resetFailedAttempt(employeeId: string) {
   memoryRateLimits.delete(employeeId);
+  saveRateLimitsToDisk(memoryRateLimits);
 }
 
 /**

@@ -95,6 +95,23 @@ describe('Authentication & Role Determination QA Suite', () => {
       await resetFailedAttempt(testEmp);
       expect((await checkRateLimit(testEmp)).isLimited).toBe(false);
     });
+
+    it('Persists locked account state to disk to survive serverless cold starts (SEC-03)', async () => {
+      for (let i = 0; i < 5; i++) {
+        await recordFailedAttempt(testEmp);
+      }
+      expect((await checkRateLimit(testEmp)).isLimited).toBe(true);
+
+      const fs = await import('fs');
+      const os = await import('os');
+      const path = await import('path');
+      const testFile = path.join(os.tmpdir(), `wfh_test_${process.pid}_rate_limits.json`);
+      expect(fs.existsSync(testFile)).toBe(true);
+      const savedData = JSON.parse(fs.readFileSync(testFile, 'utf-8'));
+      expect(savedData[testEmp]).toBeDefined();
+      expect(savedData[testEmp].attempts).toBe(5);
+      expect(savedData[testEmp].lockedUntil).toBeGreaterThan(Date.now());
+    });
   });
 
   describe('4. JWT Session Token Security', () => {

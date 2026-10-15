@@ -3,13 +3,29 @@ import path from 'path';
 
 declare global {
   var __wfhPhotoStore: Map<string, string> | undefined;
+  var __wfhPhotoOwners: Map<string, string> | undefined;
 }
 
 if (!global.__wfhPhotoStore) {
   global.__wfhPhotoStore = new Map<string, string>();
 }
+if (!global.__wfhPhotoOwners) {
+  global.__wfhPhotoOwners = new Map<string, string>();
+}
 
 export const photoStore = global.__wfhPhotoStore;
+export const photoOwners = global.__wfhPhotoOwners;
+
+export function associatePhotoOwner(key: string, employeeId: string) {
+  if (key && employeeId) {
+    photoOwners.set(key, String(employeeId));
+  }
+}
+
+export function getPhotoOwner(key: string): string | null {
+  if (!key) return null;
+  return photoOwners.get(key) || null;
+}
 
 export const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'selfies');
 
@@ -33,12 +49,21 @@ if (!isReadOnlyFs) {
 /**
  * Save a selfie base64 image into memory store and disk
  */
-export function saveSelfiePhoto(primaryKey: string, photoBase64: string, altKeys: string[] = []): string {
+export function saveSelfiePhoto(primaryKey: string, photoBase64: string, altKeys: string[] = [], ownerEmployeeId?: string): string {
   if (!photoBase64 || typeof photoBase64 !== 'string') return '';
 
   photoStore.set(primaryKey, photoBase64);
+  if (ownerEmployeeId) {
+    associatePhotoOwner(primaryKey, ownerEmployeeId);
+  }
+
   altKeys.forEach((k) => {
-    if (k) photoStore.set(k, photoBase64);
+    if (k) {
+      photoStore.set(k, photoBase64);
+      if (ownerEmployeeId) {
+        associatePhotoOwner(k, ownerEmployeeId);
+      }
+    }
   });
 
   if (isReadOnlyFs) {

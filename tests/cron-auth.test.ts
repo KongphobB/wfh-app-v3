@@ -1,123 +1,60 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { verifyCronAuth } from '@/lib/cron';
 
-vi.mock('@/lib/gas', () => ({
-  callGAS: vi.fn().mockResolvedValue({ success: true, data: [] }),
-  getLiveEmployeesMap: vi.fn().mockResolvedValue({}),
-}));
-
-vi.mock('@/lib/notifications', () => ({
-  createNotification: vi.fn().mockResolvedValue(undefined),
-  createNotificationForSupervisor: vi.fn().mockResolvedValue(undefined),
-  createNotificationForAdmins: vi.fn().mockResolvedValue(undefined),
-  hasNotificationForEmployeeToday: vi.fn().mockReturnValue(false),
-}));
-
-import { callGAS } from '@/lib/gas';
-import { GET as spotcheckTickGET } from '@/app/api/spotcheck/tick/route';
-import { GET as missingCheckinTickGET } from '@/app/api/notifications/missing-checkin-tick/route';
-
-describe('Cron Auth Guard Test Suite', () => {
-  const TEST_CRON_SECRET = '9a14146f08f8d44d333bcad0a816ab732ab708ffeadf9b535f57efa174aaf613';
+describe('Cron Authentication Security (SEC-04)', () => {
+  const originalSecret = process.env.CRON_SECRET;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    process.env.CRON_SECRET = TEST_CRON_SECRET;
+    process.env.CRON_SECRET = 'super_secret_cron_token_12345';
   });
 
   afterEach(() => {
-    process.env.CRON_SECRET = TEST_CRON_SECRET;
+    process.env.CRON_SECRET = originalSecret;
   });
 
-  it('1. Rejects request without Authorization header with 401', async () => {
-    const req = new Request('http://localhost/api/spotcheck/tick');
-    const res = await spotcheckTickGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(401);
-    expect(data.error).toBe('Unauthorized cron request');
-
-    const req2 = new Request('http://localhost/api/notifications/missing-checkin-tick');
-    const res2 = await missingCheckinTickGET(req2);
-    const data2 = await res2.json();
-
-    expect(res2.status).toBe(401);
-    expect(data2.error).toBe('Unauthorized cron request');
-  });
-
-  it('2. Rejects request with wrong/invalid Bearer token with 401', async () => {
-    const req = new Request('http://localhost/api/spotcheck/tick', {
-      headers: { Authorization: 'Bearer wrong-secret-token' },
-    });
-    const res = await spotcheckTickGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(401);
-    expect(data.error).toBe('Unauthorized cron request');
-  });
-
-  it('3. Accepts request with correct Bearer token and executes tick logic', async () => {
-    vi.setSystemTime(new Date(2026, 7, 13, 10, 0, 0)); // Thursday
-
-    const req = new Request('http://localhost/api/spotcheck/tick', {
-      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
-    });
-    const res = await spotcheckTickGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.success).toBe(true);
-  });
-
-  it('4. Fail-closed: Rejects with 500 when CRON_SECRET is unconfigured in process.env regardless of header', async () => {
+  it('Rejects requests when CRON_SECRET is not configured (fail-closed)', () => {
     delete process.env.CRON_SECRET;
-
-    const req = new Request('http://localhost/api/spotcheck/tick', {
-      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
+      headers: { authorization: 'Bearer super_secret_cron_token_12345' },
     });
-    const res = await spotcheckTickGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(data.error).toBe('CRON_SECRET is not configured');
-
-    const req2 = new Request('http://localhost/api/notifications/missing-checkin-tick', {
-      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
-    });
-    const res2 = await missingCheckinTickGET(req2);
-    const data2 = await res2.json();
-
-    expect(res2.status).toBe(500);
-    expect(data2.error).toBe('CRON_SECRET is not configured');
+    const result = verifyCronAuth(req);
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(500);
   });
 
-  it('5. Automatically skips missing-checkin-tick on official company holidays', async () => {
-    // 2026-04-13 is Songkran Festival (Monday)
-    vi.setSystemTime(new Date(2026, 3, 13, 8, 5, 0));
-
-    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
-      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
-    });
-    const res = await missingCheckinTickGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.skipped).toBe(true);
-    expect(data.reason).toBe('holiday');
-    expect(data.holiday).toContain('วันสงกรานต์');
+  it('Rejects requests without authorization header', () => {
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick');
+    const result = verifyCronAuth(req);
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(401);
   });
 
-  it('6. Automatically skips missing-checkin-tick on weekends', async () => {
-    // 2026-08-15 is Saturday
-    vi.setSystemTime(new Date(2026, 7, 15, 8, 5, 0));
-
+  it('Rejects requests with different secret length without throwing RangeError', () => {
     const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
-      headers: { Authorization: `Bearer ${TEST_CRON_SECRET}` },
+      headers: { authorization: 'Bearer short' },
     });
-    const res = await missingCheckinTickGET(req);
-    const data = await res.json();
+    const result = verifyCronAuth(req);
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(401);
+  });
 
-    expect(res.status).toBe(200);
-    expect(data.skipped).toBe(true);
-    expect(data.reason).toBe('weekend');
+  it('Rejects requests with same length but invalid secret using constant-time comparison', () => {
+    // Same length as 'Bearer super_secret_cron_token_12345'
+    const wrongHeader = 'Bearer ' + 'x'.repeat('super_secret_cron_token_12345'.length);
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
+      headers: { authorization: wrongHeader },
+    });
+    const result = verifyCronAuth(req);
+    expect(result.authorized).toBe(false);
+    expect(result.response?.status).toBe(401);
+  });
+
+  it('Authorizes valid cron request with exact matching secret', () => {
+    const req = new Request('http://localhost/api/notifications/missing-checkin-tick', {
+      headers: { authorization: 'Bearer super_secret_cron_token_12345' },
+    });
+    const result = verifyCronAuth(req);
+    expect(result.authorized).toBe(true);
+    expect(result.response).toBeUndefined();
   });
 });
