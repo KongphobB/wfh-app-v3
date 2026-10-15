@@ -130,7 +130,7 @@ describe('Client Native Notification Suite', () => {
 
   it('7. hasNotificationForEmployeeToday correctly deduplicates alerts based on date and prefix', async () => {
     const { createNotification, hasNotificationForEmployeeToday } = await import('@/lib/notifications');
-    const todayStr = '2026-10-14';
+    const todayStr = new Date().toISOString().substring(0, 10);
 
     expect(hasNotificationForEmployeeToday('TEST_EMP_99', '⚠️', todayStr)).toBe(false);
 
