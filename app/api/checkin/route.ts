@@ -376,18 +376,21 @@ export async function POST(request: Request) {
 
     const todayStr = getThaiDateStr();
 
-    // Prevent duplicate morning check-in on the same day
-    if (log_type === 'เข้างาน') {
-      try {
-        const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
-        const existingLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
-        const alreadyCheckedIn = existingLogs.find(
-          (l: any) =>
-            l.date === todayStr &&
-            String(l.employeeId || l.employee_id) === String(session.employee_id) &&
-            (l.type === 'เข้างาน' || l.log_type === 'เข้างาน')
-        );
+    // Validate check-in rules: duplicate prevention & checkout prerequisites
+    try {
+      const checkinRes = await callGAS('getLogs', { logType: 'checkin', limit: 100 });
+      const existingLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
+      const userTodayLogs = existingLogs.filter(
+        (l: any) =>
+          l.date === todayStr &&
+          String(l.employeeId || l.employee_id) === String(session.employee_id)
+      );
 
+      // Rule 1: Prevent duplicate morning check-in on the same day
+      if (log_type === 'เข้างาน') {
+        const alreadyCheckedIn = userTodayLogs.find(
+          (l: any) => l.type === 'เข้างาน' || l.log_type === 'เข้างาน'
+        );
         if (alreadyCheckedIn) {
           const timeFormatted = alreadyCheckedIn.time ? normalizeTimeStr(alreadyCheckedIn.time).substring(0, 5) : '';
           return NextResponse.json(
@@ -397,9 +400,53 @@ export async function POST(request: Request) {
             { status: 400 }
           );
         }
-      } catch (err) {
-        console.warn('Failed to verify prior check-in log:', err);
       }
+
+      // Rule 2: Must check in before checking out & prevent duplicate checkout
+      if (log_type === 'ออกงาน') {
+        const hasCheckedIn = userTodayLogs.some(
+          (l: any) => l.type === 'เข้างาน' || l.log_type === 'เข้างาน'
+        );
+        if (!hasCheckedIn) {
+          return NextResponse.json(
+            {
+              error: 'ไม่พบข้อมูลการลงเวลาเข้างานของวันนี้ กรุณาลงเวลาเข้างานก่อน หรือติดต่อหัวหน้างานหากลืมลงเวลาช่วงเช้า',
+            },
+            { status: 400 }
+          );
+        }
+
+        const alreadyCheckedOut = userTodayLogs.find(
+          (l: any) => l.type === 'ออกงาน' || l.log_type === 'ออกงาน'
+        );
+        if (alreadyCheckedOut) {
+          const timeFormatted = alreadyCheckedOut.time ? normalizeTimeStr(alreadyCheckedOut.time).substring(0, 5) : '';
+          return NextResponse.json(
+            {
+              error: `คุณได้ลงเวลาออกงานของวันนี้เรียบร้อยแล้ว${timeFormatted ? `เมื่อเวลา ${timeFormatted} น.` : ''} ไม่สามารถลงเวลาออกงานซ้ำได้`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Rule 3: Prevent duplicate afternoon verification
+      if (log_type === 'ยืนยันตัวตน') {
+        const alreadyVerified = userTodayLogs.find(
+          (l: any) => l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน'
+        );
+        if (alreadyVerified) {
+          const timeFormatted = alreadyVerified.time ? normalizeTimeStr(alreadyVerified.time).substring(0, 5) : '';
+          return NextResponse.json(
+            {
+              error: `คุณได้ยืนยันตัวตนของวันนี้เรียบร้อยแล้ว${timeFormatted ? `เมื่อเวลา ${timeFormatted} น.` : ''} ไม่จำเป็นต้องยืนยันซ้ำ`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to verify attendance logs:', err);
     }
 
     // Calculate GPS Geofence vs Office location (read dynamic config with safe defaults)

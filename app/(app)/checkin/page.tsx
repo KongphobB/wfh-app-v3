@@ -83,6 +83,8 @@ export default function CheckinPage() {
   const todayStr = getThaiDateStr();
   const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
   const todayMorningLog = todayLogs.find((l) => l.log_type === 'เข้างาน');
+  const todayEveningLog = todayLogs.find((l) => l.log_type === 'ออกงาน');
+  const todayAfternoonLog = todayLogs.find((l) => l.log_type === 'ยืนยันตัวตน');
   const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;
 
   const formatTimeDisplay = (isoOrTimeStr?: string) => {
@@ -105,7 +107,39 @@ export default function CheckinPage() {
       return;
     }
 
+    if (type === 'ออกงาน') {
+      if (!todayMorningLog) {
+        setAlertPopup({
+          title: lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างาน',
+          message: lang === 'en'
+            ? 'Cannot check out because no morning check-in record was found for today. Please check in first or contact your supervisor.'
+            : 'ไม่สามารถลงเวลาออกงานได้เนื่องจากยังไม่พบข้อมูลการลงเวลาเข้างานของวันนี้ กรุณาลงเวลาเข้างานก่อน หรือติดต่อหัวหน้างานหากลืมลงเวลาช่วงเช้าครับ',
+        });
+        return;
+      }
+      if (todayEveningLog) {
+        const timeStr = formatTimeDisplay(todayEveningLog.log_time);
+        setAlertPopup({
+          title: lang === 'en' ? 'Already Checked Out' : 'ลงเวลาออกงานเรียบร้อยแล้ว',
+          message: lang === 'en'
+            ? `You have already checked out today at ${timeStr || ''}. You cannot check out again.`
+            : `คุณได้ลงเวลาออกงานของวันนี้เรียบร้อยแล้ว${timeStr ? `เมื่อเวลา ${timeStr} น.` : ''} ไม่สามารถลงเวลาออกงานซ้ำได้ครับ`,
+        });
+        return;
+      }
+    }
+
     if (type === 'ยืนยันตัวตน') {
+      if (todayAfternoonLog) {
+        const timeStr = formatTimeDisplay(todayAfternoonLog.log_time);
+        setAlertPopup({
+          title: lang === 'en' ? 'Already Verified' : 'ยืนยันตัวตนเรียบร้อยแล้ว',
+          message: lang === 'en'
+            ? `You have already verified today at ${timeStr || ''}. No need to verify again.`
+            : `คุณได้ยืนยันตัวตนรอบบ่ายของวันนี้เรียบร้อยแล้ว${timeStr ? `เมื่อเวลา ${timeStr} น.` : ''} ไม่จำเป็นต้องยืนยันซ้ำครับ`,
+        });
+        return;
+      }
       const currentHour = getThaiTime().hour;
       if (currentHour < 13) {
         setAlertPopup({
@@ -225,31 +259,82 @@ export default function CheckinPage() {
           </Button>
         </Card>
 
-        <Card className="p-5 border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20">
+        <Card className={`p-5 transition-all ${
+          todayEveningLog
+            ? 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/40'
+            : 'border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20'
+        }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 flex items-center justify-center font-bold">
               OUT
             </div>
-            <Badge variant="destructive">{t.checkin.eveningCheckout}</Badge>
+            <Badge variant="destructive">
+              {todayEveningLog
+                ? (lang === 'en' ? 'Checked Out' : 'ลงเวลาแล้ว')
+                : t.checkin.eveningCheckout}
+            </Badge>
           </div>
           <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.eveningCheckout}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.eveningTimeHint}</p>
-          <Button onClick={() => openCheckinModal('ออกงาน')} variant="destructive" className="w-full font-bold cursor-pointer">
-            {t.checkin.eveningCheckout}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+            {todayEveningLog
+              ? (lang === 'en'
+                  ? `Checked out today at ${formatTimeDisplay(todayEveningLog.log_time)}`
+                  : `ลงเวลาออกงานแล้วเมื่อ ${formatTimeDisplay(todayEveningLog.log_time)} น.`)
+              : (!todayMorningLog
+                  ? (lang === 'en' ? 'Requires morning check-in first' : 'จำเป็นต้องลงเวลาเข้างานก่อน')
+                  : t.checkin.eveningTimeHint)}
+          </p>
+          <Button
+            disabled={Boolean(todayEveningLog)}
+            onClick={() => openCheckinModal('ออกงาน')}
+            variant="destructive"
+            className={`w-full font-bold ${
+              todayEveningLog
+                ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 cursor-not-allowed opacity-90'
+                : 'cursor-pointer'
+            }`}
+          >
+            {todayEveningLog
+              ? (lang === 'en' ? '✓ Checked Out' : '✓ ออกงานเรียบร้อยแล้ว')
+              : t.checkin.eveningCheckout}
           </Button>
         </Card>
 
-        <Card className="p-5 border-orange-200 dark:border-orange-900/60 bg-orange-50/40 dark:bg-orange-950/20">
+        <Card className={`p-5 transition-all ${
+          todayAfternoonLog
+            ? 'border-orange-300 dark:border-orange-800 bg-orange-50/70 dark:bg-orange-950/40'
+            : 'border-orange-200 dark:border-orange-900/60 bg-orange-50/40 dark:bg-orange-950/20'
+        }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 flex items-center justify-center font-bold">
               ID
             </div>
-            <Badge variant="default">{t.checkin.afternoonVerify}</Badge>
+            <Badge variant="default">
+              {todayAfternoonLog
+                ? (lang === 'en' ? 'Verified' : 'ยืนยันแล้ว')
+                : t.checkin.afternoonVerify}
+            </Badge>
           </div>
           <h3 className="font-bold text-slate-900 dark:text-white text-base">{t.checkin.afternoonVerify}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{t.checkin.afternoonTimeHint}</p>
-          <Button onClick={() => openCheckinModal('ยืนยันตัวตน')} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer">
-            {t.checkin.afternoonVerify}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+            {todayAfternoonLog
+              ? (lang === 'en'
+                  ? `Verified today at ${formatTimeDisplay(todayAfternoonLog.log_time)}`
+                  : `ยืนยันตัวตนแล้วเมื่อ ${formatTimeDisplay(todayAfternoonLog.log_time)} น.`)
+              : t.checkin.afternoonTimeHint}
+          </p>
+          <Button
+            disabled={Boolean(todayAfternoonLog)}
+            onClick={() => openCheckinModal('ยืนยันตัวตน')}
+            className={`w-full font-bold ${
+              todayAfternoonLog
+                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700 cursor-not-allowed opacity-90'
+                : 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
+            }`}
+          >
+            {todayAfternoonLog
+              ? (lang === 'en' ? '✓ Verified' : '✓ ยืนยันเรียบร้อยแล้ว')
+              : t.checkin.afternoonVerify}
           </Button>
         </Card>
       </div>
