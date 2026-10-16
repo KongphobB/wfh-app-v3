@@ -344,36 +344,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const { hour: currentHour, minute: currentMinute } = getThaiTime();
-
-    if (log_type === 'เข้างาน' && (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) && (!note || !note.trim())) {
-      return NextResponse.json(
-        { error: 'เนื่องจากคุณลงเวลาเข้างานหลังเวลา 08:00 น. (สาย) กรุณาระบุเหตุผลความจำเป็นในช่องหมายเหตุ' },
-        { status: 400 }
-      );
-    }
-
-    if (log_type === 'ยืนยันตัวตน' && currentHour < 13) {
-      return NextResponse.json(
-        { error: 'ยังไม่ถึงเวลายืนยันตัวตน (รอบยืนยันตัวตนช่วงบ่ายเปิดเวลา 13:00 - 13:20 น.)' },
-        { status: 400 }
-      );
-    }
-
-    if (log_type === 'ยืนยันตัวตน' && (currentHour > 13 || (currentHour === 13 && currentMinute > 20)) && (!note || !note.trim())) {
-      return NextResponse.json(
-        { error: 'เนื่องจากคุณยืนยันตัวตนหลังเวลา 13:20 น. (ล่าช้า) กรุณาระบุเหตุผลในช่องหมายเหตุ' },
-        { status: 400 }
-      );
-    }
-
-    if (log_type === 'ออกงาน' && currentHour < 17 && (!note || !note.trim())) {
-      return NextResponse.json(
-        { error: 'เนื่องจากคุณลงเวลาออกงานก่อนเวลา 17:00 น. กรุณาระบุเหตุผลการออกก่อนเวลาในช่องหมายเหตุ' },
-        { status: 400 }
-      );
-    }
-
     const todayStr = getThaiDateStr();
 
     // Validate check-in rules: duplicate prevention & checkout prerequisites
@@ -447,6 +417,36 @@ export async function POST(request: Request) {
       }
     } catch (err) {
       console.warn('Failed to verify attendance logs:', err);
+    }
+
+    const { hour: currentHour, minute: currentMinute } = getThaiTime();
+
+    if (log_type === 'เข้างาน' && (currentHour > 8 || (currentHour === 8 && currentMinute > 0)) && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณลงเวลาเข้างานหลังเวลา 08:00 น. (สาย) กรุณาระบุเหตุผลความจำเป็นในช่องหมายเหตุ' },
+        { status: 400 }
+      );
+    }
+
+    if (log_type === 'ยืนยันตัวตน' && currentHour < 13) {
+      return NextResponse.json(
+        { error: 'ยังไม่ถึงเวลายืนยันตัวตน (รอบยืนยันตัวตนช่วงบ่ายเปิดเวลา 13:00 - 13:20 น.)' },
+        { status: 400 }
+      );
+    }
+
+    if (log_type === 'ยืนยันตัวตน' && (currentHour > 13 || (currentHour === 13 && currentMinute > 20)) && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณยืนยันตัวตนหลังเวลา 13:20 น. (ล่าช้า) กรุณาระบุเหตุผลในช่องหมายเหตุ' },
+        { status: 400 }
+      );
+    }
+
+    if (log_type === 'ออกงาน' && currentHour < 17 && (!note || !note.trim())) {
+      return NextResponse.json(
+        { error: 'เนื่องจากคุณลงเวลาออกงานก่อนเวลา 17:00 น. กรุณาระบุเหตุผลการออกก่อนเวลาในช่องหมายเหตุ' },
+        { status: 400 }
+      );
     }
 
     // Calculate GPS Geofence vs Office location (read dynamic config with safe defaults)
