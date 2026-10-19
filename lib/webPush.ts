@@ -1,26 +1,21 @@
 import webpush from 'web-push';
 import {
-  getSubscriptionsForEmployee,
   getSubscriptionsForEmployeeAsync,
   removePushSubscriptionByEndpoint,
   getAllPushSubscriptions,
 } from './pushStore';
 
-export const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  'BF3mxYAbDHPDthi8LPeAg6S6WNskbaWK8b6zi_-b10dZz53cxqHuzjkml9h1Xx3IyVToTCVuaJABJF_Bce5AIh8';
+export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@company.com';
 
-export const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY || 'xArh6w6VJZzVvJC6xMoN_xvBg16npS24qOrGmLNi_yE';
-
-export const VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || 'mailto:kongphopb38@gmail.com';
-
-// Configure Web Push VAPID Details
-try {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} catch (err) {
-  console.warn('Failed to set VAPID details:', err);
+// Configure Web Push VAPID Details when keys are configured
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch (err) {
+    console.warn('Failed to set VAPID details:', err);
+  }
 }
 
 export interface PushNotificationPayload {

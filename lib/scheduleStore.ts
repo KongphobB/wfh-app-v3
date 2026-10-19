@@ -45,27 +45,37 @@ function loadFromDisk(): Record<string, number[]> {
     } catch {}
   }
 
-  // 1. If running on Vercel and /tmp file exists, read /tmp first
-  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
-    try {
-      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
-      if (content && content.trim()) {
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-    } catch {}
-  }
+  let baseSchedules: Record<string, number[]> = {};
 
-  // 2. Fall back to bundled repository file
+  // 1. Read bundled repository file as baseline
   try {
     if (fs.existsSync(LOCAL_STORE_FILE)) {
       const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
       if (content && content.trim()) {
         const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === 'object') return parsed;
+        if (parsed && typeof parsed === 'object') {
+          baseSchedules = { ...parsed };
+        }
       }
     }
   } catch {}
+
+  // 2. If running on Vercel and /tmp file exists, merge /tmp overrides on top
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === 'object') {
+          baseSchedules = { ...baseSchedules, ...parsed };
+        }
+      }
+    } catch {}
+  }
+
+  if (Object.keys(baseSchedules).length > 0) {
+    return baseSchedules;
+  }
 
   if (global.__weeklyScheduleStore) {
     const obj: Record<string, number[]> = {};

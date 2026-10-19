@@ -57,27 +57,41 @@ function loadFromDisk(): DailyLocationRecord[] {
     return [];
   }
 
-  // 1. If running on Vercel and /tmp file exists, read /tmp first
-  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
-    try {
-      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
-      if (content && content.trim()) {
-        const list = JSON.parse(content);
-        if (Array.isArray(list)) return list;
-      }
-    } catch {}
-  }
+  const mergedMap = new Map<string, DailyLocationRecord>();
 
-  // 2. Fall back to bundled repository file
+  // 1. Load bundled repository file as baseline
   try {
     if (fs.existsSync(LOCAL_STORE_FILE)) {
       const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
       if (content && content.trim()) {
         const list = JSON.parse(content);
-        if (Array.isArray(list)) return list;
+        if (Array.isArray(list)) {
+          list.forEach((r: DailyLocationRecord) => {
+            if (r && r.id) mergedMap.set(r.id, r);
+          });
+        }
       }
     }
   } catch {}
+
+  // 2. If running on Vercel and /tmp file exists, merge /tmp overrides on top
+  if (process.env.VERCEL && fs.existsSync(TMP_STORE_FILE)) {
+    try {
+      const content = fs.readFileSync(TMP_STORE_FILE, 'utf-8');
+      if (content && content.trim()) {
+        const list = JSON.parse(content);
+        if (Array.isArray(list)) {
+          list.forEach((r: DailyLocationRecord) => {
+            if (r && r.id) mergedMap.set(r.id, r);
+          });
+        }
+      }
+    } catch {}
+  }
+
+  if (mergedMap.size > 0) {
+    return Array.from(mergedMap.values());
+  }
 
   if (global.__dailyLocationStore) {
     return Array.from(global.__dailyLocationStore.values());

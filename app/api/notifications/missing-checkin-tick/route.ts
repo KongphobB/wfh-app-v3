@@ -48,9 +48,15 @@ export async function GET(request: Request) {
       });
     }
 
+    const withGasBudget = <T>(promise: Promise<T>, fallback: T, budgetMs = 6500): Promise<T> =>
+      Promise.race([
+        promise.catch(() => fallback),
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), budgetMs)),
+      ]);
+
     const [employeesMap, checkinRes] = await Promise.all([
-      getLiveEmployeesMap(),
-      callGAS('getLogs', { logType: 'checkin', limit: 200 }),
+      withGasBudget(getLiveEmployeesMap(), {}),
+      withGasBudget(callGAS('getLogs', { logType: 'checkin', limit: 200 }), { data: [] }),
     ]);
     const checkinLogs = applyCheckinAdjustments((checkinRes?.data || []) as any[]);
 
@@ -65,6 +71,12 @@ export async function GET(request: Request) {
 
     const { hour: currentHour } = getThaiTime();
     const isAfternoonAbsent = currentHour >= 12;
+
+    const sendEmailWithTimeout = (emailPromise: Promise<unknown>, timeoutMs = 3500) =>
+      Promise.race([
+        emailPromise.catch((e) => console.warn('Email alert error:', e)),
+        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+      ]);
 
     for (const [empId, emp] of Object.entries(employeesMap)) {
       if (
@@ -132,14 +144,16 @@ export async function GET(request: Request) {
             link: '/admin',
           }),
           // 3. Email alert to BOTH supervisor and admin (and CC employee)
-          sendAbsentAlertEmail({
-            employeeName: emp.name || empId,
-            employeeId: empId,
-            department: emp.dept,
-            supervisorEmail,
-            adminEmail,
-            employeeEmail: emp.email,
-          }),
+          sendEmailWithTimeout(
+            sendAbsentAlertEmail({
+              employeeName: emp.name || empId,
+              employeeId: empId,
+              department: emp.dept,
+              supervisorEmail,
+              adminEmail,
+              employeeEmail: emp.email,
+            })
+          ),
         ]);
       } else {
         await Promise.all([
@@ -169,14 +183,16 @@ export async function GET(request: Request) {
             link: '/admin',
           }),
           // 3. Email alert to BOTH supervisor and admin (and CC employee)
-          sendMissingCheckinAlertEmail({
-            employeeName: emp.name || empId,
-            employeeId: empId,
-            department: emp.dept,
-            supervisorEmail,
-            adminEmail,
-            employeeEmail: emp.email,
-          }),
+          sendEmailWithTimeout(
+            sendMissingCheckinAlertEmail({
+              employeeName: emp.name || empId,
+              employeeId: empId,
+              department: emp.dept,
+              supervisorEmail,
+              adminEmail,
+              employeeEmail: emp.email,
+            })
+          ),
         ]);
       }
     }

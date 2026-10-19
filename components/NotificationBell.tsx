@@ -92,6 +92,9 @@ export default function NotificationBell() {
         setNotifications(mergedList);
         const unreadList = mergedList.filter((n) => !n.is_read);
         setUnreadCount(unreadList.length);
+        try {
+          sessionStorage.setItem('wfh_notif_cache', JSON.stringify(mergedList));
+        } catch {}
 
         // Check for brand new notifications to trigger sound & native notification
         if (!isFirstLoadRef.current) {
@@ -157,7 +160,25 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
-    fetchInitialNotifications(true);
+    // Hydrate cached notifications immediately so badge renders in 0ms
+    try {
+      const cachedRaw = sessionStorage.getItem('wfh_notif_cache');
+      if (cachedRaw) {
+        const cachedList: AppNotification[] = JSON.parse(cachedRaw);
+        if (Array.isArray(cachedList)) {
+          const localRead = getLocalReadIds();
+          const merged = cachedList.map((n) => ({ ...n, is_read: n.is_read || localRead.has(n.id) }));
+          setNotifications(merged);
+          setUnreadCount(merged.filter((n) => !n.is_read).length);
+          merged.forEach((n) => seenNotifIdsRef.current.add(n.id));
+        }
+      }
+    } catch {}
+
+    // Stagger initial fetch slightly (600ms) so primary page content API gets priority on first load
+    const initialTimer = setTimeout(() => {
+      fetchInitialNotifications(true);
+    }, 600);
 
     // Visibility-aware notification polling (35s active tab)
     const interval = setInterval(() => {
@@ -174,6 +195,7 @@ export default function NotificationBell() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      clearTimeout(initialTimer);
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };

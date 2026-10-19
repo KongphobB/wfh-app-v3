@@ -321,7 +321,7 @@ export async function testDeviceNotification(): Promise<{
     };
   }
 
-  let perm = getNotificationPermission();
+  const perm = getNotificationPermission();
   if (perm !== 'granted') {
     const granted = await requestNotificationPermission();
     if (!granted) {

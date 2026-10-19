@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import CheckinModal from '@/components/CheckinModal';
-import SelfieLightboxModal, { LightboxPhotoData } from '@/components/SelfieLightboxModal';
+import dynamic from 'next/dynamic';
+import type { LightboxPhotoData } from '@/components/SelfieLightboxModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,11 @@ import { MapPin, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { CheckinLog, CheckinType } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 import { getThaiDateStr, getThaiTime } from '@/lib/timeSync';
+
+const CheckinModal = dynamic(() => import('@/components/CheckinModal'), { ssr: false });
+const SelfieLightboxModal = dynamic(() => import('@/components/SelfieLightboxModal'), { ssr: false });
+
+const CHECKIN_CACHE_KEY = 'wfh_checkin_self_cache';
 
 export default function CheckinPage() {
   const { t, lang } = useLanguage();
@@ -30,8 +35,40 @@ export default function CheckinPage() {
     // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
     if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
 
+    let hydratedFromCache = false;
+    if (isInitial && typeof window !== 'undefined') {
+      try {
+        const todayDate = getThaiDateStr();
+        const rawCache = sessionStorage.getItem(CHECKIN_CACHE_KEY);
+        if (rawCache) {
+          const cached = JSON.parse(rawCache);
+          if (cached && cached.date === todayDate && Array.isArray(cached.logs)) {
+            setAllLogs(cached.logs);
+            if (cached.work_location_today) {
+              setWorkLocationToday(cached.work_location_today);
+            }
+            setLoading(false);
+            hydratedFromCache = true;
+          }
+        } else {
+          const dashCache = sessionStorage.getItem('wfh_dashboard_summary_cache');
+          if (dashCache) {
+            const parsedDash = JSON.parse(dashCache);
+            if (parsedDash?.date === todayDate && Array.isArray(parsedDash?.data?.checkinLogs)) {
+              setAllLogs(parsedDash.data.checkinLogs);
+              if (parsedDash.data.workLocationToday) {
+                setWorkLocationToday(parsedDash.data.workLocationToday);
+              }
+              setLoading(false);
+              hydratedFromCache = true;
+            }
+          }
+        }
+      } catch {}
+    }
+
     isFetchingRef.current = true;
-    if (isInitial) setLoading(true);
+    if (isInitial && !hydratedFromCache) setLoading(true);
     try {
       const res = await fetch('/api/checkin?scope=self');
       lastFetchTimeRef.current = Date.now();
@@ -41,6 +78,16 @@ export default function CheckinPage() {
         if (data.work_location_today) {
           setWorkLocationToday(data.work_location_today);
         }
+        try {
+          sessionStorage.setItem(
+            CHECKIN_CACHE_KEY,
+            JSON.stringify({
+              date: getThaiDateStr(),
+              logs: data.logs || [],
+              work_location_today: data.work_location_today,
+            })
+          );
+        } catch {}
       }
     } catch (err) {
       console.error('Fetch checkin logs error:', err);
@@ -84,7 +131,9 @@ export default function CheckinPage() {
   const todayLogs = allLogs.filter((l) => l.log_date === todayStr);
   const todayMorningLog = todayLogs.find((l) => l.log_type === 'เข้างาน');
   const todayEveningLog = todayLogs.find((l) => l.log_type === 'ออกงาน');
-  const todayAfternoonLog = todayLogs.find((l) => l.log_type === 'ยืนยันตัวตน');
+  const todayAfternoonLog = todayLogs.find(
+    (l) => l.log_type === 'ยืนยันตัวตน' && !String(l.note || '').includes('[สุ่มตรวจ')
+  );
   const displayedLogs = viewFilter === 'today' ? todayLogs : allLogs;
 
   const formatTimeDisplay = (isoOrTimeStr?: string) => {
@@ -130,6 +179,15 @@ export default function CheckinPage() {
     }
 
     if (type === 'ยืนยันตัวตน') {
+      if (!todayMorningLog) {
+        setAlertPopup({
+          title: lang === 'en' ? 'Morning Check-in Missing' : 'ยังไม่ได้ลงเวลาเข้างาน',
+          message: lang === 'en'
+            ? 'Cannot verify afternoon attendance because no morning check-in record was found for today. Please check in first.'
+            : 'ไม่สามารถยืนยันตัวตนรอบบ่ายได้เนื่องจากยังไม่พบข้อมูลการลงเวลาเข้างานของวันนี้ กรุณาลงเวลาเข้างานก่อนครับ',
+        });
+        return;
+      }
       if (todayAfternoonLog) {
         const timeStr = formatTimeDisplay(todayAfternoonLog.log_time);
         setAlertPopup({

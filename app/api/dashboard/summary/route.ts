@@ -60,11 +60,20 @@ export async function GET() {
         photoUrl = `/api/checkin/photo?uuid=${encodeURIComponent(l.uuid)}&type=checkin`;
       }
 
+      const normalizedLogType =
+        (l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน') && typeof l.note === 'string'
+          ? l.note.includes('[สุ่มตรวจเฉพาะกิจ]')
+            ? 'สุ่มตรวจเฉพาะกิจ'
+            : l.note.includes('[สุ่มตรวจ')
+              ? 'สุ่มตรวจ'
+              : (l.type || 'เข้างาน')
+          : (l.type || 'เข้างาน');
+
       return {
         id: l.uuid || `${l.employeeId}_${l.date}_${l.time}`,
         employee_id: String(l.employeeId),
         employee_name: l.name || session.name,
-        log_type: l.type || 'เข้างาน',
+        log_type: normalizedLogType,
         log_date: l.date,
         log_time: isoTimeStr,
         gps_lat: null,

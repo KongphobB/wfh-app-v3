@@ -197,7 +197,7 @@ export function determineRole(position?: string, dept?: string, employeeId?: str
  * Format position text with explicit role tag when Admin updates role
  */
 export function formatPositionForRole(rawPosition: string = '', role: SessionPayload['role']): string {
-  let clean = rawPosition
+  const clean = rawPosition
     .replace(/\s*\[Supervisor\]/gi, '')
     .replace(/\s*\(หัวหน้างาน\)/g, '')
     .replace(/\s*\[หัวหน้างาน\]/g, '')

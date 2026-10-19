@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { 
   Clock, MapPin, AlertTriangle, FileText, 
   ChevronRight, ShieldCheck, BellRing, Loader2, ShieldAlert, Sparkles, MessageSquarePlus, Calendar, LogOut,
@@ -10,14 +11,17 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import CheckinModal from '@/components/CheckinModal';
-import DailyTaskModal from '@/components/DailyTaskModal';
-import { OnboardingModal } from '@/components/OnboardingModal';
-import { SuggestionModal } from '@/components/SuggestionModal';
-import { HolidayCalendarModal } from '@/components/HolidayCalendarModal';
 import { CheckinLog, TaskItem, SpotCheck } from '@/types';
 import { useLanguage } from '@/lib/i18n';
 import { getThaiTime, getThaiDateStr } from '@/lib/timeSync';
+
+const CheckinModal = dynamic(() => import('@/components/CheckinModal'), { ssr: false });
+const DailyTaskModal = dynamic(() => import('@/components/DailyTaskModal'), { ssr: false });
+const OnboardingModal = dynamic(() => import('@/components/OnboardingModal').then((m) => m.OnboardingModal), { ssr: false });
+const SuggestionModal = dynamic(() => import('@/components/SuggestionModal').then((m) => m.SuggestionModal), { ssr: false });
+const HolidayCalendarModal = dynamic(() => import('@/components/HolidayCalendarModal').then((m) => m.HolidayCalendarModal), { ssr: false });
+
+const DASHBOARD_CACHE_KEY = 'wfh_dashboard_summary_cache';
 
 export default function DashboardPage() {
   const { t, lang } = useLanguage();
@@ -41,94 +45,117 @@ export default function DashboardPage() {
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
 
+  const applyDashboardPayload = (data: any, isInitial = false) => {
+    const empId = data.employeeId || data.employee_id || '';
+    setCurrentEmpId(empId);
+    setUserRole(data.role || 'employee');
+    setWfhStatus(data.wfhStatus || 'เปิดสิทธิ์');
+    setCheckinLogs(data.checkinLogs || []);
+    setTasks(data.tasks || []);
+    setSpotChecks(data.spotChecks || []);
+    setActiveSpotCheck(data.activeSpotCheck || null);
+
+    const hasTodayWfhLog = (data.checkinLogs || []).some(
+      (l: CheckinLog) =>
+        (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
+        !(
+          (l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
+          l.note?.includes('ปฏิบัติงานที่ออฟฟิศ')
+        )
+    );
+
+    const hasTodayOfficeLog = (data.checkinLogs || []).some(
+      (l: CheckinLog) =>
+        (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
+        ((l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
+          l.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
+    );
+
+    let locToday: 'office' | 'wfh' = hasTodayWfhLog
+      ? 'wfh'
+      : hasTodayOfficeLog
+      ? 'office'
+      : (data.workLocationToday || 'office');
+    try {
+      const todayDateStr = getThaiDateStr();
+      const raw = localStorage.getItem(`wfh_daily_locations_${todayDateStr}`);
+      if (raw && !hasTodayWfhLog && !hasTodayOfficeLog) {
+        const parsed = JSON.parse(raw);
+        if (parsed[empId]) {
+          locToday = parsed[empId];
+        }
+      }
+    } catch {}
+
+    const finalStatus = hasTodayWfhLog
+      ? 'wfh'
+      : hasTodayOfficeLog
+      ? 'office'
+      : (data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
+    setWorkLocationToday(locToday);
+    setResolvedDailyStatus(finalStatus);
+    setDailyStatusReason(
+      hasTodayWfhLog
+        ? 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)'
+        : hasTodayOfficeLog
+        ? 'เข้าปฏิบัติงานที่สำนักงาน (เช็คอินพิกัดสำนักงาน)'
+        : (data.dailyStatusReason || '')
+    );
+    setIsExemptFromMissingCheckin(
+      hasTodayWfhLog
+        ? false
+        : hasTodayOfficeLog
+        ? true
+        : (data.isExemptFromMissingCheckin != null
+            ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
+            : locToday === 'office')
+    );
+
+    if (isInitial && empId) {
+      try {
+        const viewed = localStorage.getItem(`wfh_onboarding_viewed_${empId}`);
+        if (!viewed) {
+          setIsOnboardingOpen(true);
+        }
+      } catch {}
+    }
+  };
+
   const fetchData = async (isInitial = false, force = false) => {
     if (isFetchingRef.current) return;
     const now = Date.now();
     // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
     if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
 
+    let hydratedFromCache = false;
+    if (isInitial && typeof window !== 'undefined') {
+      try {
+        const rawCache = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (rawCache) {
+          const cached = JSON.parse(rawCache);
+          if (cached && cached.date === getThaiDateStr()) {
+            applyDashboardPayload(cached.data, false);
+            setLoading(false);
+            hydratedFromCache = true;
+          }
+        }
+      } catch {}
+    }
+
     isFetchingRef.current = true;
-    if (isInitial) setLoading(true);
+    if (isInitial && !hydratedFromCache) setLoading(true);
     try {
       const res = await fetch('/api/dashboard/summary');
       lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
-        const empId = data.employeeId || data.employee_id || '';
-        setCurrentEmpId(empId);
-        setUserRole(data.role || 'employee');
-        setWfhStatus(data.wfhStatus || 'เปิดสิทธิ์');
-        setCheckinLogs(data.checkinLogs || []);
-        setTasks(data.tasks || []);
-        setSpotChecks(data.spotChecks || []);
-        setActiveSpotCheck(data.activeSpotCheck || null);
-
-        const hasTodayWfhLog = (data.checkinLogs || []).some(
-          (l: CheckinLog) =>
-            (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
-            !(
-              (l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
-              l.note?.includes('ปฏิบัติงานที่ออฟฟิศ')
-            )
-        );
-
-        const hasTodayOfficeLog = (data.checkinLogs || []).some(
-          (l: CheckinLog) =>
-            (l.log_type === 'เข้างาน' || (l as any).type === 'เข้างาน') &&
-            ((l.verification_status && (l.verification_status.includes('ออฟฟิศ') || l.verification_status.includes('Office'))) ||
-              l.note?.includes('ปฏิบัติงานที่ออฟฟิศ'))
-        );
-
-        // Check client-side daily locations if available (e.g. recent toggle in Admin on same browser)
-        let locToday: 'office' | 'wfh' = hasTodayWfhLog
-          ? 'wfh'
-          : hasTodayOfficeLog
-          ? 'office'
-          : (data.workLocationToday || 'office');
+        applyDashboardPayload(data, isInitial);
         try {
-          const todayDateStr = getThaiDateStr();
-          const raw = localStorage.getItem(`wfh_daily_locations_${todayDateStr}`);
-          if (raw && !hasTodayWfhLog && !hasTodayOfficeLog) {
-            const parsed = JSON.parse(raw);
-            if (parsed[empId]) {
-              locToday = parsed[empId];
-            }
-          }
+          sessionStorage.setItem(
+            DASHBOARD_CACHE_KEY,
+            JSON.stringify({ date: getThaiDateStr(), data })
+          );
         } catch {}
-
-        const finalStatus = hasTodayWfhLog
-          ? 'wfh'
-          : hasTodayOfficeLog
-          ? 'office'
-          : (data.resolvedDailyStatus || (locToday === 'office' ? 'office' : 'wfh'));
-        setWorkLocationToday(locToday);
-        setResolvedDailyStatus(finalStatus);
-        setDailyStatusReason(
-          hasTodayWfhLog
-            ? 'ปฏิบัติงานที่บ้าน (ลงเวลาเข้างานผ่านระบบ WFH)'
-            : hasTodayOfficeLog
-            ? 'เข้าปฏิบัติงานที่สำนักงาน (เช็คอินพิกัดสำนักงาน)'
-            : (data.dailyStatusReason || '')
-        );
-        setIsExemptFromMissingCheckin(
-          hasTodayWfhLog
-            ? false
-            : hasTodayOfficeLog
-            ? true
-            : (data.isExemptFromMissingCheckin != null
-                ? (locToday === 'office' ? true : data.isExemptFromMissingCheckin)
-                : locToday === 'office')
-        );
-
-        // Auto-show onboarding tour on first login
-        if (isInitial && empId) {
-          try {
-            const viewed = localStorage.getItem(`wfh_onboarding_viewed_${empId}`);
-            if (!viewed) {
-              setIsOnboardingOpen(true);
-            }
-          } catch {}
-        }
       }
     } catch (err) {
       console.error('Fetch dashboard error:', err);

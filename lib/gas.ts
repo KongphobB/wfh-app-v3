@@ -50,7 +50,6 @@ const LOG_MUTATION_ACTIONS = new Set([
   'submitEmployeeTask',
   'submitSupervisorRating',
   'submitSpotCheck',
-  'runScheduledSpotChecks',
   'submitTicket',
   'resolveTicket',
 ]);
@@ -87,18 +86,10 @@ export function invalidateGasCache(actionPrefix?: string) {
   }
 }
 
-export async function getLiveEmployeesMap(): Promise<Record<string, { name: string; email?: string; dept?: string; position?: string; supervisorId?: string; pin?: string }>> {
-  const now = Date.now();
-  // Return cached in-memory map immediately if fresh (< 5 mins) to prevent blocking waterfall
-  if (
-    global.__lastKnownEmployeesMap &&
-    Object.keys(global.__lastKnownEmployeesMap).length > 0 &&
-    global.__lastKnownEmployeesMapTime &&
-    now - global.__lastKnownEmployeesMapTime < 300000
-  ) {
-    return global.__lastKnownEmployeesMap;
-  }
+const SWR_GRACE_MS = 10 * 60 * 1000; // 10 minutes Stale-While-Revalidate window
 
+async function refreshEmployeesMapFromGAS(): Promise<Record<string, any>> {
+  const now = Date.now();
   try {
     const inspectRes = await callGAS('inspectTab', { sheetName: 'ข้อมูลพนักงาน' });
     const targetRows = inspectRes?.targetRows || [];
@@ -139,8 +130,26 @@ export async function getLiveEmployeesMap(): Promise<Record<string, { name: stri
     console.warn('Fallback to config failed:', err);
   }
 
-  // Safety net: always return last known map so subordinates are never wiped!
   return global.__lastKnownEmployeesMap || {};
+}
+
+export async function getLiveEmployeesMap(): Promise<Record<string, { name: string; email?: string; dept?: string; position?: string; supervisorId?: string; pin?: string }>> {
+  const now = Date.now();
+  const hasMap = Boolean(global.__lastKnownEmployeesMap && Object.keys(global.__lastKnownEmployeesMap).length > 0);
+  const mapTime = global.__lastKnownEmployeesMapTime || 0;
+
+  // 1. Fresh cache hit (< 5 mins)
+  if (hasMap && mapTime > 0 && now - mapTime < 300000) {
+    return global.__lastKnownEmployeesMap!;
+  }
+
+  // 2. Stale-While-Revalidate hit (5–15 mins and not explicitly invalidated)
+  if (hasMap && mapTime > 0 && now - mapTime < 300000 + SWR_GRACE_MS) {
+    refreshEmployeesMapFromGAS().catch(() => {});
+    return global.__lastKnownEmployeesMap!;
+  }
+
+  return refreshEmployeesMapFromGAS();
 }
 
 async function fetchFromGAS(action: string, payload: Record<string, any>): Promise<any> {
@@ -215,13 +224,112 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
     invalidateForMutation();
   }
 
-  // Check cache for read actions
   const cacheTtl = CACHE_RULES[action];
   const cacheKey = `${action}_${cacheKeySuffix}`;
+
+  const startExecution = (): Promise<T> => {
+    if (!isMutation && cacheTtl && inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey) as Promise<T>;
+    }
+
+    const executionPromise = (async () => {
+      try {
+        const parsed = await fetchFromGAS(action, payload);
+        if (isMutation) {
+          // Also invalidate after write completes so concurrent in-flight reads cannot leave stale cache entries
+          invalidateForMutation();
+        } else if (
+          action === 'runScheduledSpotChecks' &&
+          Boolean(
+            parsed?.triggered ||
+              (typeof parsed?.triggeredCount === 'number' && parsed.triggeredCount > 0) ||
+              (Array.isArray(parsed?.triggeredEmployees) && parsed.triggeredEmployees.length > 0)
+          )
+        ) {
+          invalidateGasCache('getLogs_logType_spotcheck');
+          invalidateGasCache('getDashboardSummary');
+        }
+        const isValid = isResponseContentValid(action, parsed);
+
+        if (cacheTtl && isValid) {
+          const now = Date.now();
+          apiCache.set(cacheKey, { data: parsed, expiresAt: now + cacheTtl });
+          // Warm getSystemConfig cache & employeesMap when getDashboardSummary returns config
+          if (action === 'getDashboardSummary' && parsed?.config && typeof parsed.config === 'object') {
+            const sysCfgKey = `getSystemConfig_{}`;
+            if (!apiCache.has(sysCfgKey)) {
+              apiCache.set(sysCfgKey, {
+                data: { success: true, config: parsed.config },
+                expiresAt: now + CACHE_RULES.getSystemConfig,
+              });
+            }
+            const cfgEmpMap = parsed.config.employeesMap;
+            if (
+              cfgEmpMap &&
+              typeof cfgEmpMap === 'object' &&
+              Object.keys(cfgEmpMap).length > 0 &&
+              (!global.__lastKnownEmployeesMap || Object.keys(global.__lastKnownEmployeesMap).length === 0)
+            ) {
+              global.__lastKnownEmployeesMap = cfgEmpMap;
+              global.__lastKnownEmployeesMapTime = now;
+            }
+          }
+        } else if (!isValid && !isMutation) {
+          // If GAS returned empty/corrupted payload, fallback to existing stale cache
+          const staleCached = apiCache.get(cacheKey);
+          if (staleCached?.data) {
+            console.warn(`GAS returned empty/invalid content for ${action}, preserving cached data`);
+            return staleCached.data as T;
+          }
+        }
+        return parsed as T;
+      } catch (err: any) {
+        // If we have an existing cached entry (even if expired), return it rather than failing the UI
+        const staleCached = apiCache.get(cacheKey);
+        if (!isMutation && staleCached?.data) {
+          console.warn(`GAS call ${action} failed/timed out, serving stale cache:`, err?.message);
+          return staleCached.data as T;
+        }
+
+        // Retry once for read operations on failure
+        if (!isMutation) {
+          try {
+            const retryParsed = await fetchFromGAS(action, payload);
+            const isRetryValid = isResponseContentValid(action, retryParsed);
+            if (cacheTtl && isRetryValid) {
+              apiCache.set(cacheKey, { data: retryParsed, expiresAt: Date.now() + cacheTtl });
+            }
+            return retryParsed as T;
+          } catch {
+            // If retry fails, rethrow original error
+          }
+        }
+        throw err;
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    if (!isMutation && cacheTtl) {
+      inFlightRequests.set(cacheKey, executionPromise);
+    }
+
+    return executionPromise;
+  };
+
+  // Check cache for read actions
   if (!isMutation && cacheTtl) {
     const cached = apiCache.get(cacheKey);
-    if (cached && Date.now() < cached.expiresAt) {
-      return Promise.resolve(cached.data as T);
+    const now = Date.now();
+    if (cached) {
+      if (now < cached.expiresAt) {
+        return Promise.resolve(cached.data as T);
+      }
+      // Stale-While-Revalidate: serve cached data immediately (0ms) and revalidate in background
+      if (now < cached.expiresAt + SWR_GRACE_MS) {
+        startExecution().catch(() => {});
+        return Promise.resolve(cached.data as T);
+      }
     }
 
     // In-flight deduplication (SingleFlight pattern)
@@ -230,66 +338,5 @@ export function callGAS<T = any>(action: string, rawPayload: Record<string, any>
     }
   }
 
-  const executionPromise = (async () => {
-    try {
-      const parsed = await fetchFromGAS(action, payload);
-      if (isMutation) {
-        // Also invalidate after write completes so concurrent in-flight reads cannot leave stale cache entries
-        invalidateForMutation();
-      }
-      const isValid = isResponseContentValid(action, parsed);
-
-      if (cacheTtl && isValid) {
-        apiCache.set(cacheKey, { data: parsed, expiresAt: Date.now() + cacheTtl });
-        // Warm getSystemConfig cache when getDashboardSummary returns config
-        if (action === 'getDashboardSummary' && parsed?.config && typeof parsed.config === 'object') {
-          const sysCfgKey = `getSystemConfig_{}`;
-          if (!apiCache.has(sysCfgKey)) {
-            apiCache.set(sysCfgKey, {
-              data: { success: true, config: parsed.config },
-              expiresAt: Date.now() + CACHE_RULES.getSystemConfig,
-            });
-          }
-        }
-      } else if (!isValid && !isMutation) {
-        // If GAS returned empty/corrupted payload, fallback to existing stale cache
-        const staleCached = apiCache.get(cacheKey);
-        if (staleCached?.data) {
-          console.warn(`GAS returned empty/invalid content for ${action}, preserving cached data`);
-          return staleCached.data as T;
-        }
-      }
-      return parsed as T;
-    } catch (err: any) {
-      // If we have an existing cached entry (even if expired), return it rather than failing the UI
-      const staleCached = apiCache.get(cacheKey);
-      if (!isMutation && staleCached?.data) {
-        console.warn(`GAS call ${action} failed/timed out, serving stale cache:`, err?.message);
-        return staleCached.data as T;
-      }
-
-      // Retry once for read operations on failure
-      if (!isMutation) {
-        try {
-          const retryParsed = await fetchFromGAS(action, payload);
-          const isRetryValid = isResponseContentValid(action, retryParsed);
-          if (cacheTtl && isRetryValid) {
-            apiCache.set(cacheKey, { data: retryParsed, expiresAt: Date.now() + cacheTtl });
-          }
-          return retryParsed as T;
-        } catch {
-          // If retry fails, rethrow original error
-        }
-      }
-      throw err;
-    } finally {
-      inFlightRequests.delete(cacheKey);
-    }
-  })();
-
-  if (!isMutation && cacheTtl) {
-    inFlightRequests.set(cacheKey, executionPromise);
-  }
-
-  return executionPromise;
+  return startExecution();
 }

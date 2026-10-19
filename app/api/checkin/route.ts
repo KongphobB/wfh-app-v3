@@ -237,11 +237,20 @@ export async function GET(request: Request) {
 
       const hasPhoto = l.hasPhoto === true || Boolean(photoUrl);
 
+      const normalizedLogType =
+        (l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน') && typeof l.note === 'string'
+          ? l.note.includes('[สุ่มตรวจเฉพาะกิจ]')
+            ? 'สุ่มตรวจเฉพาะกิจ'
+            : l.note.includes('[สุ่มตรวจ')
+              ? 'สุ่มตรวจ'
+              : (l.type || 'เข้างาน')
+          : (l.type || 'เข้างาน');
+
       return {
         id: l.uuid || `${l.employeeId}_${l.date}_${l.time}`,
         employee_id: String(l.employeeId),
         employee_name: l.name || employeesMap[l.employeeId]?.name || l.employeeId,
-        log_type: l.type || 'เข้างาน',
+        log_type: normalizedLogType,
         log_date: l.date,
         log_time: isoTimeStr,
         gps_lat: lat,
@@ -400,10 +409,24 @@ export async function POST(request: Request) {
         }
       }
 
-      // Rule 3: Prevent duplicate afternoon verification
+      // Rule 3: Must check in before afternoon verification & prevent duplicate afternoon verification
       if (log_type === 'ยืนยันตัวตน') {
+        const hasCheckedIn = userTodayLogs.some(
+          (l: any) => l.type === 'เข้างาน' || l.log_type === 'เข้างาน'
+        );
+        if (!hasCheckedIn) {
+          return NextResponse.json(
+            {
+              error: 'ไม่พบข้อมูลการลงเวลาเข้างานของวันนี้ กรุณาลงเวลาเข้างานก่อนทำการยืนยันตัวตนรอบบ่าย',
+            },
+            { status: 400 }
+          );
+        }
+
         const alreadyVerified = userTodayLogs.find(
-          (l: any) => l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน'
+          (l: any) =>
+            (l.type === 'ยืนยันตัวตน' || l.log_type === 'ยืนยันตัวตน') &&
+            !String(l.note || '').includes('[สุ่มตรวจ')
         );
         if (alreadyVerified) {
           const timeFormatted = alreadyVerified.time ? normalizeTimeStr(alreadyVerified.time).substring(0, 5) : '';

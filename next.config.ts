@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', 'radix-ui'],
+  },
   webpack: (config: any, { nextRuntime }: any) => {
     if (nextRuntime === 'edge') {
       config.resolve.alias = {

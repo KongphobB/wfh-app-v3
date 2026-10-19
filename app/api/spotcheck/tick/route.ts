@@ -52,8 +52,6 @@ export async function GET(request: Request) {
       });
     }
 
-    const res = await callGAS('runScheduledSpotChecks');
-
     // Check for expired spot checks exceeding 10 minutes
     const nowMs = Date.now();
     const { getLiveEmployeesMap } = await import('@/lib/gas');
@@ -66,11 +64,28 @@ export async function GET(request: Request) {
     const { sendMissedSpotCheckAlertEmail } = await import('@/lib/email');
     const { updateManualSpotCheck, getManualSpotChecksForDate } = await import('@/lib/manualSpotCheckStore');
 
-    const [employeesMap, spotRes, checkinRes] = await Promise.all([
-      getLiveEmployeesMap(),
-      callGAS('getLogs', { logType: 'spotcheck', limit: 50 }).catch(() => null),
-      callGAS('getLogs', { logType: 'checkin', limit: 100 }).catch(() => null),
+    const withGasBudget = <T>(promise: Promise<T>, fallback: T, budgetMs = 6500): Promise<T> =>
+      Promise.race([
+        promise.catch(() => fallback),
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), budgetMs)),
+      ]);
+
+    // Run scheduled spot check trigger and log fetches in parallel with a 6.5s time budget to prevent >10s monitor timeouts
+    const [res, employeesMap, spotRes, checkinRes] = await Promise.all([
+      withGasBudget(
+        callGAS('runScheduledSpotChecks').catch((err) => ({ success: false, error: err?.message })),
+        { success: true, deferred: true }
+      ),
+      withGasBudget(getLiveEmployeesMap(), {}),
+      withGasBudget(callGAS('getLogs', { logType: 'spotcheck', limit: 50 }), null),
+      withGasBudget(callGAS('getLogs', { logType: 'checkin', limit: 100 }), null),
     ]);
+
+    const sendEmailWithTimeout = (emailPromise: Promise<unknown>, timeoutMs = 3500) =>
+      Promise.race([
+        emailPromise.catch((e) => console.warn('Email alert error:', e)),
+        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+      ]);
 
     const { applyCheckinAdjustments } = await import('@/lib/checkinAdjustmentStore');
     const wfhCheckedInSet = new Set<string>();
@@ -141,16 +156,18 @@ export async function GET(request: Request) {
                   message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${check.round}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
                   link: '/spotcheck',
                 }),
-                sendMissedSpotCheckAlertEmail({
-                  employeeName: empName,
-                  employeeId: check.employee_id,
-                  department: emp?.dept,
-                  round: check.round,
-                  scheduledTime: check.scheduled_time,
-                  supervisorEmail,
-                  adminEmail,
-                  employeeEmail: emp?.email,
-                }),
+                sendEmailWithTimeout(
+                  sendMissedSpotCheckAlertEmail({
+                    employeeName: empName,
+                    employeeId: check.employee_id,
+                    department: emp?.dept,
+                    round: check.round,
+                    scheduledTime: check.scheduled_time,
+                    supervisorEmail,
+                    adminEmail,
+                    employeeEmail: emp?.email,
+                  })
+                ),
               ]);
             }
           }
@@ -239,16 +256,18 @@ export async function GET(request: Request) {
                       message: `คุณไม่ได้ถ่ายภาพยืนยันตัวตนภายใน 10 นาที (รอบ ${s.round || 'ประจำวัน'}) สถานะ: ไม่ผ่าน (ขาดการติดต่อ)`,
                       link: '/spotcheck',
                     }),
-                    sendMissedSpotCheckAlertEmail({
-                      employeeName: empName,
-                      employeeId: String(s.employeeId),
-                      department: emp?.dept,
-                      round: s.round || 'ประจำวัน',
-                      scheduledTime: rawScheduledTime,
-                      supervisorEmail,
-                      adminEmail,
-                      employeeEmail: emp?.email,
-                    }),
+                    sendEmailWithTimeout(
+                      sendMissedSpotCheckAlertEmail({
+                        employeeName: empName,
+                        employeeId: String(s.employeeId),
+                        department: emp?.dept,
+                        round: s.round || 'ประจำวัน',
+                        scheduledTime: rawScheduledTime,
+                        supervisorEmail,
+                        adminEmail,
+                        employeeEmail: emp?.email,
+                      })
+                    ),
                   ]);
                 }
               }

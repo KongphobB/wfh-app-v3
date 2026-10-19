@@ -49,7 +49,8 @@ export async function GET() {
       (c) =>
         String(c.employeeId || c.employee_id) === String(session.employee_id) &&
         c.date === todayStr &&
-        (c.type === 'ยืนยันตัวตน' || c.log_type === 'ยืนยันตัวตน')
+        (c.type === 'ยืนยันตัวตน' || c.log_type === 'ยืนยันตัวตน') &&
+        !String(c.note || '').includes('[สุ่มตรวจ')
     );
 
     const todayDailyStatus = resolveEmployeeDailyStatus(session.employee_id, todayStr, {

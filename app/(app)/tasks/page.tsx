@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import DailyTaskModal from '@/components/DailyTaskModal';
+import dynamic from 'next/dynamic';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,9 @@ import { TaskItem } from '@/types';
 
 import { useLanguage } from '@/lib/i18n';
 import { getThaiDateStr } from '@/lib/timeSync';
+
+const DailyTaskModal = dynamic(() => import('@/components/DailyTaskModal'), { ssr: false });
+const TASKS_CACHE_KEY = 'wfh_tasks_self_cache';
 
 export default function DailyTasksPage() {
   const { t, lang } = useLanguage();
@@ -28,14 +31,45 @@ export default function DailyTasksPage() {
     // Throttle automatic polling/visibility triggers if fetched within the last 15 seconds
     if (!isInitial && !force && now - lastFetchTimeRef.current < 15000) return;
 
+    let hydratedFromCache = false;
+    if (isInitial && typeof window !== 'undefined') {
+      try {
+        const rawCache = sessionStorage.getItem(TASKS_CACHE_KEY);
+        if (rawCache) {
+          const cached = JSON.parse(rawCache);
+          if (cached && cached.date === todayStr && Array.isArray(cached.tasks)) {
+            setTasks(cached.tasks);
+            setLoading(false);
+            hydratedFromCache = true;
+          }
+        } else {
+          const dashCache = sessionStorage.getItem('wfh_dashboard_summary_cache');
+          if (dashCache) {
+            const parsedDash = JSON.parse(dashCache);
+            if (parsedDash?.date === todayStr && Array.isArray(parsedDash?.data?.tasks)) {
+              setTasks(parsedDash.data.tasks);
+              setLoading(false);
+              hydratedFromCache = true;
+            }
+          }
+        }
+      } catch {}
+    }
+
     isFetchingRef.current = true;
-    if (isInitial) setLoading(true);
+    if (isInitial && !hydratedFromCache) setLoading(true);
     try {
       const res = await fetch('/api/tasks?scope=self');
       lastFetchTimeRef.current = Date.now();
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
+        try {
+          sessionStorage.setItem(
+            TASKS_CACHE_KEY,
+            JSON.stringify({ date: todayStr, tasks: data.tasks || [] })
+          );
+        } catch {}
       }
     } catch (err) {
       console.error('Fetch tasks error:', err);

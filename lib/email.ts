@@ -8,8 +8,8 @@ export interface EmailParams {
   bodyText?: string;
 }
 
-const SMTP_USER = process.env.SMTP_USER || 'kongphopb38@gmail.com';
-const SMTP_PASS = process.env.SMTP_PASS || 'wjbmtpmruwnjlecx';
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
 const isStubLog = process.env.EMAIL_STUB_LOG === 'true' || process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
 
 /**
@@ -45,6 +45,11 @@ export async function sendEmailAlert({ to, cc, subject, bodyHtml, bodyText }: Em
     console.log(`BODY:\n${bodyText || bodyHtml.replace(/<[^>]+>/g, '')}`);
     console.log('=================================================================\n');
     return true;
+  }
+
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.warn('sendEmailAlert skipped: SMTP_USER or SMTP_PASS is not configured');
+    return false;
   }
 
   try {

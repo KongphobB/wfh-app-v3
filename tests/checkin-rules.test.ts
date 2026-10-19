@@ -205,7 +205,86 @@ describe('Check-in Business Rules: Double Check-in & Checkout Guards', () => {
     });
   });
 
-  describe('Rule 3: Duplicate Afternoon Verification Prevention', () => {
+  describe('Rule 3: Duplicate Afternoon Verification Prevention & Prerequisites', () => {
+    it('Blocks afternoon verification if employee has NOT checked in today', async () => {
+      (callGAS as any).mockImplementation(async (action: string) => {
+        if (action === 'getLogs') {
+          return { data: [] };
+        }
+        return { success: true };
+      });
+
+      const req = new Request('http://localhost/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          log_type: 'ยืนยันตัวตน',
+          gps_lat: 12.736929,
+          gps_lng: 101.114387,
+          note: 'ยืนยันตัวตนโดยยังไม่เข้างาน',
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+
+      const json = await res.json();
+      expect(json.error).toContain('ไม่พบข้อมูลการลงเวลาเข้างานของวันนี้');
+    });
+
+    it('Allows afternoon verification even when an earlier manual spot check log (type="ยืนยันตัวตน" with [สุ่มตรวจเฉพาะกิจ] note) exists', async () => {
+      const timeSync = await import('@/lib/timeSync');
+      const today = timeSync.getThaiDateStr();
+      const timeSpy = vi.spyOn(timeSync, 'getThaiTime').mockReturnValue({
+        hour: 13,
+        minute: 10,
+        second: 0,
+        timeStr: '13:10',
+      });
+
+      (callGAS as any).mockImplementation(async (action: string) => {
+        if (action === 'getLogs') {
+          return {
+            data: [
+              { date: today, time: '08:00:00', employeeId: '1001', type: 'เข้างาน' },
+              {
+                date: today,
+                time: '10:15:00',
+                employeeId: '1001',
+                type: 'ยืนยันตัวตน',
+                note: '[สุ่มตรวจเฉพาะกิจ] ยืนยันตัวตนสำเร็จ (SPOT-MANUAL-123)',
+              },
+            ],
+          };
+        }
+        if (action === 'getSystemConfig') {
+          return { config: {} };
+        }
+        if (action === 'checkin') {
+          return { success: true, message: 'บันทึกสำเร็จ', data: { uuid: 'new-uuid-verify-001' } };
+        }
+        return { success: true };
+      });
+
+      const req = new Request('http://localhost/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          log_type: 'ยืนยันตัวตน',
+          gps_lat: 12.736929,
+          gps_lng: 101.114387,
+          note: 'ยืนยันตัวตนรอบบ่ายตามปกติ',
+        }),
+      });
+
+      const res = await POST(req);
+      timeSpy.mockRestore();
+      expect(res.status).toBe(200);
+
+      const json = await res.json();
+      expect(json.success).toBe(true);
+    });
+
     it('Blocks duplicate afternoon verification on the same day', async () => {
       const { getThaiDateStr } = await import('@/lib/timeSync');
       const today = getThaiDateStr();
